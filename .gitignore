@@ -1,0 +1,43 @@
+# Maven
+target/
+
+# Quarkus
+.quarkus/
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# NetBeans
+nb-configuration.xml
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Env / secrets
+.env
+
+# Mac/Linux/Windows misc
+*.swp
+*~
+
+# Claude Code local runtime state
+.claude/

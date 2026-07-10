@@ -1,0 +1,23 @@
+{#include base}
+{#title}Klassen – Notenfuchs{/title}
+
+<h1>Klassen</h1>
+
+{#include fragments/classList /}
+
+<h2>Neue Klasse anlegen</h2>
+<div class="card">
+    <form class="inline-form" hx-post="/classes" hx-target="#class-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+        <div class="form-field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" placeholder="z. B. 8b" required>
+        </div>
+        <div class="form-field">
+            <label for="schoolYear">Schuljahr</label>
+            <input type="text" id="schoolYear" name="schoolYear" placeholder="z. B. 2025/26" required>
+        </div>
+        <button type="submit">Anlegen</button>
+    </form>
+</div>
+
+{/include}

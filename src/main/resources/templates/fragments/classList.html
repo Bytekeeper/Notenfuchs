@@ -1,0 +1,19 @@
+<div id="class-list-fragment">
+    {#if classes.isEmpty}
+        <p class="hint">Noch keine Klassen angelegt.</p>
+    {#else}
+        <div class="class-grid">
+            {#for c in classes}
+                <div class="class-card">
+                    <a href="/classes/{c.id}">
+                        <div class="class-name">{c.name}</div>
+                        <div class="class-year">{c.schoolYear}</div>
+                    </a>
+                    <form style="margin-top: 0.5rem;" hx-delete="/classes/{c.id}" hx-target="#class-list-fragment" hx-swap="outerHTML" hx-confirm="Klasse '{c.name}' wirklich löschen? Das löscht auch alle Schüler, Fächer und Noten dieser Klasse.">
+                        <button type="submit" class="delete-btn">Löschen</button>
+                    </form>
+                </div>
+            {/for}
+        </div>
+    {/if}
+</div>

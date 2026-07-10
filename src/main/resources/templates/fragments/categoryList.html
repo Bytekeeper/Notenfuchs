@@ -1,0 +1,62 @@
+<div id="category-list-fragment">
+    {#if categories.isEmpty}
+        <p class="hint">Noch keine Kategorien angelegt.</p>
+    {#else}
+        {#if weightSumWarning}
+            <p class="hint warning">Achtung: Die Gewichtungen der Kategorien summieren sich auf {weightSum}%, nicht 100%.</p>
+        {/if}
+        {#for cat in categories}
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <strong>{cat.name}</strong>
+                        <span class="hint">({cat.weightPercent}%)</span>
+                    </div>
+                    <form hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">
+                        <button type="submit" class="delete-btn">Kategorie löschen</button>
+                    </form>
+                </div>
+
+                <table class="entity-list" style="margin-top: 0.75rem;">
+                    <thead>
+                        <tr><th>Leistung</th><th>Datum</th><th>Faktor</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {#if cat.assessments.isEmpty}
+                            <tr class="empty-row"><td colspan="4">Noch keine Leistungen.</td></tr>
+                        {#else}
+                            {#for a in cat.assessments}
+                                <tr>
+                                    <td>{a.name}</td>
+                                    <td>{a.date ?: ''}</td>
+                                    <td>{a.factor}</td>
+                                    <td>
+                                        <form hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Leistung '{a.name}' wirklich löschen? Das löscht auch alle zugehörigen Noten.">
+                                            <button type="submit" class="delete-btn">Löschen</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {/for}
+                        {/if}
+                    </tbody>
+                </table>
+
+                <form class="inline-form" hx-post="/subjects/{subject.id}/categories/{cat.id}/assessments" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <div class="form-field">
+                        <label>Name</label>
+                        <input type="text" name="name" placeholder="z. B. Klassenarbeit 1" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Datum</label>
+                        <input type="date" name="date">
+                    </div>
+                    <div class="form-field">
+                        <label>Faktor</label>
+                        <input type="number" name="factor" step="0.01" min="0.01" value="1.0">
+                    </div>
+                    <button type="submit">Leistung hinzufügen</button>
+                </form>
+            </div>
+        {/for}
+    {/if}
+</div>

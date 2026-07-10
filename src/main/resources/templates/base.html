@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{#insert title}Notenfuchs{/insert}</title>
+    <link rel="stylesheet" href="/static/css/notenfuchs.css">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+<header class="app-header">
+    <div class="app-header-inner">
+        <a class="brand" href="/">🦊 Notenfuchs</a>
+        <nav class="main-nav">
+            <a href="/classes">Klassen</a>
+        </nav>
+        <div class="user-info">
+            {#if currentUserAuthenticated}
+                <span>Angemeldet als {currentUserDisplayName}</span>
+                <a href="/logout">Logout</a>
+            {#else}
+                <span class="dev-mode-badge">Dev-Modus (kein Login)</span>
+            {/if}
+        </div>
+    </div>
+</header>
+<main class="app-main">
+    {#insert /}
+</main>
+<script src="/static/js/notenfuchs.js"></script>
+</body>
+</html>

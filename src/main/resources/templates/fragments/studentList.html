@@ -1,0 +1,24 @@
+<div id="student-list-fragment">
+    {#if students.isEmpty}
+        <p class="hint">Noch keine Schüler angelegt.</p>
+    {#else}
+        <table class="entity-list">
+            <thead>
+                <tr><th>Name</th><th>Kürzel</th><th></th></tr>
+            </thead>
+            <tbody>
+                {#for st in students}
+                    <tr>
+                        <td>{st.name}</td>
+                        <td>{st.displayName ?: ''}</td>
+                        <td>
+                            <form hx-delete="/classes/{schoolClass.id}/students/{st.id}" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="Schüler '{st.name}' wirklich löschen? Das löscht auch alle Noten dieses Schülers.">
+                                <button type="submit" class="delete-btn">Löschen</button>
+                            </form>
+                        </td>
+                    </tr>
+                {/for}
+            </tbody>
+        </table>
+    {/if}
+</div>

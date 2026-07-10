@@ -1,0 +1,173 @@
+package de.notenfuchs.web;
+
+import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.GradeCategory;
+import de.notenfuchs.domain.Subject;
+import de.notenfuchs.security.CurrentUser;
+import io.quarkus.qute.Location;
+import io.quarkus.qute.Template;
+import io.quarkus.qute.TemplateInstance;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Server-rendered HTML pages for managing a subject's grade categories and
+ * assessments ("Leistungen"). The grade-entry grid itself lives in
+ * {@link GradeGridResource}.
+ */
+@Path("/subjects")
+public class SubjectUiResource {
+
+    @Inject
+    CurrentUser currentUser;
+
+    @Inject
+    @Location("SubjectPage/detail.html")
+    Template detailTemplate;
+
+    @Inject
+    @Location("fragments/categoryList.html")
+    Template categoryListFragment;
+
+    @GET
+    @Path("/{id}")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance detail(@PathParam("id") Long id) {
+        Subject subject = findSubjectOrNotFound(id);
+        return withUser(detailTemplate
+                .data("subject", subject)
+                .data("categories", categoryViews(id)));
+    }
+
+    @POST
+    @Path("/{id}/categories")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance addCategory(@PathParam("id") Long id,
+                                         @FormParam("name") String name,
+                                         @FormParam("weightPercent") BigDecimal weightPercent) {
+        Subject subject = findSubjectOrNotFound(id);
+        GradeCategory category = new GradeCategory();
+        category.subject = subject;
+        category.name = name;
+        category.weightPercent = weightPercent;
+        category.persist();
+        return categoryFragment(subject);
+    }
+
+    @DELETE
+    @Path("/{id}/categories/{categoryId}")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance deleteCategory(@PathParam("id") Long id, @PathParam("categoryId") Long categoryId) {
+        Subject subject = findSubjectOrNotFound(id);
+        GradeCategory category = GradeCategory.findById(categoryId);
+        if (category != null) {
+            category.delete();
+        }
+        return categoryFragment(subject);
+    }
+
+    @POST
+    @Path("/{id}/categories/{categoryId}/assessments")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance addAssessment(@PathParam("id") Long id,
+                                           @PathParam("categoryId") Long categoryId,
+                                           @FormParam("name") String name,
+                                           @FormParam("date") LocalDate date,
+                                           @FormParam("factor") BigDecimal factor) {
+        Subject subject = findSubjectOrNotFound(id);
+        GradeCategory category = GradeCategory.findById(categoryId);
+        if (category == null) {
+            throw new NotFoundException("GradeCategory " + categoryId + " not found");
+        }
+        Assessment assessment = new Assessment();
+        assessment.category = category;
+        assessment.name = name;
+        assessment.date = date;
+        assessment.factor = factor != null ? factor : BigDecimal.ONE;
+        assessment.persist();
+        return categoryFragment(subject);
+    }
+
+    @DELETE
+    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance deleteAssessment(@PathParam("id") Long id,
+                                              @PathParam("categoryId") Long categoryId,
+                                              @PathParam("assessmentId") Long assessmentId) {
+        Subject subject = findSubjectOrNotFound(id);
+        Assessment assessment = Assessment.findById(assessmentId);
+        if (assessment != null) {
+            assessment.delete();
+        }
+        return categoryFragment(subject);
+    }
+
+    private TemplateInstance categoryFragment(Subject subject) {
+        List<CategoryView> categories = categoryViews(subject.id);
+        BigDecimal weightSum = categories.stream()
+                .map(CategoryView::weightPercent)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean weightSumWarning = !categories.isEmpty() && weightSum.compareTo(new BigDecimal("100")) != 0;
+        return categoryListFragment
+                .data("subject", subject)
+                .data("categories", categories)
+                .data("weightSum", weightSum)
+                .data("weightSumWarning", weightSumWarning);
+    }
+
+    /**
+     * {@link GradeCategory} has no back-reference to its {@link Assessment}s (Assessment
+     * only points at its category), so this view model loads them explicitly for
+     * rendering the category+assessment list in the Qute template.
+     */
+    private List<CategoryView> categoryViews(Long subjectId) {
+        List<GradeCategory> categories = GradeCategory.list("subject.id", subjectId);
+        List<CategoryView> result = new java.util.ArrayList<>();
+        for (GradeCategory category : categories) {
+            List<Assessment> assessments = Assessment.list("category.id", category.id);
+            result.add(new CategoryView(category.id, category.name, category.weightPercent, assessments));
+        }
+        return result;
+    }
+
+    /**
+     * View model exposing a {@link GradeCategory} together with its {@link Assessment}s,
+     * since Qute can only navigate properties/getters that actually exist on the entity.
+     */
+    public record CategoryView(Long id, String name, BigDecimal weightPercent, List<Assessment> assessments) {
+    }
+
+    private Subject findSubjectOrNotFound(Long id) {
+        Subject entity = Subject.findById(id);
+        if (entity == null) {
+            throw new NotFoundException("Subject " + id + " not found");
+        }
+        return entity;
+    }
+
+    private TemplateInstance withUser(TemplateInstance instance) {
+        return instance
+                .data("currentUserAuthenticated", currentUser.isAuthenticated())
+                .data("currentUserDisplayName", currentUser.displayName().orElse(""));
+    }
+}

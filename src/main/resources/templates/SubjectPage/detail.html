@@ -1,0 +1,29 @@
+{#include base}
+{#title}{subject.name} – Notenfuchs{/title}
+
+<div class="breadcrumbs">
+    <a href="/classes">Klassen</a> / <a href="/classes/{subject.schoolClass.id}">{subject.schoolClass.name}</a> / {subject.name}
+</div>
+<h1>{subject.name}</h1>
+<p class="hint">Notenskala: {subject.gradeScale.name} ({subject.gradeScale.min}–{subject.gradeScale.max}) · Rundung: {subject.roundingMode}</p>
+<p><a class="btn" href="/subjects/{subject.id}/grid">Zur Notenerfassung →</a></p>
+
+<h2>Kategorien</h2>
+{#include fragments/categoryList /}
+
+<h3>Neue Kategorie anlegen</h3>
+<div class="card">
+    <form class="inline-form" hx-post="/subjects/{subject.id}/categories" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+        <div class="form-field">
+            <label for="categoryName">Name</label>
+            <input type="text" id="categoryName" name="name" placeholder="z. B. Schriftlich" required>
+        </div>
+        <div class="form-field">
+            <label for="weightPercent">Gewichtung (%)</label>
+            <input type="number" id="weightPercent" name="weightPercent" step="0.01" min="0" max="100" placeholder="z. B. 50" required>
+        </div>
+        <button type="submit">Anlegen</button>
+    </form>
+</div>
+
+{/include}

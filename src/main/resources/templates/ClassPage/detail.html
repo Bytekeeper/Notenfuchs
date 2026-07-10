@@ -1,0 +1,60 @@
+{#include base}
+{#title}{schoolClass.name} – Notenfuchs{/title}
+
+<div class="breadcrumbs"><a href="/classes">Klassen</a> / {schoolClass.name}</div>
+<h1>{schoolClass.name} <small style="color: var(--color-text-muted); font-weight: 400;">({schoolClass.schoolYear})</small></h1>
+
+<div class="section-columns">
+    <section>
+        <h2>Fächer</h2>
+        {#include fragments/subjectList /}
+
+        <h3>Neues Fach anlegen</h3>
+        <div class="card">
+            <form class="inline-form" hx-post="/classes/{schoolClass.id}/subjects" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                <div class="form-field">
+                    <label for="subjectName">Name</label>
+                    <input type="text" id="subjectName" name="name" placeholder="z. B. Mathematik" required>
+                </div>
+                <div class="form-field">
+                    <label for="gradeScaleId">Notenskala</label>
+                    <select id="gradeScaleId" name="gradeScaleId" required>
+                        {#for scale in gradeScales}
+                            <option value="{scale.id}">{scale.name}</option>
+                        {/for}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="roundingMode">Rundung</label>
+                    <select id="roundingMode" name="roundingMode" required>
+                        <option value="COMMERCIAL">Kaufmännisch</option>
+                        <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
+                    </select>
+                </div>
+                <button type="submit">Anlegen</button>
+            </form>
+        </div>
+    </section>
+
+    <section>
+        <h2>Schüler</h2>
+        {#include fragments/studentList /}
+
+        <h3>Schüler hinzufügen</h3>
+        <div class="card">
+            <form class="inline-form" hx-post="/classes/{schoolClass.id}/students" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                <div class="form-field">
+                    <label for="studentName">Name</label>
+                    <input type="text" id="studentName" name="name" placeholder="Vor- und Nachname" required>
+                </div>
+                <div class="form-field">
+                    <label for="displayName">Kürzel (optional)</label>
+                    <input type="text" id="displayName" name="displayName" placeholder="z. B. MUE">
+                </div>
+                <button type="submit">Hinzufügen</button>
+            </form>
+        </div>
+    </section>
+</div>
+
+{/include}

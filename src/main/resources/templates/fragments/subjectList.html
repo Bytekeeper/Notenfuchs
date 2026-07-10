@@ -1,0 +1,20 @@
+<div id="subject-list-fragment">
+    {#if subjects.isEmpty}
+        <p class="hint">Noch keine Fächer angelegt.</p>
+    {#else}
+        {#for s in subjects}
+            <div class="subject-list-item">
+                <div>
+                    <a href="/subjects/{s.id}">{s.name}</a>
+                    <div class="subject-meta">{s.gradeScale.name} · {s.roundingMode}</div>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <a class="btn secondary" href="/subjects/{s.id}/grid">Noten</a>
+                    <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
+                        <button type="submit" class="delete-btn">Löschen</button>
+                    </form>
+                </div>
+            </div>
+        {/for}
+    {/if}
+</div>
