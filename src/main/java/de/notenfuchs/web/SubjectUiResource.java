@@ -48,9 +48,12 @@ public class SubjectUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id) {
         Subject subject = findSubjectOrNotFound(id);
+        CategoryListData data = categoryListData(id);
         return withUser(detailTemplate
                 .data("subject", subject)
-                .data("categories", categoryViews(id)));
+                .data("categories", data.categories())
+                .data("weightSum", data.weightSum())
+                .data("weightSumWarning", data.weightSumWarning()));
     }
 
     @POST
@@ -123,16 +126,30 @@ public class SubjectUiResource {
     }
 
     private TemplateInstance categoryFragment(Subject subject) {
-        List<CategoryView> categories = categoryViews(subject.id);
+        CategoryListData data = categoryListData(subject.id);
+        return categoryListFragment
+                .data("subject", subject)
+                .data("categories", data.categories())
+                .data("weightSum", data.weightSum())
+                .data("weightSumWarning", data.weightSumWarning());
+    }
+
+    /**
+     * Categories, their weight sum and whether that sum deviates from 100% -
+     * shared by the full-page render and the htmx fragment so both stay in
+     * sync (previously computed separately, and the full-page render forgot
+     * weightSum/weightSumWarning entirely).
+     */
+    private CategoryListData categoryListData(Long subjectId) {
+        List<CategoryView> categories = categoryViews(subjectId);
         BigDecimal weightSum = categories.stream()
                 .map(CategoryView::weightPercent)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         boolean weightSumWarning = !categories.isEmpty() && weightSum.compareTo(new BigDecimal("100")) != 0;
-        return categoryListFragment
-                .data("subject", subject)
-                .data("categories", categories)
-                .data("weightSum", weightSum)
-                .data("weightSumWarning", weightSumWarning);
+        return new CategoryListData(categories, weightSum, weightSumWarning);
+    }
+
+    private record CategoryListData(List<CategoryView> categories, BigDecimal weightSum, boolean weightSumWarning) {
     }
 
     /**
