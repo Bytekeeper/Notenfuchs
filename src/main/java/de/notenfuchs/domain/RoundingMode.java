@@ -16,5 +16,18 @@ public enum RoundingMode {
      * student, according to the grade scale's lowerIsBetter flag. All other (non-half)
      * values round to the nearest whole number the same way as COMMERCIAL.
      */
-    IN_FAVOR_OF_STUDENT
+    IN_FAVOR_OF_STUDENT;
+
+    /**
+     * German display label, used wherever this enum is rendered to a teacher (e.g. Qute
+     * templates interpolate enums via {@code toString()}). Matches the option labels in
+     * the "Neues Fach anlegen" form.
+     */
+    @Override
+    public String toString() {
+        return switch (this) {
+            case COMMERCIAL -> "Kaufmännisch";
+            case IN_FAVOR_OF_STUDENT -> "Zugunsten des Schülers";
+        };
+    }
 }

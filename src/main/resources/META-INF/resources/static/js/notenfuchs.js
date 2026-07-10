@@ -117,6 +117,7 @@
                         input.value = data.displayValue;
                     }
                     updateAverageRow(studentId, data);
+                    updateAssessmentAverage(data);
                 })
                 .catch(function (err) {
                     setState(input, "error");
@@ -133,6 +134,20 @@
             }
             if (finalCell) {
                 finalCell.textContent = data.finalGrade != null ? data.finalGrade : "–";
+            }
+        }
+
+        function updateAssessmentAverage(data) {
+            if (!data || data.assessmentId == null) return;
+            const footer = root.querySelector("tfoot");
+            if (!footer) return;
+            const rawCell = footer.querySelector('.assessment-average-raw[data-assessment-id="' + data.assessmentId + '"]');
+            const finalCell = footer.querySelector('.assessment-average-final[data-assessment-id="' + data.assessmentId + '"]');
+            if (rawCell) {
+                rawCell.textContent = data.assessmentRawAverage != null ? data.assessmentRawAverage : "–";
+            }
+            if (finalCell) {
+                finalCell.textContent = data.assessmentFinalGrade != null ? data.assessmentFinalGrade : "–";
             }
         }
 
@@ -240,6 +255,11 @@
         if (input && display) {
             input.value = display.textContent.trim();
         }
+        // Extra fields alongside the name (e.g. Gewichtung/Faktor) carry their pre-edit
+        // value in data-original, since it can't be recovered from the display text.
+        wrap.querySelectorAll(".rename-form input[data-original]").forEach(function (extra) {
+            extra.value = extra.dataset.original;
+        });
     }
 
     document.addEventListener("click", function (ev) {
@@ -247,7 +267,9 @@
         if (toggle) {
             const wrap = toggle.closest(".rename-wrap");
             wrap.classList.add("editing");
-            const input = wrap.querySelector(".rename-form input[name='name']");
+            // Not every rename-form has a "name" input (e.g. the Datum-only form for a
+            // Leistung) - fall back to whichever input is first.
+            const input = wrap.querySelector(".rename-form input[name='name']") || wrap.querySelector(".rename-form input");
             if (input) {
                 input.focus();
                 input.select();

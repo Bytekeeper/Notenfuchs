@@ -89,6 +89,35 @@ class GradeGridE2EIT {
     }
 
     @Test
+    void secondCategoryWithNoAssessmentsYetDoesNotShiftAverageColumn() {
+        // Regression test: a category created but not yet populated with any Leistung used to
+        // render with colspan="0" (browser-coerced to 1) while contributing zero <td>s to the
+        // body/footer rows, desyncing the column count so the average column rendered under the
+        // empty category's header slot instead of "Ø / Note".
+        String unique = Long.toString(System.nanoTime());
+        setUpSubjectWithGrid(unique);
+
+        // We're already on the grid page with one category ("E2E-Kategorie-<unique>", 2
+        // assessments). Go back to the subject page and add a second, still-empty category.
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("E2E-Fach-" + unique)).click();
+        page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
+        page.locator("#weightPercent").fill("0");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        cell0.fill("2");
+        cell0.evaluate("el => el.blur()");
+
+        // The average cell must still be the LAST cell in the row, immediately after the last
+        // grade-entry cell - not shifted into the empty category's placeholder column.
+        Locator lastCellInRow = page.locator("table.grade-grid tbody tr").first().locator("> td").last();
+        assertThat(lastCellInRow).hasClass(Pattern.compile(".*average-cell.*"));
+        assertThat(page.locator(".average-final")).hasText("2");
+    }
+
+    @Test
     void outOfRangeGradeIsRejectedWithVisibleError() {
         setUpSubjectWithGrid(Long.toString(System.nanoTime()));
 

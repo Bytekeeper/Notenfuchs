@@ -201,9 +201,14 @@ button.danger:hover { background: var(--color-error); color: white; }
 .rename-wrap.editing .rename-view { display: none; }
 .rename-wrap.editing .rename-form { display: inline-flex; }
 
-.rename-form input[type="text"] {
+.rename-form input[type="text"],
+.rename-form input[type="number"] {
     padding: 0.25rem 0.4rem;
     font-size: 0.95rem;
+}
+
+.rename-form input[type="number"] {
+    width: 4.5rem;
 }
 
 .rename-toggle, .rename-save, .rename-cancel {
@@ -308,6 +313,12 @@ table.grade-grid th.assessment-header .factor {
     color: var(--color-text-muted);
 }
 
+table.grade-grid th.assessment-header-empty {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--color-text-muted);
+}
+
 table.grade-grid td.student-cell {
     font-weight: 600;
     background: #fbfaf8;
@@ -356,6 +367,15 @@ td.average-cell .raw-average {
     font-weight: 400;
     font-size: 0.8rem;
     color: var(--color-text-muted);
+}
+
+table.grade-grid tfoot td {
+    border-top: 2px solid var(--color-border);
+}
+
+table.grade-grid tfoot td.student-cell {
+    font-weight: 600;
+    font-size: 0.85rem;
 }
 
 .grid-legend {

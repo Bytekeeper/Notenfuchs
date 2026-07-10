@@ -93,6 +93,38 @@ public class GradeService {
     }
 
     /**
+     * Computes the plain (unweighted) average of a single assessment's ("Leistung") grades
+     * across all students who have one - e.g. the class average on one particular test.
+     * Unlike {@link #calculateSubjectAverage}, this does NOT apply the assessment's factor:
+     * factor weights how one assessment counts relative to others within a student's category
+     * average, which is meaningless when averaging the same assessment across students.
+     *
+     * @param values the grade values entered for this assessment (may be empty - not every
+     *               student needs to have been graded yet)
+     * @return the result containing the raw average (rounded to 2dp for display) and the
+     *         final (rounded whole-number) grade, or {@link SubjectAverageResult#EMPTY} if
+     *         no student has a grade for this assessment yet
+     */
+    public SubjectAverageResult calculateAssessmentAverage(List<BigDecimal> values,
+                                                             de.notenfuchs.domain.GradeScale scale,
+                                                             RoundingMode roundingMode) {
+        if (values == null || values.isEmpty()) {
+            return SubjectAverageResult.EMPTY;
+        }
+
+        BigDecimal sum = BigDecimal.ZERO;
+        for (BigDecimal value : values) {
+            sum = sum.add(value, CALC_CONTEXT);
+        }
+
+        BigDecimal rawAveragePrecise = sum.divide(new BigDecimal(values.size()), CALC_CONTEXT);
+        BigDecimal rawAverageDisplay = rawAveragePrecise.setScale(DISPLAY_SCALE, java.math.RoundingMode.HALF_UP);
+        int finalGrade = round(rawAveragePrecise, roundingMode, scale.lowerIsBetter);
+
+        return new SubjectAverageResult(rawAverageDisplay, finalGrade);
+    }
+
+    /**
      * Rounds a raw (decimal) average to a whole number final grade according to the given
      * rounding mode.
      *

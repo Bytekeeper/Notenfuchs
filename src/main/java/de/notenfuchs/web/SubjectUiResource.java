@@ -93,7 +93,8 @@ public class SubjectUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public TemplateInstance renameCategory(@PathParam("id") Long id, @PathParam("categoryId") Long categoryId,
-                                            @FormParam("name") String name) {
+                                            @FormParam("name") String name,
+                                            @FormParam("weightPercent") BigDecimal weightPercent) {
         Subject subject = findSubjectOrNotFound(id);
         GradeCategory category = GradeCategory.findById(categoryId);
         if (category == null) {
@@ -101,6 +102,9 @@ public class SubjectUiResource {
         }
         if (name != null && !name.isBlank()) {
             category.name = name;
+        }
+        if (weightPercent != null) {
+            category.weightPercent = weightPercent;
         }
         return categoryFragment(subject);
     }
@@ -152,7 +156,8 @@ public class SubjectUiResource {
     public TemplateInstance renameAssessment(@PathParam("id") Long id,
                                               @PathParam("categoryId") Long categoryId,
                                               @PathParam("assessmentId") Long assessmentId,
-                                              @FormParam("name") String name) {
+                                              @FormParam("name") String name,
+                                              @FormParam("factor") BigDecimal factor) {
         Subject subject = findSubjectOrNotFound(id);
         Assessment assessment = Assessment.findById(assessmentId);
         if (assessment == null) {
@@ -161,6 +166,33 @@ public class SubjectUiResource {
         if (name != null && !name.isBlank()) {
             assessment.name = name;
         }
+        if (factor != null) {
+            assessment.factor = factor;
+        }
+        return categoryFragment(subject);
+    }
+
+    /**
+     * Separate from {@link #renameAssessment}: date is optional (nullable in the DB), so an
+     * absent form field there can't be told apart from "clear it" - a dedicated endpoint for
+     * a dedicated date-only form sidesteps that ambiguity, since here an empty submission
+     * unambiguously means "clear the date".
+     */
+    @PATCH
+    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/date")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance changeAssessmentDate(@PathParam("id") Long id,
+                                                  @PathParam("categoryId") Long categoryId,
+                                                  @PathParam("assessmentId") Long assessmentId,
+                                                  @FormParam("date") LocalDate date) {
+        Subject subject = findSubjectOrNotFound(id);
+        Assessment assessment = Assessment.findById(assessmentId);
+        if (assessment == null) {
+            throw new NotFoundException("Assessment " + assessmentId + " not found");
+        }
+        assessment.date = date;
         return categoryFragment(subject);
     }
 

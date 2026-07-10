@@ -68,6 +68,11 @@ public class GradeGridResource {
             allAssessments.addAll(assessments);
         }
 
+        List<List<BigDecimal>> columnValues = new ArrayList<>();
+        for (int i = 0; i < allAssessments.size(); i++) {
+            columnValues.add(new ArrayList<>());
+        }
+
         List<RowView> rows = new ArrayList<>();
         int rowIndex = 0;
         for (Student student : students) {
@@ -75,6 +80,15 @@ public class GradeGridResource {
             List<CategoryData> categoryDataList = new ArrayList<>();
             int colIndex = 0;
             for (CategoryColumns cc : categoryColumns) {
+                if (cc.assessments().isEmpty()) {
+                    // A category with no Leistungen yet still needs to occupy exactly one
+                    // placeholder column, otherwise its header colspan (0, browser-coerced to 1)
+                    // desyncs from the body/footer rows and every column after it - including the
+                    // average column - shifts left by one.
+                    cells.add(new CellView(colIndex, null, true, null));
+                    categoryDataList.add(new CategoryData(cc.category().weightPercent, List.of()));
+                    continue;
+                }
                 boolean categoryStart = true;
                 List<GradeData> gradeDataList = new ArrayList<>();
                 for (Assessment assessment : cc.assessments()) {
@@ -84,6 +98,7 @@ public class GradeGridResource {
                     cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue));
                     if (grade != null) {
                         gradeDataList.add(new GradeData(grade.value, assessment.factor));
+                        columnValues.get(colIndex).add(grade.value);
                     }
                     categoryStart = false;
                     colIndex++;
@@ -99,6 +114,26 @@ public class GradeGridResource {
             rowIndex++;
         }
 
+        List<CategoryFooter> categoryFooters = new ArrayList<>();
+        int footerColIndex = 0;
+        for (CategoryColumns cc : categoryColumns) {
+            List<ColumnAverageView> columnAverages = new ArrayList<>();
+            if (cc.assessments().isEmpty()) {
+                // Same placeholder-column reasoning as the body cells above: keep the footer
+                // row's column count aligned with the header/body for an empty category.
+                columnAverages.add(new ColumnAverageView(null, null, null));
+            } else {
+                for (Assessment assessment : cc.assessments()) {
+                    SubjectAverageResult columnAverage = gradeService.calculateAssessmentAverage(
+                            columnValues.get(footerColIndex), subject.gradeScale, subject.roundingMode);
+                    columnAverages.add(new ColumnAverageView(assessment.id,
+                            columnAverage.rawAverage(), columnAverage.finalGrade()));
+                    footerColIndex++;
+                }
+            }
+            categoryFooters.add(new CategoryFooter(cc.category(), columnAverages));
+        }
+
         int maxCol = Math.max(0, allAssessments.size() - 1);
         int maxRow = Math.max(0, rows.size() - 1);
         boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
@@ -108,6 +143,7 @@ public class GradeGridResource {
                 .data("categories", categoryColumns)
                 .data("students", students)
                 .data("rows", rows)
+                .data("categoryFooters", categoryFooters)
                 .data("maxCol", maxCol)
                 .data("maxRow", maxRow)
                 .data("gridEmpty", gridEmpty));
@@ -139,7 +175,7 @@ public class GradeGridResource {
             if (existing != null) {
                 existing.delete();
             }
-            return Response.ok(averagePayload(subject, student, null)).build();
+            return Response.ok(averagePayload(subject, student, assessment, null)).build();
         }
 
         BigDecimal value;
@@ -170,20 +206,21 @@ public class GradeGridResource {
             grade.persist();
         }
 
-        return Response.ok(averagePayload(subject, student, value)).build();
+        return Response.ok(averagePayload(subject, student, assessment, value)).build();
     }
 
-    private CellSaveResponse averagePayload(Subject subject, Student student, BigDecimal savedValue) {
+    private CellSaveResponse averagePayload(Subject subject, Student student, Assessment assessment,
+                                             BigDecimal savedValue) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
         List<CategoryData> categoryDataList = new ArrayList<>();
         for (GradeCategory category : categories) {
             List<Assessment> assessments = Assessment.list("category.id", category.id);
             List<GradeData> gradeDataList = new ArrayList<>();
-            for (Assessment assessment : assessments) {
+            for (Assessment a : assessments) {
                 Grade grade = Grade.find("assessment.id = ?1 and student.id = ?2",
-                        assessment.id, student.id).firstResult();
+                        a.id, student.id).firstResult();
                 if (grade != null) {
-                    gradeDataList.add(new GradeData(grade.value, assessment.factor));
+                    gradeDataList.add(new GradeData(grade.value, a.factor));
                 }
             }
             categoryDataList.add(new CategoryData(category.weightPercent, gradeDataList));
@@ -191,9 +228,17 @@ public class GradeGridResource {
         SubjectAverageResult average = gradeService.calculateSubjectAverage(
                 categoryDataList, subject.gradeScale, subject.roundingMode);
 
+        List<Grade> assessmentGrades = Grade.list("assessment.id", assessment.id);
+        List<BigDecimal> assessmentValues = assessmentGrades.stream().map(g -> g.value).toList();
+        SubjectAverageResult assessmentAverage = gradeService.calculateAssessmentAverage(
+                assessmentValues, subject.gradeScale, subject.roundingMode);
+
         String displayValue = savedValue != null ? plain(savedValue) : "";
         String rawAverageStr = average.rawAverage() != null ? plain(average.rawAverage()) : null;
-        return new CellSaveResponse(displayValue, rawAverageStr, average.finalGrade());
+        String assessmentRawAverageStr = assessmentAverage.rawAverage() != null
+                ? plain(assessmentAverage.rawAverage()) : null;
+        return new CellSaveResponse(displayValue, rawAverageStr, average.finalGrade(),
+                assessment.id, assessmentRawAverageStr, assessmentAverage.finalGrade());
     }
 
     private static String plain(BigDecimal value) {
@@ -221,6 +266,10 @@ public class GradeGridResource {
     // ---- View models for the Qute template ----
 
     public record CategoryColumns(GradeCategory category, List<Assessment> assessments) {
+        /** At least 1, even for a category with no Leistungen yet - see the placeholder-column note in {@link #grid(Long)}. */
+        public int columnCount() {
+            return Math.max(1, assessments.size());
+        }
     }
 
     public record StudentView(Long id, String effectiveName) {
@@ -233,6 +282,14 @@ public class GradeGridResource {
                            BigDecimal rawAverage, Integer finalGrade) {
     }
 
-    public record CellSaveResponse(String displayValue, String rawAverage, Integer finalGrade) {
+    /** Per-assessment ("Leistung") average across all students, shown in the grid footer. */
+    public record ColumnAverageView(Long assessmentId, BigDecimal rawAverage, Integer finalGrade) {
+    }
+
+    public record CategoryFooter(GradeCategory category, List<ColumnAverageView> columnAverages) {
+    }
+
+    public record CellSaveResponse(String displayValue, String rawAverage, Integer finalGrade,
+                                    Long assessmentId, String assessmentRawAverage, Integer assessmentFinalGrade) {
     }
 }

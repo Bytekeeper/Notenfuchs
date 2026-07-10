@@ -188,7 +188,9 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        renameInline(row.locator(".rename-wrap"), renamedName);
+        // First .rename-wrap is name+factor (Leistung column); the second is the
+        // Datum column's own inline-edit control.
+        renameInline(row.locator(".rename-wrap").first(), renamedName);
 
         Locator categoryCardAfterRename = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(categoryCardAfterRename.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName))).isVisible();
@@ -196,6 +198,157 @@ class RenameE2EIT {
         page.reload();
         Locator categoryCardAfterReload = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(categoryCardAfterReload.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName))).isVisible();
+    }
+
+    @Test
+    void categoryWeightPercentCanBeChangedFromTheSubjectDetailPage() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "Rename-Klasse-Gewichtung-" + unique;
+        String subjectName = "Rename-Fach-Gewichtung-" + unique;
+        String categoryName = "Rename-Kategorie-Gewichtung-" + unique;
+
+        createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        createSubject(subjectName);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("50");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        Locator wrap = categoryCard.locator(".rename-wrap").first();
+        wrap.locator(".rename-toggle").click();
+        wrap.locator(".rename-form input[name='weightPercent']").fill("75");
+        wrap.locator(".rename-save").click();
+
+        // The weightPercent column is NUMERIC(5,2), so a reload may render "75" as "75.00" -
+        // match loosely on the DB-normalized scale rather than the exact typed value.
+        java.util.regex.Pattern seventyFivePercent = java.util.regex.Pattern.compile("^\\(75(\\.0+)?%\\)$");
+
+        Locator categoryCardAfterSave = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        assertThat(categoryCardAfterSave.locator(".hint").first()).hasText(seventyFivePercent);
+
+        page.reload();
+        Locator categoryCardAfterReload = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        assertThat(categoryCardAfterReload.locator(".hint").first()).hasText(seventyFivePercent);
+    }
+
+    @Test
+    void assessmentFactorCanBeChangedFromTheSubjectDetailPage() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "Rename-Klasse-Faktor-" + unique;
+        String subjectName = "Rename-Fach-Faktor-" + unique;
+        String categoryName = "Rename-Kategorie-Faktor-" + unique;
+        String assessmentName = "Rename-Leistung-Faktor-" + unique;
+
+        createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        createSubject(subjectName);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("100");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+
+        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        // First .rename-wrap is name+factor (Leistung column); the second is the
+        // Datum column's own inline-edit control.
+        Locator wrap = row.locator(".rename-wrap").first();
+        wrap.locator(".rename-toggle").click();
+        wrap.locator(".rename-form input[name='factor']").fill("2");
+        wrap.locator(".rename-save").click();
+
+        // The factor column is NUMERIC(5,2), so a reload may render "2" as "2.00" - match
+        // loosely on the DB-normalized scale rather than the exact typed value.
+        java.util.regex.Pattern factorTwo = java.util.regex.Pattern.compile("^\\(Faktor 2(\\.0+)?\\)$");
+
+        Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        assertThat(rowAfterSave.locator(".hint")).hasText(factorTwo);
+
+        page.reload();
+        Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        assertThat(rowAfterReload.locator(".hint")).hasText(factorTwo);
+    }
+
+    @Test
+    void assessmentDateCanBeChangedFromTheSubjectDetailPage() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "Rename-Klasse-Datum-" + unique;
+        String subjectName = "Rename-Fach-Datum-" + unique;
+        String categoryName = "Rename-Kategorie-Datum-" + unique;
+        String assessmentName = "Rename-Leistung-Datum-" + unique;
+
+        createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        createSubject(subjectName);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("100");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
+        categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+
+        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        // Second .rename-wrap is the Datum column's own inline-edit control (the first is
+        // name+factor in the Leistung column).
+        Locator wrap = row.locator(".rename-wrap").nth(1);
+        wrap.locator(".rename-toggle").click();
+        wrap.locator(".rename-form input[name='date']").fill("2026-03-20");
+        wrap.locator(".rename-save").click();
+
+        Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        assertThat(rowAfterSave.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("2026-03-20");
+
+        page.reload();
+        Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        assertThat(rowAfterReload.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("2026-03-20");
+    }
+
+    @Test
+    void assessmentDateCanBeClearedFromTheSubjectDetailPage() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "Rename-Klasse-DatumLeeren-" + unique;
+        String subjectName = "Rename-Fach-DatumLeeren-" + unique;
+        String categoryName = "Rename-Kategorie-DatumLeeren-" + unique;
+        String assessmentName = "Rename-Leistung-DatumLeeren-" + unique;
+
+        createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        createSubject(subjectName);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("100");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
+        categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+
+        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        // Second .rename-wrap is the Datum column's own inline-edit control (the first is
+        // name+factor in the Leistung column).
+        Locator wrap = row.locator(".rename-wrap").nth(1);
+        wrap.locator(".rename-toggle").click();
+        wrap.locator(".rename-form input[name='date']").fill("");
+        wrap.locator(".rename-save").click();
+
+        Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        assertThat(rowAfterSave.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("");
+
+        page.reload();
+        Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        assertThat(rowAfterReload.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("");
     }
 
     /**

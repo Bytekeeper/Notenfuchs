@@ -21,15 +21,19 @@
                 <tr>
                     <th rowspan="2">Schüler</th>
                     {#for cat in categories}
-                        <th class="category-header" colspan="{cat.assessments.size}">{cat.category.name} ({cat.category.weightPercent}%)</th>
+                        <th class="category-header" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
                     {/for}
                     <th rowspan="2">Ø / Note</th>
                 </tr>
                 <tr>
                     {#for cat in categories}
-                        {#for a in cat.assessments}
-                            <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}</span></th>
-                        {/for}
+                        {#if cat.assessments.isEmpty}
+                            <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
+                        {#else}
+                            {#for a in cat.assessments}
+                                <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}</span></th>
+                            {/for}
+                        {/if}
                     {/for}
                 </tr>
             </thead>
@@ -39,6 +43,7 @@
                         <td class="student-cell">{row.student.effectiveName}</td>
                         {#for cell in row.cells}
                             <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                                {#if cell.assessmentId}
                                 <input type="text"
                                        inputmode="decimal"
                                        class="grade-input"
@@ -47,6 +52,7 @@
                                        data-student-id="{row.student.id}"
                                        data-assessment-id="{cell.assessmentId}"
                                        value="{cell.displayValue ?: ''}">
+                                {/if}
                             </td>
                         {/for}
                         <td class="average-cell">
@@ -56,6 +62,22 @@
                     </tr>
                 {/for}
             </tbody>
+            <tfoot>
+                <tr class="average-row">
+                    <td class="student-cell">Ø je Leistung</td>
+                    {#for catFooter in categoryFooters}
+                        {#for colAvg in catFooter.columnAverages}
+                            <td class="average-cell">
+                                {#if colAvg.assessmentId}
+                                <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
+                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                {/if}
+                            </td>
+                        {/for}
+                    {/for}
+                    <td class="average-cell"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
     <p class="grid-legend">

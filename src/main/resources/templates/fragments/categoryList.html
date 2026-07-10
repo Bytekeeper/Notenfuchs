@@ -16,6 +16,7 @@
                         </span>
                         <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
                             <input type="text" name="name" value="{cat.name}" required>
+                            <input type="number" name="weightPercent" step="0.01" min="0" max="100" value="{cat.weightPercent}" data-original="{cat.weightPercent}" required>
                             <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
                             <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
                         </form>
@@ -27,11 +28,11 @@
 
                 <table class="entity-list" style="margin-top: 0.75rem;">
                     <thead>
-                        <tr><th>Leistung</th><th>Datum</th><th>Faktor</th><th></th></tr>
+                        <tr><th>Leistung</th><th>Datum</th><th></th></tr>
                     </thead>
                     <tbody>
                         {#if cat.assessments.isEmpty}
-                            <tr class="empty-row"><td colspan="4">Noch keine Leistungen.</td></tr>
+                            <tr class="empty-row"><td colspan="3">Noch keine Leistungen.</td></tr>
                         {#else}
                             {#for a in cat.assessments}
                                 <tr>
@@ -39,17 +40,30 @@
                                         <div class="rename-wrap">
                                             <span class="rename-view">
                                                 <span class="rename-display">{a.name}</span>
+                                                <span class="hint">(Faktor {a.factor})</span>
                                                 <button type="button" class="rename-toggle" title="Umbenennen" aria-label="Umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
                                             </span>
                                             <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
                                                 <input type="text" name="name" value="{a.name}" required>
+                                                <input type="number" name="factor" step="0.01" min="0.01" value="{a.factor}" data-original="{a.factor}" required>
                                                 <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
                                                 <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
                                             </form>
                                         </div>
                                     </td>
-                                    <td>{a.date ?: ''}</td>
-                                    <td>{a.factor}</td>
+                                    <td>
+                                        <div class="rename-wrap">
+                                            <span class="rename-view">
+                                                <span class="rename-display">{a.date ?: ''}</span>
+                                                <button type="button" class="rename-toggle" title="Datum ändern" aria-label="Datum ändern"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
+                                            </span>
+                                            <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/date" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                                <input type="date" name="date" value="{a.date ?: ''}" data-original="{a.date ?: ''}">
+                                                <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+                                                <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
+                                            </form>
+                                        </div>
+                                    </td>
                                     <td>
                                         <form hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Leistung '{a.name}' wirklich löschen? Das löscht auch alle zugehörigen Noten.">
                                             <button type="submit" class="delete-btn">Löschen</button>

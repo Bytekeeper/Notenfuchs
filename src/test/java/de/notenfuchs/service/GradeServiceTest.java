@@ -160,4 +160,38 @@ class GradeServiceTest {
         assertEquals(new BigDecimal("2.10"), result.rawAverage());
         assertEquals(Integer.valueOf(2), result.finalGrade());
     }
+
+    @Test
+    void assessmentAverage_plainMeanAcrossStudents_ignoresFactor() {
+        // Three students' grades on the SAME assessment ("Leistung") - a class average on
+        // one test, not weighted by the assessment's factor (factor is meaningless here,
+        // since it's the same assessment for everyone).
+        List<BigDecimal> values = List.of(
+                new BigDecimal("2.0"), new BigDecimal("3.0"), new BigDecimal("4.0"));
+
+        SubjectAverageResult result = service.calculateAssessmentAverage(values, deScale(), RoundingMode.COMMERCIAL);
+
+        assertEquals(new BigDecimal("3.00"), result.rawAverage());
+        assertEquals(Integer.valueOf(3), result.finalGrade());
+    }
+
+    @Test
+    void assessmentAverage_noGradesYet_returnsEmptyResult() {
+        SubjectAverageResult result = service.calculateAssessmentAverage(List.of(), deScale(), RoundingMode.COMMERCIAL);
+
+        assertNull(result.rawAverage());
+        assertNull(result.finalGrade());
+    }
+
+    @Test
+    void assessmentAverage_atHalfBoundary_respectsRoundingMode() {
+        List<BigDecimal> values = List.of(new BigDecimal("2.0"), new BigDecimal("3.0"));
+
+        SubjectAverageResult commercial = service.calculateAssessmentAverage(values, deScale(), RoundingMode.COMMERCIAL);
+        SubjectAverageResult favorStudent = service.calculateAssessmentAverage(values, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT);
+
+        assertEquals(new BigDecimal("2.50"), commercial.rawAverage());
+        assertEquals(Integer.valueOf(3), commercial.finalGrade());
+        assertEquals(Integer.valueOf(2), favorStudent.finalGrade());
+    }
 }
