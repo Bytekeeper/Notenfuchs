@@ -9,7 +9,19 @@
             <tbody>
                 {#for st in students}
                     <tr>
-                        <td>{st.name}</td>
+                        <td>
+                            <div class="rename-wrap">
+                                <span class="rename-view">
+                                    <span class="rename-display">{st.name}</span>
+                                    <button type="button" class="rename-toggle" title="Umbenennen" aria-label="Umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
+                                </span>
+                                <form class="rename-form" hx-patch="/classes/{schoolClass.id}/students/{st.id}/rename" hx-target="#student-list-fragment" hx-swap="outerHTML">
+                                    <input type="text" name="name" value="{st.name}" required>
+                                    <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+                                    <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
+                                </form>
+                            </div>
+                        </td>
                         <td>{st.displayName ?: ''}</td>
                         <td>
                             <form hx-delete="/classes/{schoolClass.id}/students/{st.id}" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="Schüler '{st.name}' wirklich löschen? Das löscht auch alle Noten dieses Schülers.">

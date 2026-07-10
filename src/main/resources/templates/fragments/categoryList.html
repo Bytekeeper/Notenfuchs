@@ -8,9 +8,17 @@
         {#for cat in categories}
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <strong>{cat.name}</strong>
-                        <span class="hint">({cat.weightPercent}%)</span>
+                    <div class="rename-wrap">
+                        <span class="rename-view">
+                            <strong class="rename-display">{cat.name}</strong>
+                            <span class="hint">({cat.weightPercent}%)</span>
+                            <button type="button" class="rename-toggle" title="Kategorie umbenennen" aria-label="Kategorie umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
+                        </span>
+                        <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                            <input type="text" name="name" value="{cat.name}" required>
+                            <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+                            <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
+                        </form>
                     </div>
                     <form hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">
                         <button type="submit" class="delete-btn">Kategorie löschen</button>
@@ -27,7 +35,19 @@
                         {#else}
                             {#for a in cat.assessments}
                                 <tr>
-                                    <td>{a.name}</td>
+                                    <td>
+                                        <div class="rename-wrap">
+                                            <span class="rename-view">
+                                                <span class="rename-display">{a.name}</span>
+                                                <button type="button" class="rename-toggle" title="Umbenennen" aria-label="Umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
+                                            </span>
+                                            <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                                <input type="text" name="name" value="{a.name}" required>
+                                                <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+                                                <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
+                                            </form>
+                                        </div>
+                                    </td>
                                     <td>{a.date ?: ''}</td>
                                     <td>{a.factor}</td>
                                     <td>

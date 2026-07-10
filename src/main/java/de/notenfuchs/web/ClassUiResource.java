@@ -16,6 +16,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -98,6 +99,19 @@ public class ClassUiResource {
         return classListFragment.data("classes", SchoolClass.listAll());
     }
 
+    @PATCH
+    @Path("/{id}/rename")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name) {
+        SchoolClass entity = findClassOrNotFound(id);
+        if (name != null && !name.isBlank()) {
+            entity.name = name;
+        }
+        return classListFragment.data("classes", SchoolClass.listAll());
+    }
+
     @POST
     @Path("/{id}/students")
     @Produces(MediaType.TEXT_HTML)
@@ -130,6 +144,25 @@ public class ClassUiResource {
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }
 
+    @PATCH
+    @Path("/{id}/students/{studentId}/rename")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance renameStudent(@PathParam("id") Long id, @PathParam("studentId") Long studentId,
+                                           @FormParam("name") String name) {
+        SchoolClass schoolClass = findClassOrNotFound(id);
+        Student student = Student.findById(studentId);
+        if (student == null) {
+            throw new NotFoundException("Student " + studentId + " not found");
+        }
+        if (name != null && !name.isBlank()) {
+            student.name = name;
+        }
+        List<Student> students = Student.list("schoolClass.id", id);
+        return studentListFragment.data("schoolClass", schoolClass).data("students", students);
+    }
+
     @POST
     @Path("/{id}/subjects")
     @Produces(MediaType.TEXT_HTML)
@@ -152,7 +185,7 @@ public class ClassUiResource {
                 ? RoundingMode.COMMERCIAL
                 : RoundingMode.valueOf(roundingMode);
         subject.persist();
-        List<Subject> subjects = Subject.list("schoolClass.id", id);
+        List<Subject> subjects = subjectsWithGradeScale(id);
         return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
     }
 
@@ -166,8 +199,37 @@ public class ClassUiResource {
         if (subject != null) {
             subject.delete();
         }
-        List<Subject> subjects = Subject.list("schoolClass.id", id);
+        List<Subject> subjects = subjectsWithGradeScale(id);
         return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
+    }
+
+    @PATCH
+    @Path("/{id}/subjects/{subjectId}/rename")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance renameSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId,
+                                           @FormParam("name") String name) {
+        SchoolClass schoolClass = findClassOrNotFound(id);
+        Subject subject = Subject.findById(subjectId);
+        if (subject == null) {
+            throw new NotFoundException("Subject " + subjectId + " not found");
+        }
+        if (name != null && !name.isBlank()) {
+            subject.name = name;
+        }
+        List<Subject> subjects = subjectsWithGradeScale(id);
+        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
+    }
+
+    /**
+     * Fetch-joins {@code gradeScale} so {@code fragments/subjectList.html} can read
+     * {@code s.gradeScale.name} after this (transaction-scoped) method returns - by then
+     * the session backing the lazy association is already closed, and only eagerly-fetched
+     * data survives into the async Qute render.
+     */
+    private List<Subject> subjectsWithGradeScale(Long schoolClassId) {
+        return Subject.find("from Subject s join fetch s.gradeScale where s.schoolClass.id = ?1", schoolClassId).list();
     }
 
     private SchoolClass findClassOrNotFound(Long id) {

@@ -223,3 +223,54 @@
     // Re-scan after HTMX swaps in new content (e.g. after adding an assessment/student).
     document.body.addEventListener("htmx:afterSettle", scan);
 })();
+
+/**
+ * Inline rename (click pencil -> edit form -> htmx-submit): a ".rename-wrap" holds a
+ * ".rename-view" (display + pencil) and a ".rename-form" (input + save/cancel), toggled
+ * purely via the "editing" class - no server round-trip needed just to enter/leave edit
+ * mode. These are document-level delegated listeners, so they keep working after htmx
+ * swaps in fresh list fragments (e.g. after a save) without any re-scan/init step.
+ */
+(function () {
+    "use strict";
+
+    function resetInput(wrap) {
+        const display = wrap.querySelector(".rename-display, .rename-view a");
+        const input = wrap.querySelector(".rename-form input[name='name']");
+        if (input && display) {
+            input.value = display.textContent.trim();
+        }
+    }
+
+    document.addEventListener("click", function (ev) {
+        const toggle = ev.target.closest(".rename-toggle");
+        if (toggle) {
+            const wrap = toggle.closest(".rename-wrap");
+            wrap.classList.add("editing");
+            const input = wrap.querySelector(".rename-form input[name='name']");
+            if (input) {
+                input.focus();
+                input.select();
+            }
+            return;
+        }
+        const cancel = ev.target.closest(".rename-cancel");
+        if (cancel) {
+            ev.preventDefault();
+            const wrap = cancel.closest(".rename-wrap");
+            resetInput(wrap);
+            wrap.classList.remove("editing");
+        }
+    });
+
+    document.addEventListener("keydown", function (ev) {
+        if (ev.key !== "Escape") {
+            return;
+        }
+        const wrap = ev.target.closest(".rename-wrap.editing");
+        if (wrap) {
+            resetInput(wrap);
+            wrap.classList.remove("editing");
+        }
+    });
+})();

@@ -191,6 +191,35 @@ button.danger:hover { background: var(--color-error); color: white; }
 }
 .delete-btn:hover { background: var(--color-error-bg); }
 
+.rename-wrap, .rename-view, .rename-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.rename-form { display: none; }
+.rename-wrap.editing .rename-view { display: none; }
+.rename-wrap.editing .rename-form { display: inline-flex; }
+
+.rename-form input[type="text"] {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.95rem;
+}
+
+.rename-toggle, .rename-save, .rename-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    background: transparent;
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+}
+.rename-toggle:hover, .rename-save:hover, .rename-cancel:hover { background: #f0efea; color: var(--color-text); }
+.rename-toggle svg { display: block; }
+
 .hint {
     font-size: 0.85rem;
     color: var(--color-text-muted);

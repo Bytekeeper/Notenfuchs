@@ -14,6 +14,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -86,6 +87,24 @@ public class SubjectUiResource {
         return categoryFragment(subject);
     }
 
+    @PATCH
+    @Path("/{id}/categories/{categoryId}/rename")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance renameCategory(@PathParam("id") Long id, @PathParam("categoryId") Long categoryId,
+                                            @FormParam("name") String name) {
+        Subject subject = findSubjectOrNotFound(id);
+        GradeCategory category = GradeCategory.findById(categoryId);
+        if (category == null) {
+            throw new NotFoundException("GradeCategory " + categoryId + " not found");
+        }
+        if (name != null && !name.isBlank()) {
+            category.name = name;
+        }
+        return categoryFragment(subject);
+    }
+
     @POST
     @Path("/{id}/categories/{categoryId}/assessments")
     @Produces(MediaType.TEXT_HTML)
@@ -121,6 +140,26 @@ public class SubjectUiResource {
         Assessment assessment = Assessment.findById(assessmentId);
         if (assessment != null) {
             assessment.delete();
+        }
+        return categoryFragment(subject);
+    }
+
+    @PATCH
+    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/rename")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance renameAssessment(@PathParam("id") Long id,
+                                              @PathParam("categoryId") Long categoryId,
+                                              @PathParam("assessmentId") Long assessmentId,
+                                              @FormParam("name") String name) {
+        Subject subject = findSubjectOrNotFound(id);
+        Assessment assessment = Assessment.findById(assessmentId);
+        if (assessment == null) {
+            throw new NotFoundException("Assessment " + assessmentId + " not found");
+        }
+        if (name != null && !name.isBlank()) {
+            assessment.name = name;
         }
         return categoryFragment(subject);
     }

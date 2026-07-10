@@ -141,11 +141,13 @@ class GradeGridE2EIT {
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr:not(.empty-row)");
 
-        categoryCard.locator("input[name='name']").fill("Test1");
+        // Scoped to the "add assessment" form specifically - the category card also has an
+        // inline-rename form with its own input[name='name'] (see RenameE2EIT).
+        categoryCard.locator("form.inline-form input[name='name']").fill("Test1");
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
         assertThat(assessmentRows).hasCount(1);
 
-        categoryCard.locator("input[name='name']").fill("Test2");
+        categoryCard.locator("form.inline-form input[name='name']").fill("Test2");
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
         assertThat(assessmentRows).hasCount(2);
 
