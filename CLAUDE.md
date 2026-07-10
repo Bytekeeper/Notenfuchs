@@ -12,6 +12,7 @@ The Maven Wrapper (`./mvnw`) is committed — **no local Maven install needed**,
 
 ```bash
 ./mvnw test                    # unit tests (no DB needed — grade logic is pure)
+./mvnw verify                  # also runs the Playwright browser ITs (needs Docker)
 ./mvnw quarkus:dev             # dev mode with hot reload (needs Postgres running)
 ./mvnw package                 # build
 docker compose up postgres     # just the DB (for dev mode)
@@ -27,6 +28,7 @@ App serves on `:8080`. Postgres connection is configured via env vars (`DB_USER`
 - `service/` — `GradeService` + its plain data carriers (`CategoryData`, `GradeData`, `SubjectAverageResult`)
 - `rest/` — one REST resource per entity + `ClassAveragesResource` for computed averages
 - `dto/` — request/response records
+- `web/` — server-rendered UI: one Qute/HTMX resource per entity (`ClassUiResource`, `SubjectUiResource`) + `GradeGridResource` for the grade-entry grid. Templates live in `src/main/resources/templates/`; the grid's keyboard/autosave JS is `static/js/notenfuchs.js`.
 
 ### Data model
 ```
@@ -56,7 +58,8 @@ Use `BigDecimal` throughout — no `double`. `GradeService` is a pure POJO servi
 - **Flyway owns the schema**, not Hibernate. `quarkus.hibernate-orm.database.generation=validate`. Schema changes go in a new `src/main/resources/db/migration/V*__*.sql` migration — never rely on auto-DDL.
 - Grade-calc changes must come with tests in `GradeServiceTest` (covers factor weighting, category combination, empty-category normalization, both rounding modes at the .5 boundary).
 - Free-text student names by design — the teacher decides what to enter (real name or Kürzel). No PII assumptions baked into the model.
-- No frontend yet. The intended UX is a spreadsheet-style grade-entry grid (students as rows, assessments as columns, tab/enter between cells) — the thing existing tools do badly.
+- The grade-entry grid (`GradeGridResource` + `notenfuchs.js`) is a spreadsheet-style UI (students as rows, assessments as columns, tab/enter between cells, per-cell autosave) — the thing existing tools do badly, and the main reason to browser-test a change instead of trusting `GradeServiceTest` alone.
+- UI/grid changes should come with a Playwright IT in `src/test/java/de/notenfuchs/e2e` (`GradeGridE2EIT`) — run via `./mvnw verify`, not `./mvnw test` (see Commands). These drive the real server-rendered pages through a browser (`quarkus-playwright`, Dev Services container - no local browser install needed) against a Testcontainers Postgres, so they need Docker. Each test creates its own uniquely-named class/subject/student rather than relying on a clean DB, since there's no reset between tests.
 
 ## Deployment note
 Self-hosted on a VPS. Sensitive data (student names + grades) lives in Postgres. Recommended at-rest protection is a LUKS-encrypted volume for the DB (protects against snapshot/disk theft; not against a live host compromise). Pseudonymization via `displayName` is the cheapest strong safeguard.

@@ -51,11 +51,19 @@ By default this connects to `jdbc:postgresql://localhost:5432/notenfuchs` (user/
 ### Running tests
 
 ```bash
-./mvnw test
+./mvnw test      # unit tests
+./mvnw verify    # also runs the browser end-to-end tests (needs Docker)
 ```
 
 `GradeServiceTest` is a plain JUnit 5 unit test (no `@QuarkusTest`, no database) that
 verifies the grade-calculation logic directly.
+
+`GradeGridE2EIT` (`src/test/java/de/notenfuchs/e2e`) drives the real grade-entry grid
+through a browser with [Playwright](https://playwright.dev/), via the
+[quarkus-playwright](https://docs.quarkiverse.io/quarkus-playwright/dev/) extension. It
+runs as a Failsafe integration test (`./mvnw verify`, not `./mvnw test`), since it needs
+Docker: both the browser (Playwright's Dev Services container) and PostgreSQL
+(Testcontainers Dev Services) run in containers, no local browser install required.
 
 ## The grade model
 

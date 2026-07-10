@@ -17,8 +17,9 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.37.2</quarkus.platform.version>
-        <skipITs>true</skipITs>
+        <skipITs>false</skipITs>
         <surefire-plugin.version>3.3.1</surefire-plugin.version>
+        <quarkus-playwright.version>2.3.7</quarkus-playwright.version>
     </properties>
 
     <dependencyManagement>
@@ -80,6 +81,12 @@
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.quarkiverse.playwright</groupId>
+            <artifactId>quarkus-playwright</artifactId>
+            <version>${quarkus-playwright.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -119,6 +126,32 @@
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
+            <!--
+              Playwright browser tests are ITs (*IT.java), run via Failsafe on
+              `./mvnw verify`, not Surefire's `./mvnw test` - they need a real running app
+              plus a browser (via quarkus-playwright's Dev Services container - no local
+              Chromium install required) and Postgres (via Testcontainers Dev Services), so
+              they're kept out of the fast unit-test loop.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                        <maven.home>${maven.home}</maven.home>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -131,7 +164,6 @@
                 </property>
             </activation>
             <properties>
-                <skipITs>false</skipITs>
                 <quarkus.native.enabled>true</quarkus.native.enabled>
             </properties>
         </profile>
