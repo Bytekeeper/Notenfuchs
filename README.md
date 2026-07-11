@@ -241,12 +241,11 @@ Handled by `CsvRosterService` (`de.notenfuchs.service`), a pure/DB-free service 
   is self-contained. Confirming creates a `Student` per new name and skips duplicates
   (including duplicates within the uploaded file itself).
 
-**HTMX is loaded from a CDN** (`https://unpkg.com/htmx.org@1.9.12`) via a `<script>` tag
-in `templates/base.html`. If you are self-hosting in an environment without outbound
-internet access (or want to avoid depending on a third-party CDN at all), download
-`htmx.min.js` from https://htmx.org and vendor it under
-`src/main/resources/META-INF/resources/static/js/htmx.min.js`, then change the `<script
-src="...">` tag in `templates/base.html` to `/static/js/htmx.min.js`.
+**HTMX is self-hosted**, not loaded from a CDN. `htmx.min.js` (v1.9.12) is vendored at
+`src/main/resources/META-INF/resources/static/js/htmx.min.js` and served from
+`/static/js/htmx.min.js` via the `<script>` tag in `templates/base.html`. To upgrade,
+replace that file with a newer `htmx.min.js` from https://htmx.org and update the version
+noted here.
 
 ## License
 
