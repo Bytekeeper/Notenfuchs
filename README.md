@@ -149,12 +149,14 @@ that the logged-in user's name/email are available via the OIDC UserInfo endpoin
 
 ### `%dev` / test bypass
 
-`quarkus.oidc.enabled` is set to `false` for the `dev` and `test` profiles
-(`%dev.quarkus.oidc.enabled=false`, `%test.quarkus.oidc.enabled=false`), and the
-blanket `authenticated` HTTP permission policy is relaxed to `permit` for those
-same profiles. This means `./mvnw quarkus:dev` and `./mvnw test` both run without
-a live identity provider and without login - exactly like before OIDC was added.
-This bypass is **not** active in the default/production profile; do not rely on
+`quarkus.oidc.tenant-enabled` is set to `false` for the `dev` and `test` profiles
+(`%dev.quarkus.oidc.tenant-enabled=false`, `%test.quarkus.oidc.tenant-enabled=false`;
+note this is `tenant-enabled`, not the build-time `enabled` switch - the latter would
+remove the OIDC extension's CDI beans entirely, breaking `CurrentUser`'s unconditional
+`@Inject` fields), and the blanket `authenticated` HTTP permission policy is relaxed to
+`permit` for those same profiles. This means `./mvnw quarkus:dev` and `./mvnw test` both
+run without a live identity provider and without login - exactly like before OIDC was
+added. This bypass is **not** active in the default/production profile; do not rely on
 it outside local development.
 
 ### Setting up Clerk
@@ -211,6 +213,8 @@ keyboard navigation) - no React/SPA, no Node build step.
 - `/subjects/{id}/grid` - the grade-entry grid: students as rows, assessments as columns
   (grouped by category), each cell autosaves on blur/navigate-away via a small `fetch()`
   call, with a live per-student average column computed by `GradeService`
+- `/subjects/{id}/grid/export` - downloads the same grid as an `.xlsx` workbook
+  (Apache POI), for teachers who want the grades outside the app
 
 **HTMX is loaded from a CDN** (`https://unpkg.com/htmx.org@1.9.12`) via a `<script>` tag
 in `templates/base.html`. If you are self-hosting in an environment without outbound

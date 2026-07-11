@@ -4,9 +4,9 @@ Open-source grade-management tool for teachers (Klassen, Fächer, Noten). Focus 
 
 ## Tech stack
 
-Quarkus 3.15.1 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5. Postgres runs via Docker Compose. Group id `de.notenfuchs`.
+Quarkus 3.37.2 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5 · quarkus-oidc (auth) · Apache POI (poi-ooxml, xlsx export) · quarkus-playwright (browser ITs). Postgres runs via Docker Compose. Group id `de.notenfuchs`.
 
-The Maven Wrapper (`./mvnw`) is committed — **no local Maven install needed**, but Java 17+ is required (Quarkus 3.15 minimum).
+The Maven Wrapper (`./mvnw`) is committed — **no local Maven install needed**, but Java 17+ is required.
 
 ## Commands
 
@@ -28,7 +28,8 @@ App serves on `:8080`. Postgres connection is configured via env vars (`DB_USER`
 - `service/` — `GradeService` + its plain data carriers (`CategoryData`, `GradeData`, `SubjectAverageResult`)
 - `rest/` — one REST resource per entity + `ClassAveragesResource` for computed averages
 - `dto/` — request/response records
-- `web/` — server-rendered UI: one Qute/HTMX resource per entity (`ClassUiResource`, `SubjectUiResource`) + `GradeGridResource` for the grade-entry grid. Templates live in `src/main/resources/templates/`; the grid's keyboard/autosave JS is `static/js/notenfuchs.js`.
+- `web/` — server-rendered UI: one Qute/HTMX resource per entity (`ClassUiResource`, `SubjectUiResource`) + `GradeGridResource` for the grade-entry grid (also serves `/export` as an `.xlsx` download via Apache POI). Templates live in `src/main/resources/templates/`; the grid's keyboard/autosave JS is `static/js/notenfuchs.js`.
+- `security/` — `CurrentUser`, a request-scoped facade over the OIDC `SecurityIdentity`/`UserInfo`/`JsonWebToken` for reading the logged-in teacher's subject/email/display name
 
 ### Data model
 ```
@@ -52,6 +53,9 @@ Per student, per subject:
    - `IN_FAVOR_OF_STUDENT` — round half toward the better grade (consults `lowerIsBetter`; for DE 1-6: 2.50 → 2)
 
 Use `BigDecimal` throughout — no `double`. `GradeService` is a pure POJO service over in-memory data so it's unit-testable without a DB; keep it that way.
+
+### Authorization
+Every path is authenticated by default via a global HTTP permission policy in `application.properties` (`quarkus.http.auth.permission.authenticated.paths=/*`, `policy=authenticated`) — not per-endpoint `@RolesAllowed` annotations. Only `/auth-callback,/logout,/q/health/*,/favicon.ico,/static/*` are public. This means a new REST or web resource is protected automatically with no annotation required; don't add `@PermitAll` without a specific reason. OIDC (`quarkus-oidc`, web-app/authorization-code mode) backs the login; `CurrentUser` (`security/`) exposes the logged-in teacher's identity. The `%dev`/`%test` profiles disable the OIDC tenant and relax the policy to `permit` so local dev and `./mvnw test` don't need a live IdP — see the README's Authentication section for details.
 
 ## Conventions & gotchas
 
