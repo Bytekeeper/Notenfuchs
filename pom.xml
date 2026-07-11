@@ -154,6 +154,22 @@
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>
+                    <!--
+                      Testcontainers' container-reuse flag is only ever read from the
+                      TESTCONTAINERS_REUSE_ENABLE env var or ~/.testcontainers.properties -
+                      never from this project. That means it's machine-global: if it's ever
+                      true (set by hand, by an IDE toggle, or left behind by an unrelated
+                      project on the same machine), Quarkus's Postgres/Playwright Dev
+                      Services containers for these ITs get marked reused and are
+                      deliberately not stopped (see ContainerShutdownCloseable), and Ryuk
+                      doesn't reap reuse-flagged containers either - so they leak on every
+                      `./mvnw verify` run. Pinning the env var to false here overrides
+                      whatever the home directory file says (env var outranks it), so this
+                      build stays reuse-free regardless of machine-wide state.
+                    -->
+                    <environmentVariables>
+                        <TESTCONTAINERS_REUSE_ENABLE>false</TESTCONTAINERS_REUSE_ENABLE>
+                    </environmentVariables>
                 </configuration>
                 <executions>
                     <execution>
