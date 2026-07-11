@@ -103,7 +103,7 @@ public class GradeGridResource {
     private GridData loadGridData(Subject subject) {
         Long id = subject.id;
         List<GradeCategory> categories = GradeCategory.list("subject.id", id);
-        List<Student> students = Student.list("schoolClass.id", subject.schoolClass.id);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
 
         List<CategoryColumns> categoryColumns = new ArrayList<>();
         List<Assessment> allAssessments = new ArrayList<>();

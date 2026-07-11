@@ -3,6 +3,7 @@ package de.notenfuchs.rest;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.dto.StudentRequest;
+import io.quarkus.panache.common.Sort;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -19,9 +20,9 @@ public class StudentResource {
     @GET
     public List<Student> list(@QueryParam("schoolClassId") Long schoolClassId) {
         if (schoolClassId != null) {
-            return Student.list("schoolClass.id", schoolClassId);
+            return Student.list("schoolClass.id = ?1 order by name", schoolClassId);
         }
-        return Student.listAll();
+        return Student.listAll(Sort.by("name"));
     }
 
     @GET

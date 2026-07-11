@@ -40,7 +40,7 @@ public class ClassAveragesResource {
             throw new NotFoundException("SchoolClass " + classId + " not found");
         }
 
-        List<Student> students = Student.list("schoolClass.id", classId);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", classId);
         List<Subject> subjects = Subject.list("schoolClass.id", classId);
 
         List<StudentSubjectAverageResponse> result = new ArrayList<>();

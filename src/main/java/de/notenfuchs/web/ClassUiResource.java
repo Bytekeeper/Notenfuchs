@@ -68,7 +68,7 @@ public class ClassUiResource {
     public TemplateInstance detail(@PathParam("id") Long id) {
         SchoolClass schoolClass = findClassOrNotFound(id);
         List<Subject> subjects = Subject.list("schoolClass.id", id);
-        List<Student> students = Student.list("schoolClass.id", id);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<GradeScale> gradeScales = GradeScale.listAll();
         return withUser(detailTemplate
                 .data("schoolClass", schoolClass)
@@ -126,7 +126,7 @@ public class ClassUiResource {
         student.name = name;
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
         student.persist();
-        List<Student> students = Student.list("schoolClass.id", id);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }
 
@@ -140,7 +140,7 @@ public class ClassUiResource {
         if (student != null) {
             student.delete();
         }
-        List<Student> students = Student.list("schoolClass.id", id);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }
 
@@ -159,7 +159,7 @@ public class ClassUiResource {
         if (name != null && !name.isBlank()) {
             student.name = name;
         }
-        List<Student> students = Student.list("schoolClass.id", id);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }
 
