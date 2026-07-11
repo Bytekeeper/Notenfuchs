@@ -1,6 +1,7 @@
 package de.notenfuchs.e2e;
 
 import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.Download;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
@@ -9,13 +10,22 @@ import io.quarkiverse.playwright.InjectPlaywright;
 import io.quarkiverse.playwright.WithPlaywright;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.regex.Pattern;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Browser-driven end-to-end test of the grade-entry grid - Notenfuchs's headline feature -
@@ -132,6 +142,46 @@ class GradeGridE2EIT {
 
         page.reload();
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='0']")).hasValue("");
+    }
+
+    @Test
+    void exportButtonDownloadsXlsxWithEnteredGrades() throws IOException {
+        String unique = Long.toString(System.nanoTime());
+        String studentName = "E2E-Schueler-" + unique;
+        setUpSubjectWithGrid(unique);
+
+        Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        cell0.fill("2");
+        cell0.evaluate("el => el.blur()");
+        assertThat(page.locator(".average-final")).hasText("2");
+
+        Download download = page.waitForDownload(() ->
+                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Als Excel exportieren")).click());
+        assertTrue(download.suggestedFilename().endsWith(".xlsx"));
+
+        Path savedPath = Files.createTempFile("notenfuchs-export-" + unique, ".xlsx");
+        try {
+            download.saveAs(savedPath);
+
+            try (Workbook workbook = WorkbookFactory.create(savedPath.toFile())) {
+                Sheet sheet = workbook.getSheetAt(0);
+
+                // setUpSubjectWithGrid creates one category with two assessments (Test1, Test2),
+                // so columns are: 0=Schüler, 1=Test1, 2=Test2, 3=Ø, 4=Note.
+                Row headerRow1 = sheet.getRow(0);
+                assertEquals("Schüler", headerRow1.getCell(0).getStringCellValue());
+                assertEquals("Ø", headerRow1.getCell(3).getStringCellValue());
+                assertEquals("Note", headerRow1.getCell(4).getStringCellValue());
+
+                Row studentRow = sheet.getRow(2);
+                assertEquals(studentName, studentRow.getCell(0).getStringCellValue());
+                assertEquals(2.0, studentRow.getCell(1).getNumericCellValue(), 0.001);
+                assertEquals(2.0, studentRow.getCell(3).getNumericCellValue(), 0.001);
+                assertEquals(2.0, studentRow.getCell(4).getNumericCellValue(), 0.001);
+            }
+        } finally {
+            Files.deleteIfExists(savedPath);
+        }
     }
 
     /**

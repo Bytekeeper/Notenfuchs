@@ -25,8 +25,21 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.WorkbookUtil;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,7 +69,39 @@ public class GradeGridResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance grid(@PathParam("id") Long id) {
         Subject subject = findSubjectOrNotFound(id);
+        GridData data = loadGridData(subject);
 
+        return withUser(gridTemplate
+                .data("subject", subject)
+                .data("categories", data.categoryColumns())
+                .data("students", data.students())
+                .data("rows", data.rows())
+                .data("categoryFooters", data.categoryFooters())
+                .data("maxCol", data.maxCol())
+                .data("maxRow", data.maxRow())
+                .data("gridEmpty", data.gridEmpty()));
+    }
+
+    @GET
+    @Path("/export")
+    @Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public Response exportXlsx(@PathParam("id") Long id) {
+        Subject subject = findSubjectOrNotFound(id);
+        GridData data = loadGridData(subject);
+
+        byte[] xlsx = buildWorkbook(subject, data);
+
+        String asciiFilename = sanitizeFilename(subject.name) + "-Noten.xlsx";
+        String utf8Filename = URLEncoder.encode(subject.name + "-Noten.xlsx", StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return Response.ok(xlsx)
+                .header("Content-Disposition", "attachment; filename=\"" + asciiFilename
+                        + "\"; filename*=UTF-8''" + utf8Filename)
+                .build();
+    }
+
+    private GridData loadGridData(Subject subject) {
+        Long id = subject.id;
         List<GradeCategory> categories = GradeCategory.list("subject.id", id);
         List<Student> students = Student.list("schoolClass.id", subject.schoolClass.id);
 
@@ -138,15 +183,7 @@ public class GradeGridResource {
         int maxRow = Math.max(0, rows.size() - 1);
         boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
 
-        return withUser(gridTemplate
-                .data("subject", subject)
-                .data("categories", categoryColumns)
-                .data("students", students)
-                .data("rows", rows)
-                .data("categoryFooters", categoryFooters)
-                .data("maxCol", maxCol)
-                .data("maxRow", maxRow)
-                .data("gridEmpty", gridEmpty));
+        return new GridData(categoryColumns, students, rows, categoryFooters, maxCol, maxRow, gridEmpty);
     }
 
     @POST
@@ -245,6 +282,124 @@ public class GradeGridResource {
         return value.stripTrailingZeros().toPlainString();
     }
 
+    /**
+     * Renders the same grid data used by {@link #grid(Long)} as an .xlsx workbook. The column
+     * layout mirrors the HTML table exactly: {@code row.cells()} and each
+     * {@code categoryFooters} entry's {@code columnAverages()} are already in left-to-right
+     * column order (one entry per rendered column, including the single placeholder slot for
+     * a category with no Leistungen yet - see the placeholder-column note in
+     * {@link #grid(Long)}), so a plain list index maps 1:1 to a sheet column.
+     */
+    private byte[] buildWorkbook(Subject subject, GridData data) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(subject.name));
+            CellStyle headerStyle = headerStyle(workbook);
+
+            int assessmentColumnCount = data.categoryColumns().stream()
+                    .mapToInt(CategoryColumns::columnCount).sum();
+            int studentCol = 0;
+            int avgRawCol = 1 + assessmentColumnCount;
+            int avgFinalCol = avgRawCol + 1;
+
+            Row headerRow1 = sheet.createRow(0);
+            Row headerRow2 = sheet.createRow(1);
+
+            setHeaderCell(headerRow1, studentCol, "Schüler", headerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 1, studentCol, studentCol));
+
+            int col = 1;
+            for (CategoryColumns cc : data.categoryColumns()) {
+                setHeaderCell(headerRow1, col, cc.category().name + " (" + plain(cc.category().weightPercent) + "%)",
+                        headerStyle);
+                int span = cc.columnCount();
+                if (span > 1) {
+                    sheet.addMergedRegion(new CellRangeAddress(0, 0, col, col + span - 1));
+                }
+                if (cc.assessments().isEmpty()) {
+                    setHeaderCell(headerRow2, col, "noch keine Leistungen", headerStyle);
+                } else {
+                    int i = 0;
+                    for (Assessment assessment : cc.assessments()) {
+                        setHeaderCell(headerRow2, col + i,
+                                assessment.name + " (Faktor " + plain(assessment.factor) + ")", headerStyle);
+                        i++;
+                    }
+                }
+                col += span;
+            }
+
+            setHeaderCell(headerRow1, avgRawCol, "Ø", headerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 1, avgRawCol, avgRawCol));
+            setHeaderCell(headerRow1, avgFinalCol, "Note", headerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 1, avgFinalCol, avgFinalCol));
+
+            int rowNum = 2;
+            for (RowView row : data.rows()) {
+                Row xlsxRow = sheet.createRow(rowNum++);
+                xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
+                List<CellView> cells = row.cells();
+                for (int i = 0; i < cells.size(); i++) {
+                    String displayValue = cells.get(i).displayValue();
+                    if (displayValue != null) {
+                        xlsxRow.createCell(1 + i).setCellValue(new BigDecimal(displayValue).doubleValue());
+                    }
+                }
+                if (row.rawAverage() != null) {
+                    xlsxRow.createCell(avgRawCol).setCellValue(row.rawAverage().doubleValue());
+                }
+                if (row.finalGrade() != null) {
+                    xlsxRow.createCell(avgFinalCol).setCellValue(row.finalGrade());
+                }
+            }
+
+            Row footerRow = sheet.createRow(rowNum);
+            footerRow.createCell(studentCol).setCellValue("Ø je Leistung");
+            int footerCol = 1;
+            for (CategoryFooter cf : data.categoryFooters()) {
+                for (ColumnAverageView columnAverage : cf.columnAverages()) {
+                    if (columnAverage.rawAverage() != null) {
+                        footerRow.createCell(footerCol).setCellValue(columnAverage.rawAverage().doubleValue());
+                    }
+                    footerCol++;
+                }
+            }
+
+            sheet.createFreezePane(1, 2);
+            for (int c = 0; c <= avgFinalCol; c++) {
+                sheet.autoSizeColumn(c);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void setHeaderCell(Row row, int col, String value, CellStyle style) {
+        Cell cell = row.createCell(col);
+        cell.setCellValue(value);
+        cell.setCellStyle(style);
+    }
+
+    private static CellStyle headerStyle(XSSFWorkbook workbook) {
+        Font boldFont = workbook.createFont();
+        boldFont.setBold(true);
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(boldFont);
+        return style;
+    }
+
+    /** Strips German umlauts/eszett and any other non-ASCII-safe character for the plain filename attribute. */
+    private static String sanitizeFilename(String raw) {
+        String transliterated = raw
+                .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+                .replace("Ä", "Ae").replace("Ö", "Oe").replace("Ü", "Ue")
+                .replace("ß", "ss");
+        return transliterated.replaceAll("[^a-zA-Z0-9._-]+", "_");
+    }
+
     private static String effectiveName(Student student) {
         return student.displayName != null && !student.displayName.isBlank() ? student.displayName : student.name;
     }
@@ -263,7 +418,12 @@ public class GradeGridResource {
                 .data("currentUserDisplayName", currentUser.displayName().orElse(""));
     }
 
-    // ---- View models for the Qute template ----
+    // ---- View models for the Qute template (and the .xlsx export, which reuses them) ----
+
+    /** Everything needed to render either the HTML grid or the .xlsx export - see {@link #loadGridData(Subject)}. */
+    private record GridData(List<CategoryColumns> categoryColumns, List<Student> students, List<RowView> rows,
+                             List<CategoryFooter> categoryFooters, int maxCol, int maxRow, boolean gridEmpty) {
+    }
 
     public record CategoryColumns(GradeCategory category, List<Assessment> assessments) {
         /** At least 1, even for a category with no Leistungen yet - see the placeholder-column note in {@link #grid(Long)}. */

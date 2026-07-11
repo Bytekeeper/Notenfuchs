@@ -12,6 +12,7 @@
 {#else if students.isEmpty}
     <p class="hint">Diese Klasse hat noch keine Schüler. <a href="/classes/{subject.schoolClass.id}">Erst Schüler anlegen</a>.</p>
 {#else}
+    <p><a class="btn" href="/subjects/{subject.id}/grid/export">Als Excel exportieren</a></p>
     <div class="grid-wrapper">
         <table class="grade-grid grade-grid-root"
                data-save-url="/subjects/{subject.id}/grid/cell"
