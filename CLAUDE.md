@@ -4,7 +4,7 @@ Open-source grade-management tool for teachers (Klassen, Fächer, Noten). Focus 
 
 ## Tech stack
 
-Quarkus 3.37.2 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5 · quarkus-oidc (auth) · Apache POI (poi-ooxml, xlsx export) · quarkus-playwright (browser ITs). Postgres runs via Docker Compose. Group id `de.notenfuchs`.
+Quarkus 3.37.2 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5 · quarkus-oidc (auth) · Apache POI (poi-ooxml, xlsx export) · FastCSV (`de.siegmar:fastcsv`, roster CSV import/export) · quarkus-playwright (browser ITs). Postgres runs via Docker Compose. Group id `de.notenfuchs`.
 
 The Maven Wrapper (`./mvnw`) is committed — **no local Maven install needed**, but Java 17+ is required.
 
@@ -25,10 +25,10 @@ App serves on `:8080`. Postgres connection is configured via env vars (`DB_USER`
 
 ### Package layout (`src/main/java/de/notenfuchs/`)
 - `domain/` — Panache entities (the data model)
-- `service/` — `GradeService` + its plain data carriers (`CategoryData`, `GradeData`, `SubjectAverageResult`)
+- `service/` — `GradeService` + its plain data carriers (`CategoryData`, `GradeData`, `SubjectAverageResult`); `CsvRosterService` + `RosterParseResult` for roster CSV (de)serialization
 - `rest/` — one REST resource per entity + `ClassAveragesResource` for computed averages
 - `dto/` — request/response records
-- `web/` — server-rendered UI: one Qute/HTMX resource per entity (`ClassUiResource`, `SubjectUiResource`) + `GradeGridResource` for the grade-entry grid (also serves `/export` as an `.xlsx` download via Apache POI). Templates live in `src/main/resources/templates/`; the grid's keyboard/autosave JS is `static/js/notenfuchs.js`.
+- `web/` — server-rendered UI: one Qute/HTMX resource per entity (`ClassUiResource`, `SubjectUiResource`) + `GradeGridResource` for the grade-entry grid (also serves `/export` as an `.xlsx` download via Apache POI). `ClassUiResource` also serves the roster CSV endpoints (`/classes/{id}/roster/export`, `/roster/import/preview`, `/roster/import`) — see the README's "Roster CSV format" section. Templates live in `src/main/resources/templates/`; the grid's keyboard/autosave JS is `static/js/notenfuchs.js`.
 - `security/` — `CurrentUser`, a request-scoped facade over the OIDC `SecurityIdentity`/`UserInfo`/`JsonWebToken` for reading the logged-in teacher's subject/email/display name
 
 ### Data model
@@ -64,6 +64,7 @@ Every path is authenticated by default via a global HTTP permission policy in `a
 - Free-text student names by design — the teacher decides what to enter (real name or Kürzel). No PII assumptions baked into the model.
 - The grade-entry grid (`GradeGridResource` + `notenfuchs.js`) is a spreadsheet-style UI (students as rows, assessments as columns, tab/enter between cells, per-cell autosave) — the thing existing tools do badly, and the main reason to browser-test a change instead of trusting `GradeServiceTest` alone.
 - UI/grid changes should come with a Playwright IT in `src/test/java/de/notenfuchs/e2e` (`GradeGridE2EIT`) — run via `./mvnw verify`, not `./mvnw test` (see Commands). These drive the real server-rendered pages through a browser (`quarkus-playwright`, Dev Services container - no local browser install needed) against a Testcontainers Postgres, so they need Docker. Each test creates its own uniquely-named class/subject/student rather than relying on a clean DB, since there's no reset between tests.
+- Roster CSV import/export (`CsvRosterService`) has to cope with real German Excel output: semicolon (not comma) delimiter and Windows-1252 (not UTF-8) encoding. Export always writes the Excel-friendly dialect (UTF-8 with a BOM, semicolon-delimited); import sniffs the delimiter from the header line and falls back UTF-8 → Windows-1252 on decode failure. Import is two-step and stateless — upload renders a preview (new vs. duplicate per row, by exact name match) whose confirm form round-trips the parsed names as hidden inputs rather than a server-side session; only the confirm POST persists anything. Changes here need unit tests in `CsvRosterServiceTest` (delimiter/encoding/line-ending/header/quoting/round-trip) plus a Playwright IT (`RosterImportExportE2EIT`) if the web flow changes.
 
 ## Deployment note
 Self-hosted on a VPS. Sensitive data (student names + grades) lives in Postgres. Recommended at-rest protection is a LUKS-encrypted volume for the DB (protects against snapshot/disk theft; not against a live host compromise). Pseudonymization via `displayName` is the cheapest strong safeguard.

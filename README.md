@@ -215,6 +215,31 @@ keyboard navigation) - no React/SPA, no Node build step.
   call, with a live per-student average column computed by `GradeService`
 - `/subjects/{id}/grid/export` - downloads the same grid as an `.xlsx` workbook
   (Apache POI), for teachers who want the grades outside the app
+- `/classes/{id}/roster/export` - downloads that class's student names as CSV
+- `/classes/{id}/roster/import/preview` and `/classes/{id}/roster/import` - upload a CSV
+  of student names, preview which rows are new vs. already-existing (by exact name match),
+  then confirm to create the new students
+
+### Roster CSV format
+
+A "roster" is just a class's list of student names, one per line under a `Name` header.
+Handled by `CsvRosterService` (`de.notenfuchs.service`), a pure/DB-free service - like
+`GradeService` - so it's unit-tested without a database.
+
+- **Export** always writes UTF-8 with a BOM and a **semicolon**-delimited `Name` column,
+  so German-locale Excel opens umlauts correctly out of the box without a manual encoding
+  prompt.
+- **Import** is tolerant of what real German Excel exports actually look like: it sniffs
+  the delimiter (`;` vs `,`) from the header line, decodes UTF-8 (with or without a BOM)
+  and falls back to Windows-1252 if the bytes aren't valid UTF-8, and accepts both CRLF and
+  LF line endings. A `Name` header (case-insensitive) is recognized and dropped if present;
+  otherwise every line is treated as a name. Blank lines are skipped, names are trimmed.
+- Import is a two-step, stateless flow: uploading a CSV renders a **preview** page marking
+  each row NEW or DUPLICATE (against the class's existing students, exact name match) before
+  anything is written to the database. The preview's confirm form carries the parsed names
+  back as hidden inputs rather than relying on a server-side session, so the confirm request
+  is self-contained. Confirming creates a `Student` per new name and skips duplicates
+  (including duplicates within the uploaded file itself).
 
 **HTMX is loaded from a CDN** (`https://unpkg.com/htmx.org@1.9.12`) via a `<script>` tag
 in `templates/base.html`. If you are self-hosting in an environment without outbound

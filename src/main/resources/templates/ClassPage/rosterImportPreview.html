@@ -1,0 +1,35 @@
+{#include base}
+{#title}Schüler-Import Vorschau – {schoolClass.name} – Notenfuchs{/title}
+
+<div class="breadcrumbs"><a href="/classes">Klassen</a> / <a href="/classes/{schoolClass.id}">{schoolClass.name}</a> / Import-Vorschau</div>
+<h1>Schüler-Import Vorschau</h1>
+
+<p class="hint">{newCount} neu, {duplicateCount} Duplikate, {blankLinesSkipped} leere Zeilen übersprungen</p>
+
+{#if rows.isEmpty}
+    <p class="hint">Keine Namen in der Datei gefunden.</p>
+{#else}
+    <table class="entity-list">
+        <thead>
+            <tr><th>Name</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {#for row in rows}
+                <tr data-status="{#if row.duplicate}duplicate{#else}new{/if}">
+                    <td>{row.name}</td>
+                    <td>{#if row.duplicate}<span class="hint warning">Duplikat</span>{#else}Neu{/if}</td>
+                </tr>
+            {/for}
+        </tbody>
+    </table>
+{/if}
+
+<form method="post" action="/classes/{schoolClass.id}/roster/import" class="inline-form">
+    {#for row in rows}
+        <input type="hidden" name="names" value="{row.name}">
+    {/for}
+    <button type="submit">Import bestätigen</button>
+    <a class="btn secondary" href="/classes/{schoolClass.id}">Abbrechen</a>
+</form>
+
+{/include}

@@ -6,11 +6,14 @@ import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.service.CsvRosterService;
+import de.notenfuchs.service.RosterParseResult;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.FormParam;
@@ -21,9 +24,22 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Server-rendered HTML pages for managing school classes, and (within a class) its
@@ -32,6 +48,8 @@ import java.util.List;
  */
 @Path("/classes")
 public class ClassUiResource {
+
+    private final CsvRosterService csvRosterService = new CsvRosterService();
 
     @Inject
     CurrentUser currentUser;
@@ -43,6 +61,10 @@ public class ClassUiResource {
     @Inject
     @Location("ClassPage/detail.html")
     Template detailTemplate;
+
+    @Inject
+    @Location("ClassPage/rosterImportPreview.html")
+    Template rosterImportPreviewTemplate;
 
     @Inject
     @Location("fragments/classList.html")
@@ -65,7 +87,8 @@ public class ClassUiResource {
     @GET
     @Path("/{id}")
     @Produces(MediaType.TEXT_HTML)
-    public TemplateInstance detail(@PathParam("id") Long id) {
+    public TemplateInstance detail(@PathParam("id") Long id,
+                                    @QueryParam("rosterImportResult") String rosterImportResult) {
         SchoolClass schoolClass = findClassOrNotFound(id);
         List<Subject> subjects = Subject.list("schoolClass.id", id);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
@@ -74,7 +97,8 @@ public class ClassUiResource {
                 .data("schoolClass", schoolClass)
                 .data("subjects", subjects)
                 .data("students", students)
-                .data("gradeScales", gradeScales));
+                .data("gradeScales", gradeScales)
+                .data("rosterImportResult", rosterImportResult));
     }
 
     @POST
@@ -163,6 +187,127 @@ public class ClassUiResource {
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }
 
+    /**
+     * Downloads this class's roster (its students' names) as CSV - UTF-8 with a BOM and a
+     * semicolon delimiter (see {@link CsvRosterService}), so German Excel opens umlauts
+     * correctly without a manual encoding prompt.
+     */
+    @GET
+    @Path("/{id}/roster/export")
+    @Produces("text/csv; charset=UTF-8")
+    public Response exportRoster(@PathParam("id") Long id) {
+        SchoolClass schoolClass = findClassOrNotFound(id);
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
+        List<String> names = students.stream().map(s -> s.name).toList();
+        byte[] csv = csvRosterService.format(names);
+
+        String plainFilename = "klasse-" + schoolClass.name + "-schueler.csv";
+        String asciiFilename = "klasse-" + sanitizeFilename(schoolClass.name) + "-schueler.csv";
+        String utf8Filename = URLEncoder.encode(plainFilename, StandardCharsets.UTF_8).replace("+", "%20");
+        return Response.ok(csv)
+                .header("Content-Disposition", "attachment; filename=\"" + asciiFilename
+                        + "\"; filename*=UTF-8''" + utf8Filename)
+                .build();
+    }
+
+    /**
+     * Step 1 of roster import: parses the uploaded CSV and renders a preview - NOT a direct
+     * import - marking each row NEW or DUPLICATE against this class's existing students. Kept
+     * stateless: the confirm form on the preview page carries the parsed names back as hidden
+     * inputs (see {@code ClassPage/rosterImportPreview.html}), so {@link #confirmRosterImport}
+     * doesn't depend on anything server-side surviving between the two requests.
+     */
+    @POST
+    @Path("/{id}/roster/import/preview")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public TemplateInstance previewRosterImport(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
+        SchoolClass schoolClass = findClassOrNotFound(id);
+        if (file == null) {
+            throw new BadRequestException("Keine Datei hochgeladen");
+        }
+        RosterParseResult parsed;
+        try {
+            parsed = csvRosterService.parseDetailed(readUploadedFile(file));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException(e.getMessage());
+        }
+
+        Set<String> seenNames = existingStudentNames(id);
+        List<RosterPreviewRow> rows = new ArrayList<>();
+        int newCount = 0;
+        int duplicateCount = 0;
+        for (String name : parsed.names()) {
+            boolean duplicate = !seenNames.add(name);
+            rows.add(new RosterPreviewRow(name, duplicate));
+            if (duplicate) {
+                duplicateCount++;
+            } else {
+                newCount++;
+            }
+        }
+
+        return withUser(rosterImportPreviewTemplate
+                .data("schoolClass", schoolClass)
+                .data("rows", rows)
+                .data("newCount", newCount)
+                .data("duplicateCount", duplicateCount)
+                .data("blankLinesSkipped", parsed.blankLinesSkipped()));
+    }
+
+    /**
+     * Step 2 of roster import: creates a {@link Student} per submitted name, skipping names
+     * that already exist in the class (exact match) - including duplicates within the
+     * submission itself, since by the time a later same-name row would be created, the
+     * earlier one already "exists in the class".
+     */
+    @POST
+    @Path("/{id}/roster/import")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response confirmRosterImport(@PathParam("id") Long id, @FormParam("names") List<String> submittedNames) {
+        SchoolClass schoolClass = findClassOrNotFound(id);
+        Set<String> seenNames = existingStudentNames(id);
+
+        int created = 0;
+        int skipped = 0;
+        if (submittedNames != null) {
+            for (String rawName : submittedNames) {
+                String name = rawName == null ? "" : rawName.trim();
+                if (name.isEmpty()) {
+                    continue;
+                }
+                if (!seenNames.add(name)) {
+                    skipped++;
+                    continue;
+                }
+                Student student = new Student();
+                student.schoolClass = schoolClass;
+                student.name = name;
+                student.persist();
+                created++;
+            }
+        }
+
+        String message = created + " Schüler angelegt, " + skipped + " übersprungen (bereits vorhanden)";
+        URI redirect = URI.create("/classes/" + id + "?rosterImportResult="
+                + URLEncoder.encode(message, StandardCharsets.UTF_8));
+        return Response.seeOther(redirect).build();
+    }
+
+    private Set<String> existingStudentNames(Long schoolClassId) {
+        List<Student> students = Student.list("schoolClass.id", schoolClassId);
+        return new HashSet<>(students.stream().map(s -> s.name).toList());
+    }
+
+    private byte[] readUploadedFile(FileUpload file) {
+        try {
+            return Files.readAllBytes(file.uploadedFile());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @POST
     @Path("/{id}/subjects")
     @Produces(MediaType.TEXT_HTML)
@@ -244,5 +389,18 @@ public class ClassUiResource {
         return instance
                 .data("currentUserAuthenticated", currentUser.isAuthenticated())
                 .data("currentUserDisplayName", currentUser.displayName().orElse(""));
+    }
+
+    /** Strips German umlauts/eszett and any other non-ASCII-safe character for the plain filename attribute. */
+    private static String sanitizeFilename(String raw) {
+        String transliterated = raw
+                .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+                .replace("Ä", "Ae").replace("Ö", "Oe").replace("Ü", "Ue")
+                .replace("ß", "ss");
+        return transliterated.replaceAll("[^a-zA-Z0-9._-]+", "_");
+    }
+
+    /** One row of the roster import preview - see {@code ClassPage/rosterImportPreview.html}. */
+    public record RosterPreviewRow(String name, boolean duplicate) {
     }
 }

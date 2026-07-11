@@ -38,6 +38,9 @@
 
     <section>
         <h2>Schüler</h2>
+        {#if rosterImportResult}
+            <p class="hint">{rosterImportResult}</p>
+        {/if}
         {#include fragments/studentList /}
 
         <h3>Schüler hinzufügen</h3>
@@ -53,6 +56,19 @@
                 </div>
                 <button type="submit">Hinzufügen</button>
             </form>
+        </div>
+
+        <h3>Schülerliste (CSV)</h3>
+        <div class="card">
+            <p><a class="btn secondary" href="/classes/{schoolClass.id}/roster/export">Als CSV exportieren</a></p>
+            <form class="inline-form" method="post" action="/classes/{schoolClass.id}/roster/import/preview" enctype="multipart/form-data">
+                <div class="form-field">
+                    <label for="rosterFile">CSV importieren</label>
+                    <input type="file" id="rosterFile" name="file" accept=".csv,text/csv" required>
+                </div>
+                <button type="submit">Vorschau anzeigen</button>
+            </form>
+            <p class="hint">Eine Spalte „Name“, ein Name pro Zeile. Semikolon- oder komma-getrennt, UTF-8 oder Windows-1252.</p>
         </div>
     </section>
 </div>
