@@ -20,7 +20,7 @@
         <skipITs>false</skipITs>
         <surefire-plugin.version>3.3.1</surefire-plugin.version>
         <quarkus-playwright.version>2.3.7</quarkus-playwright.version>
-        <poi.version>5.3.0</poi.version>
+        <poi.version>5.4.0</poi.version>
         <fastcsv.version>3.6.0</fastcsv.version>
     </properties>
 
