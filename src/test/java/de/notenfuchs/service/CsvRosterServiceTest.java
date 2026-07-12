@@ -2,6 +2,9 @@ package de.notenfuchs.service;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -74,6 +77,47 @@ class CsvRosterServiceTest {
         byte[] content = utf8("Name\nAnna Meyer\nBen Müller\n");
 
         assertEquals(List.of("Anna Meyer", "Ben Müller"), service.parse(content));
+    }
+
+    @Test
+    void parse_vornameNachnameHeader_realWorldExportFile_combinesIntoFullNames() {
+        // src/test/resources/roster/schueler-vorname-nachname.csv is a real school-admin
+        // export shape: comma-delimited, UTF-8, "Vorname,Nachname,Alter,Klasse,Geburtsdatum"
+        // header. Previously this fell through to the header-less path (no bare "Name"
+        // column), gluing the header and every row into one garbage "name" per line.
+        byte[] content = resource("roster/schueler-vorname-nachname.csv");
+
+        List<String> names = service.parse(content);
+
+        assertEquals(List.of(
+                "Leon Müller", "Sarah Schmidt", "Tim Weber", "Emma Wagner", "Lukas Hoffmann",
+                "Anna Schäfer", "Jonas Krämer", "Julia Zimmermann", "Felix Schulz", "Lisa Fischer",
+                "Marius König", "Clara Wolf", "Benjamin Becker", "Sophie Richter", "Elias Groß"
+        ), names);
+    }
+
+    @Test
+    void parse_vornameNachnameHeader_columnOrderAndExtraColumnsDontMatter() {
+        // Nachname before Vorname, plus an unrelated leading column - the pair is found by
+        // name, not position, and the combined name is always "Vorname Nachname" regardless
+        // of the file's column order.
+        byte[] content = utf8("Klasse;Nachname;Vorname\r\n8a;Meyer;Anna\r\n9b;Müller;Ben\r\n");
+
+        assertEquals(List.of("Anna Meyer", "Ben Müller"), service.parse(content));
+    }
+
+    @Test
+    void parse_vornameNachnameHeader_windows1252WithUmlauts() {
+        byte[] content = "Vorname;Nachname\r\nJörg;Grüßgott\r\nAnjaß;König\r\n".getBytes(WINDOWS_1252);
+
+        assertEquals(List.of("Jörg Grüßgott", "Anjaß König"), service.parse(content));
+    }
+
+    @Test
+    void parse_vornameNachnameHeader_quotedFieldContainingTheDelimiter() {
+        byte[] content = utf8("Vorname;Nachname\r\nAnna;\"Meyer; Schulz\"\r\nBen;Müller\r\n");
+
+        assertEquals(List.of("Anna Meyer; Schulz", "Ben Müller"), service.parse(content));
     }
 
     @Test
@@ -181,5 +225,16 @@ class CsvRosterServiceTest {
 
     private static byte[] utf8(String text) {
         return text.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] resource(String classpathPath) {
+        try (InputStream in = CsvRosterServiceTest.class.getClassLoader().getResourceAsStream(classpathPath)) {
+            if (in == null) {
+                throw new IllegalArgumentException("Test resource not found: " + classpathPath);
+            }
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

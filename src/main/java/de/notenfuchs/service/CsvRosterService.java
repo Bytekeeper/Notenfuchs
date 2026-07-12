@@ -36,6 +36,8 @@ public class CsvRosterService {
     private static final Charset WINDOWS_1252 = Charset.forName("windows-1252");
     private static final byte[] UTF8_BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
     private static final String HEADER_NAME = "Name";
+    private static final String HEADER_VORNAME = "Vorname";
+    private static final String HEADER_NACHNAME = "Nachname";
 
     /** Leading characters Excel/Sheets interpret as the start of a formula - see {@link #escapeFormulaTrigger}. */
     private static final String FORMULA_TRIGGER_CHARS = "=+-@\t\r";
@@ -57,9 +59,12 @@ public class CsvRosterService {
      * German Excel writes by default. Blank lines and surrounding whitespace are dropped/trimmed.
      *
      * <p>A first row consisting of just a "Name" header (case-insensitive, optionally followed
-     * by further columns) is recognized and dropped; the delimiter (';' vs ',') is then sniffed
-     * from that header line and used to split every following row into columns (only the first
-     * is kept). Without a recognizable header, delimiter-based splitting is skipped entirely and
+     * by further columns) is recognized and dropped, using only its first column as the name.
+     * A first row with separate "Vorname"/"Nachname" columns (case-insensitive, any position,
+     * any further columns such as "Alter"/"Klasse"/"Geburtsdatum" ignored) is also recognized;
+     * the two columns are joined with a space to form the name. Either way the delimiter
+     * (';' vs ',') is sniffed from the header line and used to split every following row into
+     * columns. Without a recognizable header, delimiter-based splitting is skipped entirely and
      * every line is taken as-is as one name - a bare, single-column file (the documented input
      * shape) never risks having a literal character in a name, e.g. the comma in "Meyer, Anna",
      * misread as a column separator.
@@ -71,12 +76,49 @@ public class CsvRosterService {
             return new RosterParseResult(List.of(), 0);
         }
 
-        return isHeaderLine(lines.get(0)) ? parseWithHeader(text, lines.get(0)) : parseHeaderless(lines);
+        String headerLine = lines.get(0);
+        char delimiter = sniffDelimiter(headerLine);
+        HeaderColumns header = detectHeader(headerLine.split(String.valueOf(delimiter), -1));
+        return header != null ? parseWithHeader(text, delimiter, header) : parseHeaderless(lines);
     }
 
-    private RosterParseResult parseWithHeader(String text, String headerLine) {
-        char delimiter = sniffDelimiter(headerLine);
+    /** Column layout of a recognized header row - either a single name column, or separate first-/last-name columns. */
+    private record HeaderColumns(int nameIndex, int vornameIndex, int nachnameIndex) {
+        static HeaderColumns singleName(int index) {
+            return new HeaderColumns(index, -1, -1);
+        }
 
+        static HeaderColumns firstLast(int vornameIndex, int nachnameIndex) {
+            return new HeaderColumns(-1, vornameIndex, nachnameIndex);
+        }
+
+        boolean isFirstLast() {
+            return vornameIndex >= 0 && nachnameIndex >= 0;
+        }
+    }
+
+    private static HeaderColumns detectHeader(String[] cells) {
+        int vornameIndex = indexOfIgnoreCase(cells, HEADER_VORNAME);
+        int nachnameIndex = indexOfIgnoreCase(cells, HEADER_NACHNAME);
+        if (vornameIndex >= 0 && nachnameIndex >= 0) {
+            return HeaderColumns.firstLast(vornameIndex, nachnameIndex);
+        }
+        if (HEADER_NAME.equalsIgnoreCase(cells[0].trim())) {
+            return HeaderColumns.singleName(0);
+        }
+        return null;
+    }
+
+    private static int indexOfIgnoreCase(String[] cells, String target) {
+        for (int i = 0; i < cells.length; i++) {
+            if (target.equalsIgnoreCase(cells[i].trim())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private RosterParseResult parseWithHeader(String text, char delimiter, HeaderColumns header) {
         List<String> names = new ArrayList<>();
         int blankLinesSkipped = 0;
         // skipEmptyLines(false) so a genuinely empty line surfaces as a record too (rather
@@ -89,12 +131,13 @@ public class CsvRosterService {
             boolean first = true;
             for (CsvRecord record : reader) {
                 if (first) {
-                    // Already identified as the header row by isHeaderLine(); just drop it.
+                    // Already identified as the header row by detectHeader(); just drop it.
                     first = false;
                     continue;
                 }
-                String value = record.getFieldCount() > 0 ? record.getField(0) : "";
-                String name = unescapeFormulaTrigger(value.trim());
+                String name = header.isFirstLast()
+                        ? joinFirstLast(record, header.vornameIndex(), header.nachnameIndex())
+                        : field(record, header.nameIndex());
                 if (name.isEmpty()) {
                     blankLinesSkipped++;
                     continue;
@@ -107,6 +150,23 @@ public class CsvRosterService {
             throw new IllegalArgumentException("Die Datei ist keine gültige CSV-Datei: " + e.getMessage(), e);
         }
         return new RosterParseResult(names, blankLinesSkipped);
+    }
+
+    private static String joinFirstLast(CsvRecord record, int vornameIndex, int nachnameIndex) {
+        String vorname = field(record, vornameIndex);
+        String nachname = field(record, nachnameIndex);
+        if (vorname.isEmpty()) {
+            return nachname;
+        }
+        if (nachname.isEmpty()) {
+            return vorname;
+        }
+        return vorname + " " + nachname;
+    }
+
+    private static String field(CsvRecord record, int index) {
+        String value = record.getFieldCount() > index ? record.getField(index) : "";
+        return unescapeFormulaTrigger(value.trim());
     }
 
     private RosterParseResult parseHeaderless(List<String> lines) {
@@ -196,19 +256,6 @@ public class CsvRosterService {
             lines.remove(lines.size() - 1);
         }
         return lines;
-    }
-
-    /** True if the line is exactly "Name" (any case) or starts with "Name" immediately followed by a delimiter. */
-    private static boolean isHeaderLine(String line) {
-        String trimmed = line.trim();
-        if (HEADER_NAME.equalsIgnoreCase(trimmed)) {
-            return true;
-        }
-        if (trimmed.length() > HEADER_NAME.length() && trimmed.regionMatches(true, 0, HEADER_NAME, 0, HEADER_NAME.length())) {
-            char next = trimmed.charAt(HEADER_NAME.length());
-            return next == ';' || next == ',';
-        }
-        return false;
     }
 
     /**

@@ -232,8 +232,12 @@ Handled by `CsvRosterService` (`de.notenfuchs.service`), a pure/DB-free service 
 - **Import** is tolerant of what real German Excel exports actually look like: it sniffs
   the delimiter (`;` vs `,`) from the header line, decodes UTF-8 (with or without a BOM)
   and falls back to Windows-1252 if the bytes aren't valid UTF-8, and accepts both CRLF and
-  LF line endings. A `Name` header (case-insensitive) is recognized and dropped if present;
-  otherwise every line is treated as a name. Blank lines are skipped, names are trimmed.
+  LF line endings. A `Name` header (case-insensitive) is recognized and dropped if present.
+  A header with separate `Vorname`/`Nachname` columns (case-insensitive, any position, any
+  other columns such as `Alter`/`Klasse`/`Geburtsdatum` ignored) is also recognized and the
+  two columns are joined with a space into the full name - the shape many school-admin
+  systems export. Without either recognizable header, every line is treated as a name.
+  Blank lines are skipped, names are trimmed.
 - Import is a two-step, stateless flow: uploading a CSV renders a **preview** page marking
   each row NEW or DUPLICATE (against the class's existing students, exact name match) before
   anything is written to the database. The preview's confirm form carries the parsed names
