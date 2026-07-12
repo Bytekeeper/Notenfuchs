@@ -10,9 +10,11 @@ and rounded final grades automatically.
 
 ### Option A: full stack with Docker Compose
 
-This starts both PostgreSQL and the packaged application.
+This starts PostgreSQL, the packaged application, and [Pocket ID](https://pocket-id.org)
+(the bundled login provider - see "Setting up Pocket ID" below).
 
 ```bash
+cp .env.example .env      # then fill in the secrets it asks for, see below
 ./mvnw package
 docker compose up --build
 ```
@@ -163,6 +165,43 @@ remove the OIDC extension's CDI beans entirely, breaking `CurrentUser`'s uncondi
 run without a live identity provider and without login - exactly like before OIDC was
 added. This bypass is **not** active in the default/production profile; do not rely on
 it outside local development.
+
+### Setting up Pocket ID (default, bundled provider)
+
+`docker compose up` (see "Option A" above) starts [Pocket ID](https://pocket-id.org),
+a lightweight, passkey-based OIDC provider, alongside Notenfuchs itself - no separate
+signup with a third-party service required. It's already wired up via `OIDC_ISSUER_URL`
+/ `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` in `docker-compose.yml`; you only need to:
+
+1. **Generate the two secrets Pocket ID needs** and put them in `.env` (copied from
+   `.env.example`): `POCKET_ID_ENCRYPTION_KEY` and `POCKET_ID_STATIC_API_KEY`, each via
+   `openssl rand -base64 32`. The latter lets the bootstrap step below talk to Pocket ID's
+   admin API without a full login.
+2. **Create the Pocket ID admin account.** This is the one step that can't be automated:
+   Pocket ID has no passwords, only WebAuthn passkeys, and registering one requires an
+   actual browser + authenticator. Visit `http://localhost:1411/setup` (or
+   `http://<BASE_URL>:1411/setup`) once and follow the prompts.
+3. **Check the bootstrap logs**: `docker compose logs pocket-id-bootstrap`. On its first
+   run, this one-shot service registers Notenfuchs as an OIDC client in Pocket ID and
+   prints the generated client secret - copy it into `.env` as `OIDC_CLIENT_SECRET`, then
+   run `docker compose up -d app` to pick it up. (On later runs it detects the client
+   already exists and skips this part.)
+4. **Hand out sign-up links.** Every `docker compose up` also prints a fresh, single-use
+   sign-up link (valid 24h) in the same `pocket-id-bootstrap` logs. Give that link to
+   whoever should actually use Notenfuchs (e.g. yourself, or another teacher) so they can
+   create their own passkey account directly - you never need to share the admin login.
+
+By default the whole stack assumes you're running it on your own machine: `BASE_URL`
+in `.env` defaults to `localhost`, and both Notenfuchs (`:8080`) and Pocket ID (`:1411`)
+are reached over plain HTTP on that host. If you're hosting this for others, set
+`BASE_URL` to your real domain, put a reverse proxy with TLS in front of both ports,
+and set `TRUST_PROXY=true` in `.env` so Pocket ID trusts the proxy's forwarded-for
+headers.
+
+Pocket ID is entirely optional - the OIDC wiring is provider-agnostic (see above), so
+you can point `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` at Clerk,
+Keycloak, Authentik, or any other standards-compliant provider instead and skip the
+`pocket-id` / `pocket-id-bootstrap` services in `docker-compose.yml` entirely.
 
 ### Setting up Clerk
 
