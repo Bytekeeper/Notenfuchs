@@ -3,6 +3,27 @@
 
 <div class="breadcrumbs"><a href="/classes">Klassen</a> / {schoolClass.name}</div>
 <h1>{schoolClass.name} <small style="color: var(--color-text-muted); font-weight: 400;">({schoolClass.schoolYear})</small></h1>
+{#if predecessorClass}
+    <p class="hint">Nachfolger von <a href="/classes/{predecessorClass.id}">{predecessorClass.name}</a></p>
+{/if}
+
+<section>
+    <h2>Schuljahreswechsel</h2>
+    <div class="card">
+        <p class="hint">Legt eine neue Klasse mit denselben Fächern, Kategorien und Schülern an (ohne Leistungen/Noten) - z. B. beim Übergang 8b → 9b. Diese Klasse bleibt unverändert und weiter bearbeitbar.</p>
+        <form class="inline-form" method="post" action="/classes/{schoolClass.id}/duplicate">
+            <div class="form-field">
+                <label for="newClassName">Neuer Klassenname</label>
+                <input type="text" id="newClassName" name="name" placeholder="z. B. 9b" required>
+            </div>
+            <div class="form-field">
+                <label for="newSchoolYear">Neues Schuljahr</label>
+                <input type="text" id="newSchoolYear" name="schoolYear" value="{schoolClass.schoolYear}" required>
+            </div>
+            <button type="submit">Ins neue Schuljahr übernehmen</button>
+        </form>
+    </div>
+</section>
 
 <div class="section-columns">
     <section>

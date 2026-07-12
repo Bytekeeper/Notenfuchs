@@ -3,6 +3,9 @@ package de.notenfuchs.domain;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 
@@ -28,4 +31,15 @@ public class SchoolClass extends PanacheEntity {
     @NotBlank
     @Column(name = "owner_subject", nullable = false)
     public String ownerSubject;
+
+    /**
+     * Optional link to the {@link SchoolClass} this one was duplicated from - see the
+     * "copy class into a new school year" action ({@code ClassUiResource#duplicate}). Purely
+     * informational (e.g. future trend features); never used for access control or locking.
+     * The FK is {@code ON DELETE SET NULL}: deleting the predecessor must not be blocked by,
+     * or cascade into, a class that was only ever derived from it.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "predecessor_class_id")
+    public SchoolClass predecessorClass;
 }

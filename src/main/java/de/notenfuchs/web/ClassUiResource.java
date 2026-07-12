@@ -1,5 +1,6 @@
 package de.notenfuchs.web;
 
+import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
@@ -99,10 +100,77 @@ public class ClassUiResource {
         List<GradeScale> gradeScales = GradeScale.listAll();
         return withUser(detailTemplate
                 .data("schoolClass", schoolClass)
+                .data("predecessorClass", classWithPredecessorFetched(id).predecessorClass)
                 .data("subjects", subjects)
                 .data("students", students)
                 .data("gradeScales", gradeScales)
                 .data("rosterImportResult", rosterImportResult));
+    }
+
+    /**
+     * Copies a class into a new school year (e.g. 8b -> 9b): a new {@link SchoolClass} owned
+     * by the current teacher, with the source's Subjects (+ their GradeCategories) and
+     * Students copied over as an editable starting point. Assessments and Grades are
+     * deliberately NOT copied - fresh start for the new year. The source class is left
+     * completely untouched and stays a normal, editable class (no locking/archiving anywhere -
+     * see ROADMAP.md's design principle).
+     */
+    @POST
+    @Path("/{id}/duplicate")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response duplicate(@PathParam("id") Long id,
+                               @FormParam("name") String name,
+                               @FormParam("schoolYear") String schoolYear) {
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass source = guard.requireOwnedClass(id, currentSubject);
+
+        SchoolClass copy = new SchoolClass();
+        copy.name = name;
+        copy.schoolYear = schoolYear;
+        copy.ownerSubject = currentSubject;
+        copy.predecessorClass = source;
+        copy.persist();
+
+        List<Subject> sourceSubjects = Subject.list("schoolClass.id", id);
+        for (Subject sourceSubject : sourceSubjects) {
+            Subject subjectCopy = new Subject();
+            subjectCopy.schoolClass = copy;
+            subjectCopy.name = sourceSubject.name;
+            subjectCopy.gradeScale = sourceSubject.gradeScale;
+            subjectCopy.roundingMode = sourceSubject.roundingMode;
+            subjectCopy.persist();
+
+            List<GradeCategory> sourceCategories = GradeCategory.list("subject.id", sourceSubject.id);
+            for (GradeCategory sourceCategory : sourceCategories) {
+                GradeCategory categoryCopy = new GradeCategory();
+                categoryCopy.subject = subjectCopy;
+                categoryCopy.name = sourceCategory.name;
+                categoryCopy.weightPercent = sourceCategory.weightPercent;
+                categoryCopy.persist();
+            }
+        }
+
+        List<Student> sourceStudents = Student.list("schoolClass.id", id);
+        for (Student sourceStudent : sourceStudents) {
+            Student studentCopy = new Student();
+            studentCopy.schoolClass = copy;
+            studentCopy.name = sourceStudent.name;
+            studentCopy.displayName = sourceStudent.displayName;
+            studentCopy.persist();
+        }
+
+        return Response.seeOther(URI.create("/classes/" + copy.id)).build();
+    }
+
+    /**
+     * Fetch-joins {@code predecessorClass} for the same reason {@link #subjectsWithGradeScale}
+     * does for {@code gradeScale}: the async Qute render happens after this method's
+     * persistence context is gone, so only an eagerly-fetched association survives into it.
+     */
+    private SchoolClass classWithPredecessorFetched(Long id) {
+        return SchoolClass.find("from SchoolClass c left join fetch c.predecessorClass where c.id = ?1", id)
+                .firstResult();
     }
 
     @POST
