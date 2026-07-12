@@ -20,15 +20,22 @@ import java.util.Optional;
  * {@link #isAuthenticated()} simply returns {@code false} and the other accessors
  * return empty values - callers must be null/empty-safe.
  *
- * <p><b>Future per-teacher data scoping:</b> once the domain model gains an "owner"
- * concept (e.g. a {@code Teacher} entity or an {@code ownerSubject} column on
- * {@code SchoolClass}), {@link #subject()} is the value to key that ownership on -
- * it is the stable, unique OIDC subject claim. That is the natural hook point for
- * filtering queries like {@code SchoolClass.list(...)} by the current teacher; no
- * change to this class should be needed to support that, only call sites that use it.
+ * <p><b>Per-teacher data scoping:</b> {@code SchoolClass.ownerSubject} is keyed on
+ * {@link #subject()} - it is the stable, unique OIDC subject claim. {@link #effectiveSubject()}
+ * is the method call sites should actually use for ownership checks (see
+ * {@link de.notenfuchs.security.OwnershipGuard}), since it also covers the %dev/%test bypass.
  */
 @RequestScoped
 public class CurrentUser {
+
+    /**
+     * Fixed placeholder subject used by {@link #effectiveSubject()} when there is no
+     * authenticated session - i.e. in the %dev/%test profiles, where the OIDC tenant is
+     * disabled (see {@code application.properties}) and {@link #subject()} is always empty.
+     * Keeps ownership working locally/in tests without a real IdP, and is also what the
+     * V2 migration backfills pre-existing {@code SchoolClass} rows to.
+     */
+    public static final String DEV_USER_SUBJECT = "dev-user";
 
     @Inject
     SecurityIdentity identity;
@@ -61,6 +68,16 @@ public class CurrentUser {
             return Optional.empty();
         }
         return Optional.ofNullable(identity.getPrincipal() != null ? identity.getPrincipal().getName() : null);
+    }
+
+    /**
+     * The subject to use for ownership checks: {@link #subject()} if authenticated, otherwise
+     * the fixed {@link #DEV_USER_SUBJECT} placeholder. Every call site that scopes data by
+     * owning teacher (see {@link OwnershipGuard}) should go through this, not {@link #subject()}
+     * directly, so local dev/test (OIDC disabled) still gets consistent ownership.
+     */
+    public String effectiveSubject() {
+        return subject().orElse(DEV_USER_SUBJECT);
     }
 
     /**

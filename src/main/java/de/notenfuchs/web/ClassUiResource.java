@@ -6,6 +6,7 @@ import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CsvRosterService;
 import de.notenfuchs.service.RosterParseResult;
 import io.quarkus.qute.Location;
@@ -55,6 +56,9 @@ public class ClassUiResource {
     CurrentUser currentUser;
 
     @Inject
+    OwnershipGuard guard;
+
+    @Inject
     @Location("ClassPage/list.html")
     Template listTemplate;
 
@@ -81,7 +85,7 @@ public class ClassUiResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
-        return withUser(listTemplate.data("classes", SchoolClass.listAll()));
+        return withUser(listTemplate.data("classes", guard.listOwnedClasses(currentUser.effectiveSubject())));
     }
 
     @GET
@@ -89,7 +93,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id,
                                     @QueryParam("rosterImportResult") String rosterImportResult) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         List<Subject> subjects = Subject.list("schoolClass.id", id);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<GradeScale> gradeScales = GradeScale.listAll();
@@ -106,11 +110,13 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public TemplateInstance create(@FormParam("name") String name, @FormParam("schoolYear") String schoolYear) {
+        String subject = currentUser.effectiveSubject();
         SchoolClass entity = new SchoolClass();
         entity.name = name;
         entity.schoolYear = schoolYear;
+        entity.ownerSubject = subject;
         entity.persist();
-        return classListFragment.data("classes", SchoolClass.listAll());
+        return classListFragment.data("classes", guard.listOwnedClasses(subject));
     }
 
     @DELETE
@@ -118,9 +124,10 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Transactional
     public TemplateInstance delete(@PathParam("id") Long id) {
-        SchoolClass entity = findClassOrNotFound(id);
+        String subject = currentUser.effectiveSubject();
+        SchoolClass entity = guard.requireOwnedClass(id, subject);
         entity.delete();
-        return classListFragment.data("classes", SchoolClass.listAll());
+        return classListFragment.data("classes", guard.listOwnedClasses(subject));
     }
 
     @PATCH
@@ -129,11 +136,12 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name) {
-        SchoolClass entity = findClassOrNotFound(id);
+        String subject = currentUser.effectiveSubject();
+        SchoolClass entity = guard.requireOwnedClass(id, subject);
         if (name != null && !name.isBlank()) {
             entity.name = name;
         }
-        return classListFragment.data("classes", SchoolClass.listAll());
+        return classListFragment.data("classes", guard.listOwnedClasses(subject));
     }
 
     @POST
@@ -144,7 +152,7 @@ public class ClassUiResource {
     public TemplateInstance addStudent(@PathParam("id") Long id,
                                         @FormParam("name") String name,
                                         @FormParam("displayName") String displayName) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         Student student = new Student();
         student.schoolClass = schoolClass;
         student.name = name;
@@ -159,11 +167,10 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Transactional
     public TemplateInstance deleteStudent(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
-        Student student = Student.findById(studentId);
-        if (student != null) {
-            student.delete();
-        }
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireOwnedClass(id, subject);
+        Student student = guard.requireOwnedStudent(studentId, subject);
+        student.delete();
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }
@@ -175,11 +182,9 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance renameStudent(@PathParam("id") Long id, @PathParam("studentId") Long studentId,
                                            @FormParam("name") String name) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
-        Student student = Student.findById(studentId);
-        if (student == null) {
-            throw new NotFoundException("Student " + studentId + " not found");
-        }
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireOwnedClass(id, subject);
+        Student student = guard.requireOwnedStudent(studentId, subject);
         if (name != null && !name.isBlank()) {
             student.name = name;
         }
@@ -196,7 +201,7 @@ public class ClassUiResource {
     @Path("/{id}/roster/export")
     @Produces("text/csv; charset=UTF-8")
     public Response exportRoster(@PathParam("id") Long id) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<String> names = students.stream().map(s -> s.name).toList();
         byte[] csv = csvRosterService.format(names);
@@ -222,7 +227,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public TemplateInstance previewRosterImport(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         if (file == null) {
             throw new BadRequestException("Keine Datei hochgeladen");
         }
@@ -266,7 +271,7 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public Response confirmRosterImport(@PathParam("id") Long id, @FormParam("names") List<String> submittedNames) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         Set<String> seenNames = existingStudentNames(id);
 
         int created = 0;
@@ -317,7 +322,7 @@ public class ClassUiResource {
                                         @FormParam("name") String name,
                                         @FormParam("gradeScaleId") Long gradeScaleId,
                                         @FormParam("roundingMode") String roundingMode) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         GradeScale gradeScale = GradeScale.findById(gradeScaleId);
         if (gradeScale == null) {
             throw new NotFoundException("GradeScale " + gradeScaleId + " not found");
@@ -339,11 +344,10 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Transactional
     public TemplateInstance deleteSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
-        Subject subject = Subject.findById(subjectId);
-        if (subject != null) {
-            subject.delete();
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentSubject);
+        Subject subject = guard.requireOwnedSubject(subjectId, currentSubject);
+        subject.delete();
         List<Subject> subjects = subjectsWithGradeScale(id);
         return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
     }
@@ -355,11 +359,9 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance renameSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId,
                                            @FormParam("name") String name) {
-        SchoolClass schoolClass = findClassOrNotFound(id);
-        Subject subject = Subject.findById(subjectId);
-        if (subject == null) {
-            throw new NotFoundException("Subject " + subjectId + " not found");
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentSubject);
+        Subject subject = guard.requireOwnedSubject(subjectId, currentSubject);
         if (name != null && !name.isBlank()) {
             subject.name = name;
         }
@@ -375,14 +377,6 @@ public class ClassUiResource {
      */
     private List<Subject> subjectsWithGradeScale(Long schoolClassId) {
         return Subject.find("from Subject s join fetch s.gradeScale where s.schoolClass.id = ?1", schoolClassId).list();
-    }
-
-    private SchoolClass findClassOrNotFound(Long id) {
-        SchoolClass entity = SchoolClass.findById(id);
-        if (entity == null) {
-            throw new NotFoundException("SchoolClass " + id + " not found");
-        }
-        return entity;
     }
 
     private TemplateInstance withUser(TemplateInstance instance) {

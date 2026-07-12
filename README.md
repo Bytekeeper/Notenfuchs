@@ -65,6 +65,11 @@ runs as a Failsafe integration test (`./mvnw verify`, not `./mvnw test`), since 
 Docker: both the browser (Playwright's Dev Services container) and PostgreSQL
 (Testcontainers Dev Services) run in containers, no local browser install required.
 
+`OwnershipGuardIT` (`src/test/java/de/notenfuchs/security`) is also a Failsafe integration
+test (needs Docker for its Testcontainers Postgres, no browser involved) that seeds
+`SchoolClass` rows with different `ownerSubject` values and asserts cross-tenant isolation
+directly against `OwnershipGuard` - see "Per-teacher data ownership" above.
+
 ## The grade model
 
 - **GradeScale**: defines a grading scale (`min`, `max`, and `lowerIsBetter`). The
@@ -182,13 +187,35 @@ it outside local development.
 ### User identity in code
 
 `de.notenfuchs.security.CurrentUser` (request-scoped bean) exposes the logged-in
-user's OIDC subject, email, and display name for use in REST resources or (later)
-Qute templates - see the Javadoc on that class for details, including where a
-future per-teacher data-scoping hook would attach.
+user's OIDC subject, email, and display name for use in REST resources or Qute
+templates - see the Javadoc on that class for details. `CurrentUser.effectiveSubject()`
+is the value actually used for per-teacher data ownership (see below).
+
+### Per-teacher data ownership
+
+Authentication (above) proves *who* is logged in; ownership is a separate layer that
+makes sure each teacher only ever sees and touches their **own** classes. There are no
+roles and no sharing between teachers - just single-tenant isolation per OIDC identity.
+
+- `SchoolClass.ownerSubject` (the owning teacher's OIDC `sub`) is the ownership root.
+  `Student`, `Subject`, `GradeCategory`, `Assessment`, and `Grade` don't carry their own
+  owner column - they're scoped by walking up to their `SchoolClass`. `GradeScale` is
+  shared reference data, not owned by anyone.
+- `de.notenfuchs.security.OwnershipGuard` is the single place this is enforced. Every
+  REST/web endpoint that reads or writes an entity by id resolves it through one of its
+  `requireOwned*` methods; a foreign class/subject/student/etc. and an unknown id both
+  come back as a plain **404**, deliberately indistinguishable, so a teacher can't tell
+  "doesn't exist" apart from "isn't yours". List endpoints (e.g. `GET /api/school-classes`)
+  are filtered to the current teacher rather than returning everyone's data.
+- In `%dev`/`%test`, where OIDC is disabled (see above), `CurrentUser.effectiveSubject()`
+  falls back to a fixed `"dev-user"` subject, so ownership still works locally and in
+  tests without a real login.
 
 ## REST API
 
-All endpoints are under `/api`:
+All endpoints are under `/api` and scoped to the logged-in teacher (see "Per-teacher
+data ownership" above) - list endpoints only return that teacher's data, and a foreign
+or unknown id returns 404:
 
 - `GET/POST /api/school-classes`, `GET/PUT/DELETE /api/school-classes/{id}`
 - `GET/POST /api/students`, `GET/PUT/DELETE /api/students/{id}` (filter list with `?schoolClassId=`)
@@ -196,7 +223,7 @@ All endpoints are under `/api`:
 - `GET/POST /api/grade-categories`, `GET/PUT/DELETE /api/grade-categories/{id}` (filter with `?subjectId=`)
 - `GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{id}` (filter with `?categoryId=`)
 - `GET/POST /api/grades`, `GET/PUT/DELETE /api/grades/{id}` (filter with `?studentId=` / `?assessmentId=`)
-- `GET /api/grade-scales`, `GET /api/grade-scales/{id}` (read-only)
+- `GET /api/grade-scales`, `GET /api/grade-scales/{id}` (read-only, shared across all teachers)
 - `GET /api/school-classes/{classId}/averages` - computed raw average + final grade for
   every student x subject combination in that class
 

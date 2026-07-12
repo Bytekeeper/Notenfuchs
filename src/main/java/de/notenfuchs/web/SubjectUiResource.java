@@ -4,6 +4,7 @@ import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.security.OwnershipGuard;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -13,7 +14,6 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -37,6 +37,9 @@ public class SubjectUiResource {
     CurrentUser currentUser;
 
     @Inject
+    OwnershipGuard guard;
+
+    @Inject
     @Location("SubjectPage/detail.html")
     Template detailTemplate;
 
@@ -48,7 +51,7 @@ public class SubjectUiResource {
     @Path("/{id}")
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id) {
-        Subject subject = findSubjectOrNotFound(id);
+        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
         CategoryListData data = categoryListData(id);
         return withUser(detailTemplate
                 .data("subject", subject)
@@ -65,7 +68,7 @@ public class SubjectUiResource {
     public TemplateInstance addCategory(@PathParam("id") Long id,
                                          @FormParam("name") String name,
                                          @FormParam("weightPercent") BigDecimal weightPercent) {
-        Subject subject = findSubjectOrNotFound(id);
+        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
         GradeCategory category = new GradeCategory();
         category.subject = subject;
         category.name = name;
@@ -79,11 +82,10 @@ public class SubjectUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Transactional
     public TemplateInstance deleteCategory(@PathParam("id") Long id, @PathParam("categoryId") Long categoryId) {
-        Subject subject = findSubjectOrNotFound(id);
-        GradeCategory category = GradeCategory.findById(categoryId);
-        if (category != null) {
-            category.delete();
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
+        category.delete();
         return categoryFragment(subject);
     }
 
@@ -95,11 +97,9 @@ public class SubjectUiResource {
     public TemplateInstance renameCategory(@PathParam("id") Long id, @PathParam("categoryId") Long categoryId,
                                             @FormParam("name") String name,
                                             @FormParam("weightPercent") BigDecimal weightPercent) {
-        Subject subject = findSubjectOrNotFound(id);
-        GradeCategory category = GradeCategory.findById(categoryId);
-        if (category == null) {
-            throw new NotFoundException("GradeCategory " + categoryId + " not found");
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
         if (name != null && !name.isBlank()) {
             category.name = name;
         }
@@ -119,11 +119,9 @@ public class SubjectUiResource {
                                            @FormParam("name") String name,
                                            @FormParam("date") LocalDate date,
                                            @FormParam("factor") BigDecimal factor) {
-        Subject subject = findSubjectOrNotFound(id);
-        GradeCategory category = GradeCategory.findById(categoryId);
-        if (category == null) {
-            throw new NotFoundException("GradeCategory " + categoryId + " not found");
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
         Assessment assessment = new Assessment();
         assessment.category = category;
         assessment.name = name;
@@ -140,11 +138,10 @@ public class SubjectUiResource {
     public TemplateInstance deleteAssessment(@PathParam("id") Long id,
                                               @PathParam("categoryId") Long categoryId,
                                               @PathParam("assessmentId") Long assessmentId) {
-        Subject subject = findSubjectOrNotFound(id);
-        Assessment assessment = Assessment.findById(assessmentId);
-        if (assessment != null) {
-            assessment.delete();
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
+        assessment.delete();
         return categoryFragment(subject);
     }
 
@@ -158,11 +155,9 @@ public class SubjectUiResource {
                                               @PathParam("assessmentId") Long assessmentId,
                                               @FormParam("name") String name,
                                               @FormParam("factor") BigDecimal factor) {
-        Subject subject = findSubjectOrNotFound(id);
-        Assessment assessment = Assessment.findById(assessmentId);
-        if (assessment == null) {
-            throw new NotFoundException("Assessment " + assessmentId + " not found");
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
         if (name != null && !name.isBlank()) {
             assessment.name = name;
         }
@@ -187,11 +182,9 @@ public class SubjectUiResource {
                                                   @PathParam("categoryId") Long categoryId,
                                                   @PathParam("assessmentId") Long assessmentId,
                                                   @FormParam("date") LocalDate date) {
-        Subject subject = findSubjectOrNotFound(id);
-        Assessment assessment = Assessment.findById(assessmentId);
-        if (assessment == null) {
-            throw new NotFoundException("Assessment " + assessmentId + " not found");
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
         assessment.date = date;
         return categoryFragment(subject);
     }
@@ -243,14 +236,6 @@ public class SubjectUiResource {
      * since Qute can only navigate properties/getters that actually exist on the entity.
      */
     public record CategoryView(Long id, String name, BigDecimal weightPercent, List<Assessment> assessments) {
-    }
-
-    private Subject findSubjectOrNotFound(Long id) {
-        Subject entity = Subject.findById(id);
-        if (entity == null) {
-            throw new NotFoundException("Subject " + id + " not found");
-        }
-        return entity;
     }
 
     private TemplateInstance withUser(TemplateInstance instance) {

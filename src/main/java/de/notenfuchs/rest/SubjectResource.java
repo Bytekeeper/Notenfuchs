@@ -2,9 +2,11 @@ package de.notenfuchs.rest;
 
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.RoundingMode;
-import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.dto.SubjectRequest;
+import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.security.OwnershipGuard;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -18,25 +20,33 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class SubjectResource {
 
+    @Inject
+    CurrentUser currentUser;
+
+    @Inject
+    OwnershipGuard guard;
+
     @GET
     public List<Subject> list(@QueryParam("schoolClassId") Long schoolClassId) {
+        String subject = currentUser.effectiveSubject();
         if (schoolClassId != null) {
+            guard.requireOwnedClass(schoolClassId, subject);
             return Subject.list("schoolClass.id", schoolClassId);
         }
-        return Subject.listAll();
+        return Subject.list("schoolClass.ownerSubject", subject);
     }
 
     @GET
     @Path("/{id}")
     public Subject get(@PathParam("id") Long id) {
-        return findOrNotFound(id);
+        return guard.requireOwnedSubject(id, currentUser.effectiveSubject());
     }
 
     @POST
     @Transactional
     public Response create(@Valid SubjectRequest request) {
         Subject entity = new Subject();
-        entity.schoolClass = findSchoolClassOrNotFound(request.schoolClassId);
+        entity.schoolClass = guard.requireOwnedClass(request.schoolClassId, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.gradeScale = findGradeScaleOrNotFound(request.gradeScaleId);
         entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.COMMERCIAL;
@@ -48,8 +58,9 @@ public class SubjectResource {
     @Path("/{id}")
     @Transactional
     public Subject update(@PathParam("id") Long id, @Valid SubjectRequest request) {
-        Subject entity = findOrNotFound(id);
-        entity.schoolClass = findSchoolClassOrNotFound(request.schoolClassId);
+        String subject = currentUser.effectiveSubject();
+        Subject entity = guard.requireOwnedSubject(id, subject);
+        entity.schoolClass = guard.requireOwnedClass(request.schoolClassId, subject);
         entity.name = request.name;
         entity.gradeScale = findGradeScaleOrNotFound(request.gradeScaleId);
         entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.COMMERCIAL;
@@ -60,25 +71,9 @@ public class SubjectResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        Subject entity = findOrNotFound(id);
+        Subject entity = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
-    }
-
-    private Subject findOrNotFound(Long id) {
-        Subject entity = Subject.findById(id);
-        if (entity == null) {
-            throw new NotFoundException("Subject " + id + " not found");
-        }
-        return entity;
-    }
-
-    private SchoolClass findSchoolClassOrNotFound(Long id) {
-        SchoolClass schoolClass = SchoolClass.findById(id);
-        if (schoolClass == null) {
-            throw new NotFoundException("SchoolClass " + id + " not found");
-        }
-        return schoolClass;
     }
 
     private GradeScale findGradeScaleOrNotFound(Long id) {

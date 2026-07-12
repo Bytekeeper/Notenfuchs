@@ -7,12 +7,14 @@ import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.dto.StudentSubjectAverageResponse;
+import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CategoryData;
 import de.notenfuchs.service.GradeData;
 import de.notenfuchs.service.GradeService;
 import de.notenfuchs.service.SubjectAverageResult;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -33,12 +35,15 @@ public class ClassAveragesResource {
 
     private final GradeService gradeService = new GradeService();
 
+    @Inject
+    CurrentUser currentUser;
+
+    @Inject
+    OwnershipGuard guard;
+
     @GET
     public List<StudentSubjectAverageResponse> averages(@PathParam("classId") Long classId) {
-        SchoolClass schoolClass = SchoolClass.findById(classId);
-        if (schoolClass == null) {
-            throw new NotFoundException("SchoolClass " + classId + " not found");
-        }
+        SchoolClass schoolClass = guard.requireOwnedClass(classId, currentUser.effectiveSubject());
 
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", classId);
         List<Subject> subjects = Subject.list("schoolClass.id", classId);

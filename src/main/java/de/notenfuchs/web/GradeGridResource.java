@@ -6,6 +6,7 @@ import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CategoryData;
 import de.notenfuchs.service.GradeData;
 import de.notenfuchs.service.GradeService;
@@ -18,7 +19,6 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -62,13 +62,16 @@ public class GradeGridResource {
     CurrentUser currentUser;
 
     @Inject
+    OwnershipGuard guard;
+
+    @Inject
     @Location("GridPage/grid.html")
     Template gridTemplate;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance grid(@PathParam("id") Long id) {
-        Subject subject = findSubjectOrNotFound(id);
+        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
         GridData data = loadGridData(subject);
 
         return withUser(gridTemplate
@@ -86,7 +89,7 @@ public class GradeGridResource {
     @Path("/export")
     @Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public Response exportXlsx(@PathParam("id") Long id) {
-        Subject subject = findSubjectOrNotFound(id);
+        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
         GridData data = loadGridData(subject);
 
         byte[] xlsx = buildWorkbook(subject, data);
@@ -195,15 +198,10 @@ public class GradeGridResource {
                               @FormParam("studentId") Long studentId,
                               @FormParam("assessmentId") Long assessmentId,
                               @FormParam("value") String rawValue) {
-        Subject subject = findSubjectOrNotFound(id);
-        Student student = Student.findById(studentId);
-        if (student == null) {
-            throw new NotFoundException("Student " + studentId + " not found");
-        }
-        Assessment assessment = Assessment.findById(assessmentId);
-        if (assessment == null) {
-            throw new NotFoundException("Assessment " + assessmentId + " not found");
-        }
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        Student student = guard.requireOwnedStudent(studentId, currentSubject);
+        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
 
         Grade existing = Grade.find("assessment.id = ?1 and student.id = ?2", assessmentId, studentId).firstResult();
 
@@ -402,14 +400,6 @@ public class GradeGridResource {
 
     private static String effectiveName(Student student) {
         return student.displayName != null && !student.displayName.isBlank() ? student.displayName : student.name;
-    }
-
-    private Subject findSubjectOrNotFound(Long id) {
-        Subject entity = Subject.findById(id);
-        if (entity == null) {
-            throw new NotFoundException("Subject " + id + " not found");
-        }
-        return entity;
     }
 
     private TemplateInstance withUser(TemplateInstance instance) {

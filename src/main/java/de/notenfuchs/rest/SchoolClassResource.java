@@ -2,6 +2,9 @@ package de.notenfuchs.rest;
 
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.dto.SchoolClassRequest;
+import de.notenfuchs.security.CurrentUser;
+import de.notenfuchs.security.OwnershipGuard;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -15,15 +18,21 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class SchoolClassResource {
 
+    @Inject
+    CurrentUser currentUser;
+
+    @Inject
+    OwnershipGuard guard;
+
     @GET
     public List<SchoolClass> list() {
-        return SchoolClass.listAll();
+        return guard.listOwnedClasses(currentUser.effectiveSubject());
     }
 
     @GET
     @Path("/{id}")
     public SchoolClass get(@PathParam("id") Long id) {
-        return findOrNotFound(id);
+        return guard.requireOwnedClass(id, currentUser.effectiveSubject());
     }
 
     @POST
@@ -32,6 +41,7 @@ public class SchoolClassResource {
         SchoolClass entity = new SchoolClass();
         entity.name = request.name;
         entity.schoolYear = request.schoolYear;
+        entity.ownerSubject = currentUser.effectiveSubject();
         entity.persist();
         return Response.status(Response.Status.CREATED).entity(entity).build();
     }
@@ -40,7 +50,7 @@ public class SchoolClassResource {
     @Path("/{id}")
     @Transactional
     public SchoolClass update(@PathParam("id") Long id, @Valid SchoolClassRequest request) {
-        SchoolClass entity = findOrNotFound(id);
+        SchoolClass entity = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.schoolYear = request.schoolYear;
         return entity;
@@ -50,16 +60,8 @@ public class SchoolClassResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        SchoolClass entity = findOrNotFound(id);
+        SchoolClass entity = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
-    }
-
-    private SchoolClass findOrNotFound(Long id) {
-        SchoolClass entity = SchoolClass.findById(id);
-        if (entity == null) {
-            throw new NotFoundException("SchoolClass " + id + " not found");
-        }
-        return entity;
     }
 }
