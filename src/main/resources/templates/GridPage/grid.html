@@ -32,7 +32,7 @@
                             <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
                         {#else}
                             {#for a in cat.assessments}
-                                <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}</span></th>
+                                <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
                             {/for}
                         {/if}
                     {/for}
@@ -45,14 +45,29 @@
                         {#for cell in row.cells}
                             <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
                                 {#if cell.assessmentId}
-                                <input type="text"
-                                       inputmode="decimal"
-                                       class="grade-input"
-                                       data-row="{row.rowIndex}"
-                                       data-col="{cell.colIndex}"
-                                       data-student-id="{row.student.id}"
-                                       data-assessment-id="{cell.assessmentId}"
-                                       value="{cell.displayValue ?: ''}">
+                                    {#if cell.pointsBased}
+                                    <span class="points-cell">
+                                        <input type="text"
+                                               inputmode="decimal"
+                                               class="grade-input points-input"
+                                               data-row="{row.rowIndex}"
+                                               data-col="{cell.colIndex}"
+                                               data-student-id="{row.student.id}"
+                                               data-assessment-id="{cell.assessmentId}"
+                                               placeholder="Punkte"
+                                               value="{cell.displayValue ?: ''}">
+                                        <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                    </span>
+                                    {#else}
+                                    <input type="text"
+                                           inputmode="decimal"
+                                           class="grade-input"
+                                           data-row="{row.rowIndex}"
+                                           data-col="{cell.colIndex}"
+                                           data-student-id="{row.student.id}"
+                                           data-assessment-id="{cell.assessmentId}"
+                                           value="{cell.displayValue ?: ''}">
+                                    {/if}
                                 {/if}
                             </td>
                         {/for}
@@ -84,7 +99,8 @@
     <p class="grid-legend">
         Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
         Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
-        Zelle leeren + verlassen löscht die Note.
+        Zelle leeren + verlassen löscht die Note. Punktebasierte Leistungen: Punktzahl eingeben,
+        die Note wird automatisch nach dem Notenschlüssel berechnet und angezeigt (z. B. „65 → 1").
     </p>
 {/if}
 

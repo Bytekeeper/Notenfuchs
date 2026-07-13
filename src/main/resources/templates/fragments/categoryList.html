@@ -40,12 +40,19 @@
                                         <div class="rename-wrap">
                                             <span class="rename-view">
                                                 <span class="rename-display">{a.name}</span>
-                                                <span class="hint">(Faktor {a.factor})</span>
+                                                <span class="hint">(Faktor {a.factor}{#if a.pointsBased} · punktebasiert · Rundung: {a.roundingMode}{/if})</span>
                                                 <button type="button" class="rename-toggle" title="Umbenennen" aria-label="Umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
                                             </span>
                                             <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
                                                 <input type="text" name="name" value="{a.name}" required>
                                                 <input type="number" name="factor" step="0.01" min="0.01" value="{a.factor}" data-original="{a.factor}" required>
+                                                <label class="points-toggle-label"><input type="checkbox" name="pointsBased" value="true" {#if a.pointsBased}checked{/if} data-original="{a.pointsBased}"> Punkte</label>
+                                                <label class="points-toggle-label">Rundung
+                                                    <select name="roundingMode" data-original="{a.roundingMode.name}">
+                                                        <option value="IN_FAVOR_OF_STUDENT" {#if a.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
+                                                        <option value="COMMERCIAL" {#if a.roundingMode.name == 'COMMERCIAL'}selected{/if}>Kaufmännisch</option>
+                                                    </select>
+                                                </label>
                                                 <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
                                                 <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
                                             </form>
@@ -70,6 +77,54 @@
                                         </form>
                                     </td>
                                 </tr>
+                                {#if a.pointsBased}
+                                <tr class="bands-row">
+                                    <td colspan="3">
+                                        <div class="points-config">
+                                            <span class="hint">Notenschlüssel für „{a.name}"</span>
+                                            <table class="entity-list bands-table">
+                                                <thead>
+                                                    <tr><th>ab Punkten</th><th>Note</th><th></th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {#if a.bands.isEmpty}
+                                                        <tr class="empty-row"><td colspan="3">Noch keine Stufen definiert.</td></tr>
+                                                    {#else}
+                                                        {#for band in a.bands}
+                                                        <tr>
+                                                            <td colspan="2">
+                                                                <form class="inline-form band-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands/{band.id}" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                                                    <input type="number" name="minPoints" step="0.01" min="0" value="{band.minPoints}">
+                                                                    <span>Pkt. →</span>
+                                                                    <input type="number" name="gradeValue" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" value="{band.gradeValue}">
+                                                                    <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+                                                                </form>
+                                                            </td>
+                                                            <td>
+                                                                <form hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands/{band.id}" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                                                    <button type="submit" class="delete-btn">Löschen</button>
+                                                                </form>
+                                                            </td>
+                                                        </tr>
+                                                        {/for}
+                                                    {/if}
+                                                </tbody>
+                                            </table>
+                                            <form class="inline-form" hx-post="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                                                <div class="form-field">
+                                                    <label>ab Punkten</label>
+                                                    <input type="number" name="minPoints" step="0.01" min="0" required>
+                                                </div>
+                                                <div class="form-field">
+                                                    <label>Note</label>
+                                                    <input type="number" name="gradeValue" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" required>
+                                                </div>
+                                                <button type="submit">Stufe hinzufügen</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {/if}
                             {/for}
                         {/if}
                     </tbody>
@@ -87,6 +142,16 @@
                     <div class="form-field">
                         <label>Faktor</label>
                         <input type="number" name="factor" step="0.01" min="0.01" value="1.0">
+                    </div>
+                    <div class="form-field checkbox-field">
+                        <label><input type="checkbox" name="pointsBased" value="true"> Punktebasiert</label>
+                    </div>
+                    <div class="form-field">
+                        <label>Rundung (bei Punkten)</label>
+                        <select name="roundingMode">
+                            <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
+                            <option value="COMMERCIAL">Kaufmännisch</option>
+                        </select>
                     </div>
                     <button type="submit">Leistung hinzufügen</button>
                 </form>

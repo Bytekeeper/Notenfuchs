@@ -3,6 +3,8 @@ package de.notenfuchs.web;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
+import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.PointsGradeBand;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
@@ -10,6 +12,8 @@ import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CategoryData;
 import de.notenfuchs.service.GradeData;
 import de.notenfuchs.service.GradeService;
+import de.notenfuchs.service.PointsConversionService;
+import de.notenfuchs.service.PointsGradeBandData;
 import de.notenfuchs.service.SubjectAverageResult;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
@@ -41,7 +45,9 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The headline feature: an Excel-like grade-entry grid for a subject (students as rows,
@@ -52,11 +58,18 @@ import java.util.List;
  * persisted via {@link #saveCell} - a small JSON endpoint called from
  * {@code static/js/notenfuchs.js} (plain fetch, not an HTMX swap, since we need
  * fine-grained keyboard-driven navigation that HTMX's declarative triggers don't fit well).
+ *
+ * <p>A points-based {@link Assessment}'s column accepts raw points instead of a direct grade
+ * value; the grade shown/used everywhere (cell indicator, row/column averages, .xlsx export)
+ * is derived live via {@link PointsConversionService} from the stored {@link Grade#points} -
+ * never frozen - so editing either the points or the assessment's Notenschlüssel bands
+ * recomputes the grade automatically (see ROADMAP.md's anti-freeze design principle).
  */
 @Path("/subjects/{id}/grid")
 public class GradeGridResource {
 
     private final GradeService gradeService = new GradeService();
+    private final PointsConversionService pointsConversionService = new PointsConversionService();
 
     @Inject
     CurrentUser currentUser;
@@ -116,6 +129,13 @@ public class GradeGridResource {
             allAssessments.addAll(assessments);
         }
 
+        Map<Long, List<PointsGradeBandData>> bandsByAssessment = new HashMap<>();
+        for (Assessment assessment : allAssessments) {
+            if (assessment.pointsBased) {
+                bandsByAssessment.put(assessment.id, bandData(assessment));
+            }
+        }
+
         List<List<BigDecimal>> columnValues = new ArrayList<>();
         for (int i = 0; i < allAssessments.size(); i++) {
             columnValues.add(new ArrayList<>());
@@ -133,7 +153,7 @@ public class GradeGridResource {
                     // placeholder column, otherwise its header colspan (0, browser-coerced to 1)
                     // desyncs from the body/footer rows and every column after it - including the
                     // average column - shifts left by one.
-                    cells.add(new CellView(colIndex, null, true, null));
+                    cells.add(new CellView(colIndex, null, true, null, false, null));
                     categoryDataList.add(new CategoryData(cc.category().weightPercent, List.of()));
                     continue;
                 }
@@ -142,12 +162,26 @@ public class GradeGridResource {
                 for (Assessment assessment : cc.assessments()) {
                     Grade grade = Grade.find("assessment.id = ?1 and student.id = ?2",
                             assessment.id, student.id).firstResult();
-                    String displayValue = grade != null ? plain(grade.value) : null;
-                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue));
-                    if (grade != null) {
-                        gradeDataList.add(new GradeData(grade.value, assessment.factor));
-                        columnValues.get(colIndex).add(grade.value);
+                    String displayValue;
+                    String derivedDisplay = null;
+                    if (assessment.pointsBased) {
+                        displayValue = grade != null && grade.points != null ? plain(grade.points) : null;
+                        if (grade != null && grade.points != null) {
+                            BigDecimal derived = pointsConversionService.convert(grade.points,
+                                    bandsByAssessment.get(assessment.id), subject.gradeScale, assessment.roundingMode);
+                            derivedDisplay = plain(derived);
+                            gradeDataList.add(new GradeData(derived, assessment.factor));
+                            columnValues.get(colIndex).add(derived);
+                        }
+                    } else {
+                        displayValue = grade != null ? plain(grade.value) : null;
+                        if (grade != null) {
+                            gradeDataList.add(new GradeData(grade.value, assessment.factor));
+                            columnValues.get(colIndex).add(grade.value);
+                        }
                     }
+                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue,
+                            assessment.pointsBased, derivedDisplay));
                     categoryStart = false;
                     colIndex++;
                 }
@@ -213,39 +247,57 @@ public class GradeGridResource {
             return Response.ok(averagePayload(subject, student, assessment, null)).build();
         }
 
-        BigDecimal value;
+        BigDecimal enteredValue;
         try {
             // Accept German comma decimals too, in case a client bypasses the JS normalization.
-            value = new BigDecimal(trimmed.replace(",", "."));
+            enteredValue = new BigDecimal(trimmed.replace(",", "."));
         } catch (NumberFormatException e) {
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Ungültiger Notenwert: '" + rawValue + "'")
+                    .entity(assessment.pointsBased ? "Ungültiger Punktwert: '" + rawValue + "'"
+                            : "Ungültiger Notenwert: '" + rawValue + "'")
                     .build();
         }
 
-        BigDecimal min = subject.gradeScale.min;
-        BigDecimal max = subject.gradeScale.max;
-        if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Note muss zwischen " + plain(min) + " und " + plain(max) + " liegen")
-                    .build();
-        }
-
-        if (existing != null) {
-            existing.value = value;
+        if (assessment.pointsBased) {
+            if (enteredValue.compareTo(BigDecimal.ZERO) < 0) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Punkte dürfen nicht negativ sein").build();
+            }
+            if (existing != null) {
+                existing.points = enteredValue;
+                existing.value = null;
+            } else {
+                Grade grade = new Grade();
+                grade.assessment = assessment;
+                grade.student = student;
+                grade.points = enteredValue;
+                grade.persist();
+            }
         } else {
-            Grade grade = new Grade();
-            grade.assessment = assessment;
-            grade.student = student;
-            grade.value = value;
-            grade.persist();
+            BigDecimal min = subject.gradeScale.min;
+            BigDecimal max = subject.gradeScale.max;
+            if (enteredValue.compareTo(min) < 0 || enteredValue.compareTo(max) > 0) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Note muss zwischen " + plain(min) + " und " + plain(max) + " liegen")
+                        .build();
+            }
+            if (existing != null) {
+                existing.value = enteredValue;
+                existing.points = null;
+            } else {
+                Grade grade = new Grade();
+                grade.assessment = assessment;
+                grade.student = student;
+                grade.value = enteredValue;
+                grade.persist();
+            }
         }
 
-        return Response.ok(averagePayload(subject, student, assessment, value)).build();
+        return Response.ok(averagePayload(subject, student, assessment, enteredValue)).build();
     }
 
     private CellSaveResponse averagePayload(Subject subject, Student student, Assessment assessment,
-                                             BigDecimal savedValue) {
+                                             BigDecimal enteredValue) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
         List<CategoryData> categoryDataList = new ArrayList<>();
         for (GradeCategory category : categories) {
@@ -254,8 +306,9 @@ public class GradeGridResource {
             for (Assessment a : assessments) {
                 Grade grade = Grade.find("assessment.id = ?1 and student.id = ?2",
                         a.id, student.id).firstResult();
-                if (grade != null) {
-                    gradeDataList.add(new GradeData(grade.value, a.factor));
+                BigDecimal effectiveValue = grade != null ? effectiveGradeValue(grade, a, subject.gradeScale) : null;
+                if (effectiveValue != null) {
+                    gradeDataList.add(new GradeData(effectiveValue, a.factor));
                 }
             }
             categoryDataList.add(new CategoryData(category.weightPercent, gradeDataList));
@@ -264,16 +317,46 @@ public class GradeGridResource {
                 categoryDataList, subject.gradeScale, subject.roundingMode);
 
         List<Grade> assessmentGrades = Grade.list("assessment.id", assessment.id);
-        List<BigDecimal> assessmentValues = assessmentGrades.stream().map(g -> g.value).toList();
+        List<BigDecimal> assessmentValues = assessmentGrades.stream()
+                .map(g -> effectiveGradeValue(g, assessment, subject.gradeScale))
+                .filter(java.util.Objects::nonNull)
+                .toList();
         SubjectAverageResult assessmentAverage = gradeService.calculateAssessmentAverage(
                 assessmentValues, subject.gradeScale, subject.roundingMode);
 
-        String displayValue = savedValue != null ? plain(savedValue) : "";
+        String displayValue = enteredValue != null ? plain(enteredValue) : "";
+        String derivedGradeDisplay = null;
+        if (assessment.pointsBased && enteredValue != null) {
+            BigDecimal derived = pointsConversionService.convert(enteredValue,
+                    bandData(assessment), subject.gradeScale, assessment.roundingMode);
+            derivedGradeDisplay = plain(derived);
+        }
         String rawAverageStr = average.rawAverage() != null ? plain(average.rawAverage()) : null;
         String assessmentRawAverageStr = assessmentAverage.rawAverage() != null
                 ? plain(assessmentAverage.rawAverage()) : null;
         return new CellSaveResponse(displayValue, rawAverageStr, average.finalGrade(),
-                assessment.id, assessmentRawAverageStr, assessmentAverage.finalGrade());
+                assessment.id, assessmentRawAverageStr, assessmentAverage.finalGrade(), derivedGradeDisplay);
+    }
+
+    /**
+     * Resolves the grade value a {@link Grade} row actually contributes to averages: the
+     * directly-entered {@link Grade#value} for a normal assessment, or a live conversion of
+     * {@link Grade#points} via {@link PointsConversionService} for a points-based one - never a
+     * stored/frozen number, so editing the points or the bands is reflected immediately.
+     */
+    private BigDecimal effectiveGradeValue(Grade grade, Assessment assessment, GradeScale scale) {
+        if (assessment.pointsBased) {
+            if (grade.points == null) {
+                return null;
+            }
+            return pointsConversionService.convert(grade.points, bandData(assessment), scale, assessment.roundingMode);
+        }
+        return grade.value;
+    }
+
+    private List<PointsGradeBandData> bandData(Assessment assessment) {
+        List<PointsGradeBand> bands = PointsGradeBand.list("assessment.id", assessment.id);
+        return bands.stream().map(b -> new PointsGradeBandData(b.minPoints, b.gradeValue)).toList();
     }
 
     private static String plain(BigDecimal value) {
@@ -287,6 +370,10 @@ public class GradeGridResource {
      * column order (one entry per rendered column, including the single placeholder slot for
      * a category with no Leistungen yet - see the placeholder-column note in
      * {@link #grid(Long)}), so a plain list index maps 1:1 to a sheet column.
+     *
+     * <p>For a points-based cell, the exported number is the derived grade (not the raw
+     * points) - the same value the average columns already use - so the exported sheet stays
+     * numerically consistent for further spreadsheet calculations.
      */
     private byte[] buildWorkbook(Subject subject, GridData data) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
@@ -337,9 +424,10 @@ public class GradeGridResource {
                 xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
                 List<CellView> cells = row.cells();
                 for (int i = 0; i < cells.size(); i++) {
-                    String displayValue = cells.get(i).displayValue();
-                    if (displayValue != null) {
-                        xlsxRow.createCell(1 + i).setCellValue(new BigDecimal(displayValue).doubleValue());
+                    CellView cell = cells.get(i);
+                    String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
+                    if (exportValue != null) {
+                        xlsxRow.createCell(1 + i).setCellValue(new BigDecimal(exportValue).doubleValue());
                     }
                 }
                 if (row.rawAverage() != null) {
@@ -425,7 +513,14 @@ public class GradeGridResource {
     public record StudentView(Long id, String effectiveName) {
     }
 
-    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue) {
+    /**
+     * @param displayValue       the raw entered value: a direct grade for a normal assessment,
+     *                            or the raw points for a points-based one (never the derived grade)
+     * @param derivedGradeDisplay only set for a points-based assessment with a grade entered -
+     *                            the grade derived live from displayValue via the Notenschlüssel
+     */
+    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue,
+                            boolean pointsBased, String derivedGradeDisplay) {
     }
 
     public record RowView(int rowIndex, StudentView student, List<CellView> cells,
@@ -440,6 +535,7 @@ public class GradeGridResource {
     }
 
     public record CellSaveResponse(String displayValue, String rawAverage, Integer finalGrade,
-                                    Long assessmentId, String assessmentRawAverage, Integer assessmentFinalGrade) {
+                                    Long assessmentId, String assessmentRawAverage, Integer assessmentFinalGrade,
+                                    String derivedGradeDisplay) {
     }
 }

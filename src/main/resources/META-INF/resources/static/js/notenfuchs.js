@@ -118,6 +118,7 @@
                     }
                     updateAverageRow(studentId, data);
                     updateAssessmentAverage(data);
+                    updateDerivedGrade(input, data);
                 })
                 .catch(function (err) {
                     setState(input, "error");
@@ -135,6 +136,13 @@
             if (finalCell) {
                 finalCell.textContent = data.finalGrade != null ? data.finalGrade : "–";
             }
+        }
+
+        function updateDerivedGrade(input, data) {
+            if (!input.classList.contains("points-input")) return;
+            const indicator = input.parentElement.querySelector(".derived-grade");
+            if (!indicator) return;
+            indicator.textContent = data && data.derivedGradeDisplay ? "→ " + data.derivedGradeDisplay : "";
         }
 
         function updateAssessmentAverage(data) {
@@ -257,8 +265,12 @@
         }
         // Extra fields alongside the name (e.g. Gewichtung/Faktor) carry their pre-edit
         // value in data-original, since it can't be recovered from the display text.
-        wrap.querySelectorAll(".rename-form input[data-original]").forEach(function (extra) {
-            extra.value = extra.dataset.original;
+        wrap.querySelectorAll(".rename-form input[data-original], .rename-form select[data-original]").forEach(function (extra) {
+            if (extra.type === "checkbox") {
+                extra.checked = extra.dataset.original === "true";
+            } else {
+                extra.value = extra.dataset.original;
+            }
         });
     }
 

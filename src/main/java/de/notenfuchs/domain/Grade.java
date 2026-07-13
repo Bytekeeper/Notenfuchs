@@ -18,6 +18,13 @@ import java.math.BigDecimal;
  * so that switching or adding grading scales (e.g. a future 0-15 "Punkte" scale) never
  * requires a schema migration. Interpretation of the value (what counts as "best",
  * valid range, etc.) is entirely delegated to the Subject's associated GradeScale.
+ *
+ * <p>Exactly one of {@link #value} / {@link #points} is set, driven by whether the assessment
+ * is {@link Assessment#pointsBased}: a direct-entry assessment sets {@link #value} directly,
+ * while a points-based one sets {@link #points} (the raw points entered) and leaves
+ * {@link #value} null - the actual grade is derived live from the points plus the assessment's
+ * {@link PointsGradeBand}s rather than stored, so it never goes stale (see
+ * {@link de.notenfuchs.service.PointsConversionService}).
  */
 @Entity
 @Table(name = "grade")
@@ -33,7 +40,9 @@ public class Grade extends PanacheEntity {
     @JoinColumn(name = "student_id", nullable = false)
     public Student student;
 
-    @NotNull
-    @Column(nullable = false, precision = 4, scale = 2)
+    @Column(precision = 4, scale = 2)
     public BigDecimal value;
+
+    @Column(precision = 6, scale = 2)
+    public BigDecimal points;
 }

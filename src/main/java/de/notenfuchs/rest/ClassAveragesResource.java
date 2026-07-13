@@ -3,6 +3,8 @@ package de.notenfuchs.rest;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
+import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.PointsGradeBand;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
@@ -12,6 +14,8 @@ import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CategoryData;
 import de.notenfuchs.service.GradeData;
 import de.notenfuchs.service.GradeService;
+import de.notenfuchs.service.PointsConversionService;
+import de.notenfuchs.service.PointsGradeBandData;
 import de.notenfuchs.service.SubjectAverageResult;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -20,6 +24,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,6 +39,7 @@ import java.util.List;
 public class ClassAveragesResource {
 
     private final GradeService gradeService = new GradeService();
+    private final PointsConversionService pointsConversionService = new PointsConversionService();
 
     @Inject
     CurrentUser currentUser;
@@ -62,8 +68,10 @@ public class ClassAveragesResource {
                     for (Assessment assessment : assessments) {
                         Grade grade = Grade.find("assessment.id = ?1 and student.id = ?2",
                                 assessment.id, student.id).firstResult();
-                        if (grade != null) {
-                            gradeDataList.add(new GradeData(grade.value, assessment.factor));
+                        BigDecimal effectiveValue = grade != null
+                                ? effectiveGradeValue(grade, assessment, subject.gradeScale) : null;
+                        if (effectiveValue != null) {
+                            gradeDataList.add(new GradeData(effectiveValue, assessment.factor));
                         }
                     }
 
@@ -85,5 +93,24 @@ public class ClassAveragesResource {
 
     private static String effectiveName(Student student) {
         return student.displayName != null && !student.displayName.isBlank() ? student.displayName : student.name;
+    }
+
+    /**
+     * Resolves the grade value a {@link Grade} row actually contributes to the average: the
+     * directly-entered {@link Grade#value} for a normal assessment, or a live conversion of
+     * {@link Grade#points} via {@link PointsConversionService} for a points-based one - never a
+     * stored/frozen number, matching {@code GradeGridResource}'s equivalent helper.
+     */
+    private BigDecimal effectiveGradeValue(Grade grade, Assessment assessment, GradeScale scale) {
+        if (assessment.pointsBased) {
+            if (grade.points == null) {
+                return null;
+            }
+            List<PointsGradeBand> bands = PointsGradeBand.list("assessment.id", assessment.id);
+            List<PointsGradeBandData> bandData = bands.stream()
+                    .map(b -> new PointsGradeBandData(b.minPoints, b.gradeValue)).toList();
+            return pointsConversionService.convert(grade.points, bandData, scale, assessment.roundingMode);
+        }
+        return grade.value;
     }
 }

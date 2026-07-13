@@ -184,6 +184,145 @@ class GradeGridE2EIT {
         }
     }
 
+    @Test
+    void pointsBasedAssessmentAcceptsPointsAndShowsDerivedGrade() {
+        String unique = Long.toString(System.nanoTime());
+        String assessmentName = "E2E-Klausur-" + unique;
+        setUpSubjectWithPointsBasedGrid(unique, assessmentName);
+
+        Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
+        Locator derivedGrade = page.locator(".derived-grade");
+        Locator finalGrade = page.locator(".average-final");
+
+        assertThat(derivedGrade).hasText("");
+        assertThat(finalGrade).hasText("–");
+
+        // The default Notenschlüssel (60 -> 1, 20 -> 6) resolves 65 points to grade 1
+        // (meets the >=60 band).
+        pointsCell.fill("65");
+        pointsCell.evaluate("el => el.blur()");
+
+        assertThat(pointsCell).hasValue("65");
+        assertThat(derivedGrade).hasText("→ 1");
+        assertThat(finalGrade).hasText("1");
+        assertThat(page.locator(".average-raw")).hasText("1");
+
+        // Raw points (not the derived grade) must be what's persisted and redisplayed.
+        page.reload();
+        assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
+        assertThat(page.locator(".derived-grade")).hasText("→ 1");
+        assertThat(page.locator(".average-final")).hasText("1");
+    }
+
+    @Test
+    void editingNotenschluesselBandRecomputesDerivedGradeLive() {
+        // Anti-freeze design principle: the grade is derived live from points + bands, never
+        // frozen - so editing a band's grade value must change the already-entered student's
+        // grade without touching the stored points at all.
+        String unique = Long.toString(System.nanoTime());
+        String assessmentName = "E2E-Klausur-Live-" + unique;
+        setUpSubjectWithPointsBasedGrid(unique, assessmentName);
+
+        Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
+        pointsCell.fill("65");
+        pointsCell.evaluate("el => el.blur()");
+        assertThat(page.locator(".derived-grade")).hasText("→ 1");
+        assertThat(page.locator(".average-final")).hasText("1");
+
+        // Go back to the subject page (third breadcrumb link: Klassen / Klasse / Fach) and
+        // change the ">=60 points" band's grade from 1 to 2 - the default bands render
+        // best-to-worst, so this is the first band row.
+        page.locator(".breadcrumbs a").nth(2).click();
+
+        Locator bandForm = page.locator(".band-form").nth(0);
+        bandForm.locator("input[name='gradeValue']").fill("2");
+        bandForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        // The just-saved value renders back within the same request/transaction exactly as
+        // submitted (scale 0), not yet round-tripped through the DB's NUMERIC(4,2) column.
+        assertThat(bandForm.locator("input[name='gradeValue']")).hasValue("2");
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        // Same stored points (65), no re-entry - the derived grade must already reflect the
+        // updated band.
+        assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
+        assertThat(page.locator(".derived-grade")).hasText("→ 2");
+        assertThat(page.locator(".average-final")).hasText("2");
+    }
+
+    @Test
+    void changingAssessmentRoundingModeRecomputesDerivedGradeLive() {
+        // Same anti-freeze reasoning as editingNotenschluesselBandRecomputesDerivedGradeLive,
+        // but for the per-Leistung rounding mode instead of a band value: 30 points against the
+        // default bands (60 -> 1, 20 -> 6) interpolates to raw grade 4.75. The default rounding
+        // mode ("zugunsten des Schuelers") floors toward the better grade -> 4.7; switching the
+        // assessment to "kaufmaennisch" must recompute the same stored points to the standard
+        // half-up rounding -> 4.8, without touching the points at all.
+        String unique = Long.toString(System.nanoTime());
+        String assessmentName = "E2E-Klausur-Rundung-" + unique;
+        setUpSubjectWithPointsBasedGrid(unique, assessmentName);
+
+        Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
+        pointsCell.fill("30");
+        pointsCell.evaluate("el => el.blur()");
+        assertThat(page.locator(".derived-grade")).hasText("→ 4.7");
+
+        page.locator(".breadcrumbs a").nth(2).click();
+
+        Locator row = page.locator("table.entity-list tbody tr")
+                .filter(new Locator.FilterOptions().setHasText(assessmentName)).first();
+        Locator wrap = row.locator(".rename-wrap").first();
+        wrap.locator(".rename-toggle").click();
+        wrap.locator("select[name='roundingMode']").selectOption("COMMERCIAL");
+        wrap.locator(".rename-save").click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        // Same stored points (30), no re-entry - now rounds the standard "kaufmaennisch" way.
+        assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("30");
+        assertThat(page.locator(".derived-grade")).hasText("→ 4.8");
+    }
+
+    /**
+     * Creates a class with one student and a subject with one 100%-weighted category holding
+     * a single points-based assessment (default Notenschlüssel seeded), then navigates to that
+     * subject's grade grid - leaving exactly one row (row 0) and one column (col 0) for the
+     * caller to grade by points.
+     */
+    private void setUpSubjectWithPointsBasedGrid(String unique, String assessmentName) {
+        String className = "E2E-Klasse-Punkte-" + unique;
+        String studentName = "E2E-Schueler-Punkte-" + unique;
+        String subjectName = "E2E-Fach-Punkte-" + unique;
+        String categoryName = "E2E-Kategorie-Punkte-" + unique;
+
+        page.navigate(baseUrl());
+        page.locator("#name").fill(className);
+        page.locator("#schoolYear").fill("2025/26");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+
+        page.locator("#studentName").fill(studentName);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
+
+        page.locator("#subjectName").fill(subjectName);
+        page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
+        page.locator("#roundingMode").selectOption("COMMERCIAL");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("100");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
+        categoryCard.locator("form.inline-form input[name='pointsBased']").check();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+    }
+
     /**
      * Creates a class with one student and a subject with one 100%-weighted category holding
      * two assessments, then navigates to that subject's grade grid - leaving exactly one row

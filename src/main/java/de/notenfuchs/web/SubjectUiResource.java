@@ -1,10 +1,16 @@
 package de.notenfuchs.web;
 
 import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
+import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.PointsGradeBand;
+import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
 import de.notenfuchs.security.OwnershipGuard;
+import de.notenfuchs.service.PointsConversionService;
+import de.notenfuchs.service.PointsGradeBandData;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -27,11 +33,14 @@ import java.util.List;
 
 /**
  * Server-rendered HTML pages for managing a subject's grade categories and
- * assessments ("Leistungen"). The grade-entry grid itself lives in
+ * assessments ("Leistungen"), including a points-based assessment's Notenschlüssel
+ * (points-threshold-to-grade bands). The grade-entry grid itself lives in
  * {@link GradeGridResource}.
  */
 @Path("/subjects")
 public class SubjectUiResource {
+
+    private final PointsConversionService pointsConversionService = new PointsConversionService();
 
     @Inject
     CurrentUser currentUser;
@@ -118,16 +127,24 @@ public class SubjectUiResource {
                                            @PathParam("categoryId") Long categoryId,
                                            @FormParam("name") String name,
                                            @FormParam("date") LocalDate date,
-                                           @FormParam("factor") BigDecimal factor) {
+                                           @FormParam("factor") BigDecimal factor,
+                                           @FormParam("pointsBased") String pointsBasedRaw,
+                                           @FormParam("roundingMode") String roundingModeRaw) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireOwnedSubject(id, currentSubject);
         GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
+        boolean pointsBased = isChecked(pointsBasedRaw);
         Assessment assessment = new Assessment();
         assessment.category = category;
         assessment.name = name;
         assessment.date = date;
         assessment.factor = factor != null ? factor : BigDecimal.ONE;
+        assessment.pointsBased = pointsBased;
+        assessment.roundingMode = parseRoundingMode(roundingModeRaw);
         assessment.persist();
+        if (pointsBased) {
+            seedDefaultBands(assessment, subject.gradeScale);
+        }
         return categoryFragment(subject);
     }
 
@@ -145,6 +162,15 @@ public class SubjectUiResource {
         return categoryFragment(subject);
     }
 
+    /**
+     * Renames an assessment and/or updates its factor, points-based configuration and (for a
+     * points-based assessment) rounding mode in one form (the rename-wrap's edit form,
+     * extended with a "Punktebasiert" checkbox and a rounding-mode select). Flipping
+     * {@code pointsBased} either direction wipes this assessment's existing
+     * {@link Grade}s - a grade entered in one mode (direct value vs. raw points) has no
+     * meaning in the other - and switching TO points-based seeds a starting Notenschlüssel if
+     * none exists yet (see {@link #seedDefaultBands}).
+     */
     @PATCH
     @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/rename")
     @Produces(MediaType.TEXT_HTML)
@@ -154,7 +180,9 @@ public class SubjectUiResource {
                                               @PathParam("categoryId") Long categoryId,
                                               @PathParam("assessmentId") Long assessmentId,
                                               @FormParam("name") String name,
-                                              @FormParam("factor") BigDecimal factor) {
+                                              @FormParam("factor") BigDecimal factor,
+                                              @FormParam("pointsBased") String pointsBasedRaw,
+                                              @FormParam("roundingMode") String roundingModeRaw) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireOwnedSubject(id, currentSubject);
         Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
@@ -163,6 +191,15 @@ public class SubjectUiResource {
         }
         if (factor != null) {
             assessment.factor = factor;
+        }
+        boolean pointsBased = isChecked(pointsBasedRaw);
+        if (pointsBased != assessment.pointsBased) {
+            Grade.delete("assessment.id", assessment.id);
+        }
+        assessment.pointsBased = pointsBased;
+        assessment.roundingMode = parseRoundingMode(roundingModeRaw);
+        if (pointsBased && PointsGradeBand.count("assessment.id", assessment.id) == 0) {
+            seedDefaultBands(assessment, subject.gradeScale);
         }
         return categoryFragment(subject);
     }
@@ -189,7 +226,92 @@ public class SubjectUiResource {
         return categoryFragment(subject);
     }
 
+    @POST
+    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/bands")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance addBand(@PathParam("id") Long id,
+                                     @PathParam("categoryId") Long categoryId,
+                                     @PathParam("assessmentId") Long assessmentId,
+                                     @FormParam("minPoints") BigDecimal minPoints,
+                                     @FormParam("gradeValue") BigDecimal gradeValue) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
+        PointsGradeBand band = new PointsGradeBand();
+        band.assessment = assessment;
+        band.minPoints = minPoints;
+        band.gradeValue = gradeValue;
+        band.persist();
+        return categoryFragment(subject);
+    }
+
+    @PATCH
+    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/bands/{bandId}")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance updateBand(@PathParam("id") Long id,
+                                        @PathParam("categoryId") Long categoryId,
+                                        @PathParam("assessmentId") Long assessmentId,
+                                        @PathParam("bandId") Long bandId,
+                                        @FormParam("minPoints") BigDecimal minPoints,
+                                        @FormParam("gradeValue") BigDecimal gradeValue) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        PointsGradeBand band = guard.requireOwnedPointsGradeBand(bandId, currentSubject);
+        if (minPoints != null) {
+            band.minPoints = minPoints;
+        }
+        if (gradeValue != null) {
+            band.gradeValue = gradeValue;
+        }
+        return categoryFragment(subject);
+    }
+
+    @DELETE
+    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/bands/{bandId}")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance deleteBand(@PathParam("id") Long id,
+                                        @PathParam("categoryId") Long categoryId,
+                                        @PathParam("assessmentId") Long assessmentId,
+                                        @PathParam("bandId") Long bandId) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireOwnedSubject(id, currentSubject);
+        PointsGradeBand band = guard.requireOwnedPointsGradeBand(bandId, currentSubject);
+        band.delete();
+        return categoryFragment(subject);
+    }
+
+    /** A checkbox form field arrives as "true"/"on" when checked, or absent (null) when not. */
+    private static boolean isChecked(String rawValue) {
+        return "true".equals(rawValue) || "on".equals(rawValue);
+    }
+
+    /** A blank/absent rounding-mode select falls back to the same default as a fresh Assessment. */
+    private static RoundingMode parseRoundingMode(String rawValue) {
+        return rawValue == null || rawValue.isBlank() ? RoundingMode.IN_FAVOR_OF_STUDENT : RoundingMode.valueOf(rawValue);
+    }
+
+    /** Seeds a fresh points-based Assessment with {@link PointsConversionService#defaultBands}. */
+    private void seedDefaultBands(Assessment assessment, GradeScale scale) {
+        for (PointsGradeBandData data : pointsConversionService.defaultBands(scale)) {
+            PointsGradeBand band = new PointsGradeBand();
+            band.assessment = assessment;
+            band.minPoints = data.minPoints();
+            band.gradeValue = data.gradeValue();
+            band.persist();
+        }
+    }
+
     private TemplateInstance categoryFragment(Subject subject) {
+        // The band editor's min/max attributes read subject.gradeScale (a LAZY association).
+        // These callers are all @Transactional endpoints, and Qute renders the returned
+        // TemplateInstance after the method returns - once the transaction (and its Hibernate
+        // session) has already closed - so the proxy must be force-initialized here first.
+        org.hibernate.Hibernate.initialize(subject.gradeScale);
         CategoryListData data = categoryListData(subject.id);
         return categoryListFragment
                 .data("subject", subject)
@@ -226,7 +348,15 @@ public class SubjectUiResource {
         List<CategoryView> result = new java.util.ArrayList<>();
         for (GradeCategory category : categories) {
             List<Assessment> assessments = Assessment.list("category.id", category.id);
-            result.add(new CategoryView(category.id, category.name, category.weightPercent, assessments));
+            List<AssessmentView> assessmentViews = new java.util.ArrayList<>();
+            for (Assessment assessment : assessments) {
+                List<PointsGradeBand> bands = assessment.pointsBased
+                        ? PointsGradeBand.list("assessment.id = ?1 order by minPoints desc", assessment.id)
+                        : List.of();
+                assessmentViews.add(new AssessmentView(assessment.id, assessment.name, assessment.date,
+                        assessment.factor, assessment.pointsBased, bands, assessment.roundingMode));
+            }
+            result.add(new CategoryView(category.id, category.name, category.weightPercent, assessmentViews));
         }
         return result;
     }
@@ -235,7 +365,17 @@ public class SubjectUiResource {
      * View model exposing a {@link GradeCategory} together with its {@link Assessment}s,
      * since Qute can only navigate properties/getters that actually exist on the entity.
      */
-    public record CategoryView(Long id, String name, BigDecimal weightPercent, List<Assessment> assessments) {
+    public record CategoryView(Long id, String name, BigDecimal weightPercent, List<AssessmentView> assessments) {
+    }
+
+    /**
+     * View model exposing an {@link Assessment} together with its {@link PointsGradeBand}s
+     * (only loaded/populated when {@code pointsBased}), since {@code Assessment} has no
+     * back-reference to its bands. {@code roundingMode} only matters while {@code pointsBased}
+     * is true.
+     */
+    public record AssessmentView(Long id, String name, LocalDate date, BigDecimal factor,
+                                  boolean pointsBased, List<PointsGradeBand> bands, RoundingMode roundingMode) {
     }
 
     private TemplateInstance withUser(TemplateInstance instance) {

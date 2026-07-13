@@ -1,5 +1,6 @@
 package de.notenfuchs.dto;
 
+import de.notenfuchs.domain.RoundingMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -17,4 +18,9 @@ public class AssessmentRequest {
     public LocalDate date;
 
     public BigDecimal factor;
+
+    public boolean pointsBased;
+
+    /** Only meaningful while {@link #pointsBased} is true; null falls back to {@code IN_FAVOR_OF_STUDENT}. */
+    public RoundingMode roundingMode;
 }

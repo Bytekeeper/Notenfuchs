@@ -3,6 +3,7 @@ package de.notenfuchs.security;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
+import de.notenfuchs.domain.PointsGradeBand;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
@@ -76,6 +77,14 @@ public class OwnershipGuard {
         Grade entity = Grade.findById(gradeId);
         if (entity == null || !isOwned(entity.assessment.category.subject.schoolClass, currentSubject)) {
             throw new NotFoundException("Grade " + gradeId + " not found");
+        }
+        return entity;
+    }
+
+    public PointsGradeBand requireOwnedPointsGradeBand(Long bandId, String currentSubject) {
+        PointsGradeBand entity = PointsGradeBand.findById(bandId);
+        if (entity == null || !isOwned(entity.assessment.category.subject.schoolClass, currentSubject)) {
+            throw new NotFoundException("PointsGradeBand " + bandId + " not found");
         }
         return entity;
     }

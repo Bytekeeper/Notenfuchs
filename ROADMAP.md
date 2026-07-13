@@ -35,15 +35,23 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
   The source class stays completely normal and editable (no locking/archiving).
   A nullable `predecessorClass` link (via Flyway migration, `ON DELETE SET NULL`)
   traces the copy back to its source for future trend features.
+- **Notenschlüssel (points → grade per Leistung):** an `Assessment` can be marked
+  points-based (no upfront "max points" — just a freely editable list of
+  `PointsGradeBand`s, each an absolute points anchor, seeded with two starting
+  anchors: 60 → best grade, 20 → worst grade on the subject's actual
+  `GradeScale`). The grid accepts raw points and shows the derived grade live
+  (e.g. "65 → 1"), **linearly interpolated** between the two bracketing anchors
+  rather than jumping at each threshold — two anchors alone already produce a
+  smooth grade across the whole range; more bands let the teacher bend that
+  line into a non-linear curve. The grade itself is never stored -
+  `PointsConversionService` (pure, unit-tested) recomputes it from the stored
+  points on every read, so editing the points or the key always updates every
+  average that depends on it. `Grade` stores either `value` or `points`, never
+  both (DB `CHECK` constraint).
 
 ## Next
 
-### 1. Notenschlüssel (points → grade per Leistung)  — **next up**
-Enter a Klausur by points + max points and auto-convert to a grade via a
-configurable percentage key. A real daily grade-entry pain existing tools do
-badly; fits the scale-agnostic design. Small, high everyday value.
-
-### 2. Class collaboration + Klassenlehrer overview  — the big one
+### 1. Class collaboration + Klassenlehrer overview  — the big one
 *Assumes the Kollegiums-Instanz model.*
 - **Sharing:** a Klassenlehrer invites Fachlehrer to a class; each Fachlehrer
   creates and owns their own subject within it; students are read-shared. Breaks
@@ -59,7 +67,7 @@ badly; fits the scale-agnostic design. Small, high everyday value.
   Nebenfächer 30) → overall. Group config is class-level, owned by the KL, freely
   configurable (no Bundesland default imposed).
 
-### 3. What-if / target-grade simulation
+### 2. What-if / target-grade simulation
 "What do I need in the next Klausur to reach a 2?" Directly student-helpful,
 small, leverages the existing calculation engine.
 
