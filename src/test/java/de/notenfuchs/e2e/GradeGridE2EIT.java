@@ -203,14 +203,14 @@ class GradeGridE2EIT {
         pointsCell.evaluate("el => el.blur()");
 
         assertThat(pointsCell).hasValue("65");
-        assertThat(derivedGrade).hasText("→ 1");
+        assertThat(derivedGrade).hasText("1");
         assertThat(finalGrade).hasText("1");
         assertThat(page.locator(".average-raw")).hasText("1");
 
         // Raw points (not the derived grade) must be what's persisted and redisplayed.
         page.reload();
         assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
-        assertThat(page.locator(".derived-grade")).hasText("→ 1");
+        assertThat(page.locator(".derived-grade")).hasText("1");
         assertThat(page.locator(".average-final")).hasText("1");
     }
 
@@ -226,7 +226,7 @@ class GradeGridE2EIT {
         Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
         pointsCell.fill("65");
         pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("→ 1");
+        assertThat(page.locator(".derived-grade")).hasText("1");
         assertThat(page.locator(".average-final")).hasText("1");
 
         // Go back to the subject page (third breadcrumb link: Klassen / Klasse / Fach) and
@@ -246,7 +246,7 @@ class GradeGridE2EIT {
         // Same stored points (65), no re-entry - the derived grade must already reflect the
         // updated band.
         assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
-        assertThat(page.locator(".derived-grade")).hasText("→ 2");
+        assertThat(page.locator(".derived-grade")).hasText("2");
         assertThat(page.locator(".average-final")).hasText("2");
     }
 
@@ -265,7 +265,7 @@ class GradeGridE2EIT {
         Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
         pointsCell.fill("30");
         pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("→ 4.7");
+        assertThat(page.locator(".derived-grade")).hasText("4.7");
 
         page.locator(".breadcrumbs a").nth(2).click();
 
@@ -280,7 +280,7 @@ class GradeGridE2EIT {
 
         // Same stored points (30), no re-entry - now rounds the standard "kaufmaennisch" way.
         assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("30");
-        assertThat(page.locator(".derived-grade")).hasText("→ 4.8");
+        assertThat(page.locator(".derived-grade")).hasText("4.8");
     }
 
     /**

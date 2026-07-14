@@ -155,8 +155,10 @@
         function updateDerivedGrade(input, data) {
             if (!input.classList.contains("points-input")) return;
             const indicator = input.parentElement.querySelector(".derived-grade");
-            if (!indicator) return;
-            indicator.textContent = data && data.derivedGradeDisplay ? "→ " + data.derivedGradeDisplay : "";
+            const arrow = input.parentElement.querySelector(".derived-grade-arrow");
+            const display = data && data.derivedGradeDisplay ? data.derivedGradeDisplay : "";
+            if (indicator) indicator.textContent = display;
+            if (arrow) arrow.textContent = display ? "→" : "";
         }
 
         function updateAssessmentAverage(data) {

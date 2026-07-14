@@ -56,7 +56,8 @@
                                                data-assessment-id="{cell.assessmentId}"
                                                placeholder="Punkte"
                                                value="{cell.displayValue ?: ''}">
-                                        <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                        <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
+                                        <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
                                     {#else}
                                     <input type="text"

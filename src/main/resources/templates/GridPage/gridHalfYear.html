@@ -93,7 +93,8 @@
                                                    data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                    data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
                                                    placeholder="Punkte" value="{cell.displayValue ?: ''}">
-                                            <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                            <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
+                                            <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                         </span>
                                         {#else}
                                         <input type="text" inputmode="decimal" class="grade-input"
@@ -114,7 +115,8 @@
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
                                                placeholder="Punkte" value="{cell.displayValue ?: ''}">
-                                        <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                        <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
+                                        <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
                                     {#else}
                                     <input type="text" inputmode="decimal" class="grade-input"
@@ -138,7 +140,8 @@
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
                                                placeholder="Punkte" value="{cell.displayValue ?: ''}">
-                                        <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                        <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
+                                        <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
                                     {#else}
                                     <input type="text" inputmode="decimal" class="grade-input"
