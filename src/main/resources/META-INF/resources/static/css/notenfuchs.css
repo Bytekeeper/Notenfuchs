@@ -384,6 +384,29 @@ table.grade-grid tfoot td.student-cell {
     margin-top: 0.5rem;
 }
 
+/* ---------------- Halbjahr split view ---------------- */
+
+table.grade-grid th.region-header {
+    text-align: center;
+    background: #ded7c4;
+    border-left: 2px solid var(--color-bg);
+    font-size: 0.85rem;
+}
+
+table.grade-grid th.region-header-undated {
+    background: #fff3cd;
+    color: #8f6a00;
+}
+
+table.grade-grid th.region-header .region-hint {
+    display: block;
+    font-weight: 400;
+    font-style: italic;
+    font-size: 0.7rem;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
 /* ---------------- Points-based assessments / Notenschlüssel ---------------- */
 
 .checkbox-field {

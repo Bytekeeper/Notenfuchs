@@ -48,6 +48,18 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
   points on every read, so editing the points or the key always updates every
   average that depends on it. `Grade` stores either `value` or `points`, never
   both (DB `CHECK` constraint).
+- **Halbjahr split view:** a nullable `SchoolClass.halfYearCutoff` date, editable
+  on the class detail page, is purely a display/query filter on the grade grid —
+  no Halbjahr entity, no snapshot, no active-term switching. When set, the grid
+  partitions each category's Leistungen by date ("kein Datum" only counts into
+  the year figure, `date <= cutoff` → 1. Halbjahr, `date > cutoff` → 2. Halbjahr)
+  and shows an "Ohne Datum" block (only if any undated Leistung exists), "1./2.
+  Halbjahr" blocks each with their own live average column, and a final "Jahr"
+  average over everything — identical to the pre-Halbjahr single view when the
+  cutoff is null. `GradeService` itself is completely unaware of Halbjahr: a
+  half's average is an ordinary `GradeService` call over a date-filtered subset,
+  built via the new pure `HalfYearAssessmentPartitioner`. Mirrored in the xlsx
+  export.
 
 ## Next
 
@@ -72,10 +84,6 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
 small, leverages the existing calculation engine.
 
 ## Later / maybe
-- **Halbjahr as a display filter only:** a Leistung has a date; a Halbjahr is a
-  date range. "1. Halbjahr" view = filter Leistungen by date and average live.
-  No entities, no active-term switching, no snapshots — either the teacher picks
-  a date range or a configurable cutoff date is applied.
 - Read-only student or parent share link (high PII surface — defer, design
   carefully).
 - Subject/weighting templates to avoid re-entering category setups per class.

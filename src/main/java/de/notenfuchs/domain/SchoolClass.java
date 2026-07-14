@@ -9,6 +9,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "school_class")
 public class SchoolClass extends PanacheEntity {
@@ -42,4 +44,15 @@ public class SchoolClass extends PanacheEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "predecessor_class_id")
     public SchoolClass predecessorClass;
+
+    /**
+     * Optional cutoff date splitting the grade grid into "1. Halbjahr" (Assessments dated on or
+     * before this date) and "2. Halbjahr" (dated after it) - purely a display/query filter, not
+     * a new grading concept: no Halbjahr entity, no snapshot, every average still recomputes
+     * live from the same {@code Assessment}/{@code Grade} rows (see ROADMAP.md's anti-freeze
+     * design principle). {@code null} (the default) means the grid shows a single full-year view
+     * exactly as before this feature existed. See {@link de.notenfuchs.web.GradeGridResource}.
+     */
+    @Column(name = "half_year_cutoff")
+    public LocalDate halfYearCutoff;
 }

@@ -72,8 +72,8 @@
                             </td>
                         {/for}
                         <td class="average-cell">
-                            <span class="average-final" data-student-id="{row.student.id}">{row.finalGrade ?: '–'}</span>
-                            <span class="raw-average average-raw" data-student-id="{row.student.id}">{row.rawAverage ?: '–'}</span>
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="jahr">{row.finalGrade ?: '–'}</span>
+                            <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="jahr">{row.rawAverage ?: '–'}</span>
                         </td>
                     </tr>
                 {/for}

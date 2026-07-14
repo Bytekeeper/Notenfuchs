@@ -1,0 +1,214 @@
+{#include base}
+{#title}Noten – {subject.name}{/title}
+
+<div class="breadcrumbs">
+    <a href="/classes">Klassen</a> / <a href="/classes/{subject.schoolClass.id}">{subject.schoolClass.name}</a> / <a href="/subjects/{subject.id}">{subject.name}</a> / Notenerfassung
+</div>
+<h1>Notenerfassung: {subject.name}</h1>
+<p class="hint">Notenskala {subject.gradeScale.name} ({subject.gradeScale.min}–{subject.gradeScale.max}, {#if subject.gradeScale.lowerIsBetter}niedriger ist besser{#else}höher ist besser{/if}) · Rundung: {subject.roundingMode}</p>
+<p class="hint">Halbjahres-Stichtag: {cutoff} (<a href="/classes/{subject.schoolClass.id}">ändern</a>) · Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr.</p>
+
+{#if gridEmpty}
+    <p class="hint">Dieses Fach hat noch keine Kategorien/Leistungen. <a href="/subjects/{subject.id}">Erst Kategorien und Leistungen anlegen</a>.</p>
+{#else if students.isEmpty}
+    <p class="hint">Diese Klasse hat noch keine Schüler. <a href="/classes/{subject.schoolClass.id}">Erst Schüler anlegen</a>.</p>
+{#else}
+    <p><a class="btn" href="/subjects/{subject.id}/grid/export">Als Excel exportieren</a></p>
+    <div class="grid-wrapper">
+        <table class="grade-grid grade-grid-root"
+               data-save-url="/subjects/{subject.id}/grid/cell"
+               data-max-row="{maxRow}"
+               data-max-col="{maxCol}">
+            <thead>
+                <tr>
+                    <th rowspan="3">Schüler</th>
+                    {#if !undatedColumns.isEmpty}
+                        <th class="region-header region-header-undated" colspan="{undatedTotalCols}">
+                            Ohne Datum
+                            <span class="region-hint">kein Datum – zählt nur in die Jahresnote</span>
+                        </th>
+                    {/if}
+                    <th class="region-header" colspan="{h1HeaderColspan}">1. Halbjahr</th>
+                    <th class="region-header" colspan="{h2HeaderColspan}">2. Halbjahr</th>
+                    <th class="region-header" rowspan="3">Jahr</th>
+                </tr>
+                <tr>
+                    {#if !undatedColumns.isEmpty}
+                        {#for cat in undatedColumns}
+                            <th class="category-header" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
+                        {/for}
+                    {/if}
+                    {#for cat in h1Columns}
+                        <th class="category-header" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
+                    {/for}
+                    <th rowspan="2">Ø / Note<br>1. HJ</th>
+                    {#for cat in h2Columns}
+                        <th class="category-header" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
+                    {/for}
+                    <th rowspan="2">Ø / Note<br>2. HJ</th>
+                </tr>
+                <tr>
+                    {#if !undatedColumns.isEmpty}
+                        {#for cat in undatedColumns}
+                            {#if cat.assessments.isEmpty}
+                                <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
+                            {#else}
+                                {#for a in cat.assessments}
+                                    <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                                {/for}
+                            {/if}
+                        {/for}
+                    {/if}
+                    {#for cat in h1Columns}
+                        {#if cat.assessments.isEmpty}
+                            <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
+                        {#else}
+                            {#for a in cat.assessments}
+                                <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                            {/for}
+                        {/if}
+                    {/for}
+                    {#for cat in h2Columns}
+                        {#if cat.assessments.isEmpty}
+                            <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
+                        {#else}
+                            {#for a in cat.assessments}
+                                <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                            {/for}
+                        {/if}
+                    {/for}
+                </tr>
+            </thead>
+            <tbody>
+                {#for row in rows}
+                    <tr>
+                        <td class="student-cell">{row.student.effectiveName}</td>
+                        {#if !undatedColumns.isEmpty}
+                            {#for cell in row.undatedCells}
+                                <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                                    {#if cell.assessmentId}
+                                        {#if cell.pointsBased}
+                                        <span class="points-cell">
+                                            <input type="text" inputmode="decimal" class="grade-input points-input"
+                                                   data-row="{row.rowIndex}" data-col="{cell.colIndex}"
+                                                   data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
+                                                   placeholder="Punkte" value="{cell.displayValue ?: ''}">
+                                            <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                        </span>
+                                        {#else}
+                                        <input type="text" inputmode="decimal" class="grade-input"
+                                               data-row="{row.rowIndex}" data-col="{cell.colIndex}"
+                                               data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
+                                               value="{cell.displayValue ?: ''}">
+                                        {/if}
+                                    {/if}
+                                </td>
+                            {/for}
+                        {/if}
+                        {#for cell in row.h1Cells}
+                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                                {#if cell.assessmentId}
+                                    {#if cell.pointsBased}
+                                    <span class="points-cell">
+                                        <input type="text" inputmode="decimal" class="grade-input points-input"
+                                               data-row="{row.rowIndex}" data-col="{cell.colIndex}"
+                                               data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
+                                               placeholder="Punkte" value="{cell.displayValue ?: ''}">
+                                        <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                    </span>
+                                    {#else}
+                                    <input type="text" inputmode="decimal" class="grade-input"
+                                           data-row="{row.rowIndex}" data-col="{cell.colIndex}"
+                                           data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
+                                           value="{cell.displayValue ?: ''}">
+                                    {/if}
+                                {/if}
+                            </td>
+                        {/for}
+                        <td class="average-cell">
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="h1">{row.h1FinalGrade ?: '–'}</span>
+                            <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="h1">{row.h1RawAverage ?: '–'}</span>
+                        </td>
+                        {#for cell in row.h2Cells}
+                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                                {#if cell.assessmentId}
+                                    {#if cell.pointsBased}
+                                    <span class="points-cell">
+                                        <input type="text" inputmode="decimal" class="grade-input points-input"
+                                               data-row="{row.rowIndex}" data-col="{cell.colIndex}"
+                                               data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
+                                               placeholder="Punkte" value="{cell.displayValue ?: ''}">
+                                        <span class="derived-grade">{#if cell.derivedGradeDisplay}→ {cell.derivedGradeDisplay}{/if}</span>
+                                    </span>
+                                    {#else}
+                                    <input type="text" inputmode="decimal" class="grade-input"
+                                           data-row="{row.rowIndex}" data-col="{cell.colIndex}"
+                                           data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
+                                           value="{cell.displayValue ?: ''}">
+                                    {/if}
+                                {/if}
+                            </td>
+                        {/for}
+                        <td class="average-cell">
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="h2">{row.h2FinalGrade ?: '–'}</span>
+                            <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="h2">{row.h2RawAverage ?: '–'}</span>
+                        </td>
+                        <td class="average-cell">
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="jahr">{row.jahrFinalGrade ?: '–'}</span>
+                            <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="jahr">{row.jahrRawAverage ?: '–'}</span>
+                        </td>
+                    </tr>
+                {/for}
+            </tbody>
+            <tfoot>
+                <tr class="average-row">
+                    <td class="student-cell">Ø je Leistung</td>
+                    {#if !undatedColumns.isEmpty}
+                        {#for catFooter in undatedFooters}
+                            {#for colAvg in catFooter.columnAverages}
+                                <td class="average-cell">
+                                    {#if colAvg.assessmentId}
+                                    <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
+                                    <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                    {/if}
+                                </td>
+                            {/for}
+                        {/for}
+                    {/if}
+                    {#for catFooter in h1Footers}
+                        {#for colAvg in catFooter.columnAverages}
+                            <td class="average-cell">
+                                {#if colAvg.assessmentId}
+                                <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
+                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                {/if}
+                            </td>
+                        {/for}
+                    {/for}
+                    <td class="average-cell"></td>
+                    {#for catFooter in h2Footers}
+                        {#for colAvg in catFooter.columnAverages}
+                            <td class="average-cell">
+                                {#if colAvg.assessmentId}
+                                <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
+                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                {/if}
+                            </td>
+                        {/for}
+                    {/for}
+                    <td class="average-cell"></td>
+                    <td class="average-cell"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <p class="grid-legend">
+        Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
+        Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
+        Zelle leeren + verlassen löscht die Note. Punktebasierte Leistungen: Punktzahl eingeben,
+        die Note wird automatisch nach dem Notenschlüssel berechnet und angezeigt (z. B. „65 → 1").
+        1. HJ / 2. HJ: Durchschnitt nur aus den Leistungen des jeweiligen Halbjahres · Jahr: wie gewohnt über alle Leistungen.
+    </p>
+{/if}
+
+{/include}

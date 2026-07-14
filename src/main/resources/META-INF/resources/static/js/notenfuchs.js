@@ -126,15 +126,29 @@
                 });
         }
 
+        // Every average cell (classic single view or Halbjahr split) carries a "data-scope"
+        // attribute: "jahr" always, plus "h1"/"h2" for the two half-year columns when a
+        // cutoff is set. Updating by scope (not just student id) lets a single cell edit
+        // refresh all of a student's average columns live, without a page reload.
         function updateAverageRow(studentId, data) {
             if (!data) return;
-            const rawCell = root.querySelector('.average-raw[data-student-id="' + studentId + '"]');
-            const finalCell = root.querySelector('.average-final[data-student-id="' + studentId + '"]');
+            updateAverageScope(studentId, "jahr", data.rawAverage, data.finalGrade);
+            updateAverageScope(studentId, "h1", data.h1RawAverage, data.h1FinalGrade);
+            updateAverageScope(studentId, "h2", data.h2RawAverage, data.h2FinalGrade);
+        }
+
+        function updateAverageScope(studentId, scope, rawAverage, finalGrade) {
+            const rawCell = root.querySelector(
+                '.average-raw[data-student-id="' + studentId + '"][data-scope="' + scope + '"]'
+            );
+            const finalCell = root.querySelector(
+                '.average-final[data-student-id="' + studentId + '"][data-scope="' + scope + '"]'
+            );
             if (rawCell) {
-                rawCell.textContent = data.rawAverage != null ? data.rawAverage : "–";
+                rawCell.textContent = rawAverage != null ? rawAverage : "–";
             }
             if (finalCell) {
-                finalCell.textContent = data.finalGrade != null ? data.finalGrade : "–";
+                finalCell.textContent = finalGrade != null ? finalGrade : "–";
             }
         }
 

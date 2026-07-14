@@ -38,6 +38,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -82,6 +83,10 @@ public class ClassUiResource {
     @Inject
     @Location("fragments/studentList.html")
     Template studentListFragment;
+
+    @Inject
+    @Location("fragments/halfYearCutoff.html")
+    Template halfYearCutoffFragment;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -210,6 +215,23 @@ public class ClassUiResource {
             entity.name = name;
         }
         return classListFragment.data("classes", guard.listOwnedClasses(subject));
+    }
+
+    /**
+     * Sets or clears (empty submission) the class's Halbjahr cutoff date - see
+     * {@link SchoolClass#halfYearCutoff}. Purely a display filter for {@link GradeGridResource};
+     * changing it never touches an Assessment or Grade.
+     */
+    @PATCH
+    @Path("/{id}/half-year-cutoff")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance updateHalfYearCutoff(@PathParam("id") Long id,
+                                                  @FormParam("halfYearCutoff") LocalDate halfYearCutoff) {
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        schoolClass.halfYearCutoff = halfYearCutoff;
+        return halfYearCutoffFragment.data("schoolClass", schoolClass);
     }
 
     @POST
