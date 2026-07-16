@@ -76,8 +76,6 @@ class LoginE2EIT {
     @Test
     void wrongPasswordShowsErrorAndStaysOnLogin() {
         login(LocalAuthTestProfile.USERNAME, "not-the-password");
-        System.out.println("DEBUG URL: " + page.url());
-        System.out.println("DEBUG BODY: " + page.content());
 
         assertThat(page).hasURL(Pattern.compile(".*/login.*error.*"));
         assertThat(page.getByText("Falscher Benutzername oder falsches Passwort.")).isVisible();
