@@ -10,21 +10,27 @@ and rounded final grades automatically.
 
 ### Option A: full stack with Docker Compose
 
-This starts PostgreSQL, the packaged application, and [Pocket ID](https://pocket-id.org)
-(the bundled login provider - see "Setting up Pocket ID" below).
+This starts PostgreSQL and the packaged application - nothing else. Login uses
+Notenfuchs' own built-in local auth (see "Authentication" below); no separate
+identity-provider container or setup step required.
 
 ```bash
-cp .env.example .env      # then fill in the secrets it asks for, see below
+cp .env.example .env      # then set NOTENFUCHS_PASSWORD
 ./mvnw package
 docker compose up --build
 ```
 
 The app builds a JVM-mode container image from `src/main/docker/Dockerfile.jvm`,
 so `./mvnw package` needs to be run once beforehand to produce `target/quarkus-app/`.
-The API is then available at `http://localhost:8080`, and PostgreSQL at `localhost:5432`
-(database `notenfuchs`, user/password `notenfuchs`).
+The API is then available at `http://localhost:8080` (log in at `/login`), and
+PostgreSQL at `localhost:5432` (database `notenfuchs`, user/password `notenfuchs`).
 
 To stop everything: `docker compose down` (add `-v` to also drop the database volume).
+
+Prefer an external SSO provider instead (e.g. for a school that already runs
+one)? See "Alternative: OIDC (external SSO)" under "Authentication" below - it
+adds an optional `docker-compose.oidc.yml` overlay rather than changing the
+default stack.
 
 ### Option B: local development against Postgres
 
@@ -125,14 +131,41 @@ grade_scale ...` and does **not** require any schema migration or code change to
 
 ## Authentication
 
-Notenfuchs secures the whole application (all UI pages and all `/api/*` endpoints)
-with [OIDC](https://openid.net/developers/how-connect-works/) using the
+Notenfuchs needs exactly one of two things configured to run: a local password
+(the default, turbo-fast path - nothing else to set up) or an OIDC issuer (for
+schools that already run central SSO). Whichever is actually configured wins -
+the two are never active at the same time (see `de.notenfuchs.security.LocalAuthConfigSource`).
+In production, if **neither** is configured, the app refuses to start rather
+than serve grade data unauthenticated (see "Fail-fast in production" below).
+
+### Default: local built-in auth
+
+Set `NOTENFUCHS_PASSWORD` (in `.env`, or as a real env var) and nothing else -
+`docker compose up` (see "Option A" above) is then immediately usable at
+`http://localhost:8080/login`. This uses Quarkus' own embedded security realm
+(`quarkus-elytron-security-properties-file`) plus built-in FORM authentication
+- no database table, no registration flow, no password-reset UI, no hashing.
+
+- **Username** is the fixed value `lehrer` (single-teacher/self-host use case
+  - see ROADMAP.md's design principles). To use a different username, change
+  the literal in `de.notenfuchs.security.LocalAuthConfigSource` and rebuild.
+- **Password** is whatever `NOTENFUCHS_PASSWORD` is set to, stored in plain
+  text in the embedded realm config - the same trust level as `DB_PASSWORD`.
+  There's no hashing/rotation tooling; treat the env var itself as the secret.
+- Logging in happens at `/login`; logging out uses the "Logout" link in the
+  nav (`/local-logout`), which clears the session cookie.
+
+### Alternative: OIDC (external SSO)
+
+Leave `NOTENFUCHS_PASSWORD` unset to use this mode instead. Notenfuchs then
+secures the whole application (all UI pages and all `/api/*` endpoints) with
+[OIDC](https://openid.net/developers/how-connect-works/) using the
 `quarkus-oidc` extension in **web-app mode**: a standard authorization-code flow
 with a server-side session cookie, suitable for the server-rendered HTML (Qute +
 HTMX) frontend - not a token-based SPA setup. It is provider-agnostic and works
 with any standards-compliant OIDC provider (Clerk, Keycloak, Authentik, Auth0, ...).
 
-### Required environment variables (production)
+#### Required environment variables (production)
 
 | Variable | Description |
 |---|---|
@@ -154,24 +187,16 @@ By default the app requests the `openid profile email` scopes (`openid` is added
 automatically by Quarkus; `profile` and `email` are configured explicitly) so
 that the logged-in user's name/email are available via the OIDC UserInfo endpoint.
 
-### `%dev` / test bypass
+#### Setting up Pocket ID (optional overlay)
 
-`quarkus.oidc.tenant-enabled` is set to `false` for the `dev` and `test` profiles
-(`%dev.quarkus.oidc.tenant-enabled=false`, `%test.quarkus.oidc.tenant-enabled=false`;
-note this is `tenant-enabled`, not the build-time `enabled` switch - the latter would
-remove the OIDC extension's CDI beans entirely, breaking `CurrentUser`'s unconditional
-`@Inject` fields), and the blanket `authenticated` HTTP permission policy is relaxed to
-`permit` for those same profiles. This means `./mvnw quarkus:dev` and `./mvnw test` both
-run without a live identity provider and without login - exactly like before OIDC was
-added. This bypass is **not** active in the default/production profile; do not rely on
-it outside local development.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.oidc.yml up --build
+```
 
-### Setting up Pocket ID (default, bundled provider)
-
-`docker compose up` (see "Option A" above) starts [Pocket ID](https://pocket-id.org),
-a lightweight, passkey-based OIDC provider, alongside Notenfuchs itself - no separate
-signup with a third-party service required. It's already wired up via `OIDC_ISSUER_URL`
-/ `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` in `docker-compose.yml`; you only need to:
+starts [Pocket ID](https://pocket-id.org), a lightweight, passkey-based OIDC
+provider, alongside Notenfuchs - no separate signup with a third-party service
+required. It's already wired up via `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
+`OIDC_CLIENT_SECRET` in `docker-compose.oidc.yml`; you only need to:
 
 1. **Generate the two secrets Pocket ID needs** and put them in `.env` (copied from
    `.env.example`): `POCKET_ID_ENCRYPTION_KEY` and `POCKET_ID_STATIC_API_KEY`, each via
@@ -184,8 +209,8 @@ signup with a third-party service required. It's already wired up via `OIDC_ISSU
 3. **Check the bootstrap logs**: `docker compose logs pocket-id-bootstrap`. On its first
    run, this one-shot service registers Notenfuchs as an OIDC client in Pocket ID and
    prints the generated client secret - copy it into `.env` as `OIDC_CLIENT_SECRET`, then
-   run `docker compose up -d app` to pick it up. (On later runs it detects the client
-   already exists and skips this part.)
+   run `docker compose -f docker-compose.yml -f docker-compose.oidc.yml up -d app` to pick
+   it up. (On later runs it detects the client already exists and skips this part.)
 4. **Hand out sign-up links.** Every `docker compose up` also prints a fresh, single-use
    sign-up link (valid 24h) in the same `pocket-id-bootstrap` logs. Give that link to
    whoever should actually use Notenfuchs (e.g. yourself, or another teacher) so they can
@@ -200,10 +225,10 @@ headers.
 
 Pocket ID is entirely optional - the OIDC wiring is provider-agnostic (see above), so
 you can point `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` at Clerk,
-Keycloak, Authentik, or any other standards-compliant provider instead and skip the
-`pocket-id` / `pocket-id-bootstrap` services in `docker-compose.yml` entirely.
+Keycloak, Authentik, or any other standards-compliant provider instead and skip
+`docker-compose.oidc.yml` entirely.
 
-### Setting up Clerk
+#### Setting up Clerk
 
 1. In the Clerk dashboard, create (or reuse) an application and add an **OAuth
    application** under "OAuth Applications" (Clerk's OIDC/OAuth client feature) -
@@ -222,6 +247,26 @@ Keycloak, Authentik, or any other standards-compliant provider instead and skip 
    exact discovery URL and scope support (`profile`, `email`) against Clerk's
    current OAuth documentation for your account rather than assuming Keycloak-like
    defaults.
+
+### Fail-fast in production
+
+`de.notenfuchs.security.AuthConfigurationCheck` observes `StartupEvent` and, in
+the default/production profile only, throws (aborting startup) if neither
+`NOTENFUCHS_PASSWORD` nor `OIDC_ISSUER_URL` is set - so a misconfigured
+deployment fails loudly at boot instead of silently serving every teacher's
+grade data unauthenticated.
+
+### `%dev` / test bypass
+
+`quarkus.oidc.tenant-enabled` is set to `false` for the `dev` and `test` profiles
+(`%dev.quarkus.oidc.tenant-enabled=false`, `%test.quarkus.oidc.tenant-enabled=false`;
+note this is `tenant-enabled`, not the build-time `enabled` switch - the latter would
+remove the OIDC extension's CDI beans entirely, breaking `CurrentUser`'s unconditional
+`@Inject` fields), and the blanket `authenticated` HTTP permission policy is relaxed to
+`permit` for those same profiles. This means `./mvnw quarkus:dev` and `./mvnw test` both
+run without a live identity provider (or a locally-configured password) and without
+login - exactly like before authentication was added. This bypass is **not** active in
+the default/production profile; do not rely on it outside local development.
 
 ### User identity in code
 

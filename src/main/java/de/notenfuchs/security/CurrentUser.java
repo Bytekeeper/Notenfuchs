@@ -5,6 +5,7 @@ import io.quarkus.oidc.UserInfo;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.Optional;
@@ -51,6 +52,10 @@ public class CurrentUser {
     @IdToken
     JsonWebToken idToken;
 
+    @Inject
+    @ConfigProperty(name = LocalAuthConfigSource.ACTIVE_PROPERTY, defaultValue = "false")
+    boolean localAuthActive;
+
     /**
      * True if the current request is associated with an authenticated OIDC session.
      */
@@ -78,6 +83,19 @@ public class CurrentUser {
      */
     public String effectiveSubject() {
         return subject().orElse(DEV_USER_SUBJECT);
+    }
+
+    /**
+     * True when local built-in auth (see {@link LocalAuthConfigSource}) is the active mode for
+     * this deployment rather than OIDC. Reads the resolved {@link LocalAuthConfigSource#ACTIVE_PROPERTY}
+     * config value - not {@code NOTENFUCHS_PASSWORD} directly - so this agrees with whatever
+     * actually decided the active auth-mechanism, including under a test profile that overrides
+     * the derived properties without setting the env var itself. Used purely to pick the right
+     * logout link in the nav (a local session clears via {@code /local-logout}, an OIDC one via
+     * {@code /logout}); has no bearing on authentication or ownership.
+     */
+    public boolean localAuthActive() {
+        return localAuthActive;
     }
 
     /**

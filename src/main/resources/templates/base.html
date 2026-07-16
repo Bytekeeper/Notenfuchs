@@ -17,7 +17,13 @@
         <div class="user-info">
             {#if currentUserAuthenticated}
                 <span>Angemeldet als {currentUserDisplayName}</span>
+                {#if localAuthActive}
+                <form method="post" action="/local-logout" style="display:inline; margin:0;">
+                    <button type="submit" style="all:unset; cursor:pointer; color:var(--color-primary);">Logout</button>
+                </form>
+                {#else}
                 <a href="/logout">Logout</a>
+                {/if}
             {#else}
                 <span class="dev-mode-badge">Dev-Modus (kein Login)</span>
             {/if}

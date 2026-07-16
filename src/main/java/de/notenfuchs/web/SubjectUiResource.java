@@ -381,6 +381,7 @@ public class SubjectUiResource {
     private TemplateInstance withUser(TemplateInstance instance) {
         return instance
                 .data("currentUserAuthenticated", currentUser.isAuthenticated())
-                .data("currentUserDisplayName", currentUser.displayName().orElse(""));
+                .data("currentUserDisplayName", currentUser.displayName().orElse(""))
+                .data("localAuthActive", currentUser.localAuthActive());
     }
 }

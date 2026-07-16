@@ -472,7 +472,8 @@ public class ClassUiResource {
     private TemplateInstance withUser(TemplateInstance instance) {
         return instance
                 .data("currentUserAuthenticated", currentUser.isAuthenticated())
-                .data("currentUserDisplayName", currentUser.displayName().orElse(""));
+                .data("currentUserDisplayName", currentUser.displayName().orElse(""))
+                .data("localAuthActive", currentUser.localAuthActive());
     }
 
     /** Strips German umlauts/eszett and any other non-ASCII-safe character for the plain filename attribute. */

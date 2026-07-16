@@ -15,6 +15,10 @@ services:
       timeout: 5s
       retries: 10
 
+  # Default stack: just this + postgres. Local built-in auth (NOTENFUCHS_PASSWORD
+  # below) needs nothing else - no separate IdP container, no bootstrap step. See
+  # the README's "Authentication" section for the local-vs-OIDC decision, and
+  # docker-compose.oidc.yml for the optional SSO overlay.
   app:
     build:
       context: .
@@ -22,65 +26,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      pocket-id-bootstrap:
-        condition: service_completed_successfully
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/notenfuchs
       DB_USER: notenfuchs
       DB_PASSWORD: notenfuchs
-      # Pocket ID (see the pocket-id service below): the app reaches it via
-      # the internal docker network, but must validate tokens against the
-      # issuer Pocket ID actually signs with (its public APP_URL) - see the
-      # quarkus.oidc.token.issuer comment in application.properties.
-      OIDC_ISSUER_URL: http://pocket-id:1411
-      OIDC_TOKEN_ISSUER: http://${BASE_URL:-localhost}:1411
-      OIDC_CLIENT_ID: notenfuchs
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      # Fixed username "lehrer" (see LocalAuthConfigSource); set this in .env.
+      # Leave unset only if you're using the docker-compose.oidc.yml overlay
+      # instead - the app refuses to start in prod with neither configured.
+      NOTENFUCHS_PASSWORD: ${NOTENFUCHS_PASSWORD:-}
     ports:
       - "8080:8080"
 
-  # Default, bundled OIDC provider - see the README's "Setting up Pocket ID"
-  # section. Required secrets (POCKET_ID_ENCRYPTION_KEY, POCKET_ID_STATIC_API_KEY)
-  # live in .env; see .env.example for how to generate them.
-  pocket-id:
-    image: pocketid/pocket-id:v2
-    restart: unless-stopped
-    environment:
-      APP_URL: http://${BASE_URL:-localhost}:1411
-      INTERNAL_APP_URL: http://pocket-id:1411
-      ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY}
-      STATIC_API_KEY: ${POCKET_ID_STATIC_API_KEY}
-      ALLOW_USER_SIGNUPS: withToken
-      UI_CONFIG_DISABLED: "true"
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-    ports:
-      - 1411:1411
-    volumes:
-      - "notenfuchs-pocket-id-data:/app/data"
-    healthcheck:
-      test: [ "CMD", "/app/pocket-id", "healthcheck" ]
-      interval: 1m30s
-      timeout: 5s
-      retries: 2
-      start_period: 10s
-
-  # One-shot: registers Notenfuchs as an OIDC client in Pocket ID (skipped
-  # if already registered) and prints a fresh single-use sign-up link on
-  # every `docker compose up`. See src/main/docker/pocket-id-bootstrap.sh
-  # and the README's "Setting up Pocket ID" section.
-  pocket-id-bootstrap:
-    image: curlimages/curl
-    restart: "no"
-    depends_on:
-      pocket-id:
-        condition: service_healthy
-    environment:
-      BASE_URL: ${BASE_URL:-localhost}
-      STATIC_API_KEY: ${POCKET_ID_STATIC_API_KEY}
-    volumes:
-      - "./src/main/docker/pocket-id-bootstrap.sh:/pocket-id-bootstrap.sh:ro"
-    entrypoint: [ "sh", "/pocket-id-bootstrap.sh" ]
-
 volumes:
   notenfuchs-postgres-data:
-  notenfuchs-pocket-id-data:

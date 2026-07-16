@@ -25,7 +25,9 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
 - xlsx export (Apache POI).
 - Roster CSV import/export (German Excel dialect: semicolon + Windows-1252 in,
   UTF-8+BOM out; two-step import with preview).
-- OIDC login (Pocket ID as the recommended lightweight, passkey-only provider).
+- OIDC login as an optional alternative auth mode (Pocket ID as the recommended
+  lightweight, passkey-only provider) — see the built-in-auth entry below for
+  the default path.
 - Per-teacher ownership (single-tenant data isolation via `OwnershipGuard`).
 - One-command onboarding (compose prints a one-time sign-up link).
 - Copy class into a new school year (class clone): "Ins neue Schuljahr übernehmen"
@@ -60,30 +62,33 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
   half's average is an ordinary `GradeService` call over a date-filtered subset,
   built via the new pure `HalfYearAssessmentPartitioner`. Mirrored in the xlsx
   export.
+- **Turbo-fast self-host — built-in auth, no external IdP required:**
+  `docker compose up` (app + Postgres, nothing else) → set `NOTENFUCHS_PASSWORD`
+  → start grading at `/login`. Uses Quarkus' own embedded security realm
+  (`quarkus-elytron-security-properties-file`) + built-in FORM authentication:
+  one fixed username (`lehrer`), no user table, no registration, no
+  password-reset UI, plaintext password from the env var (same trust level as
+  `DB_PASSWORD`). `security/LocalAuthConfigSource` decides local-vs-OIDC purely
+  from whether `NOTENFUCHS_PASSWORD` is set — never both active at once. OIDC
+  stays available as an *optional* overlay (`docker-compose.oidc.yml`) for
+  schools that already run central SSO; in production, if neither is
+  configured, `security/AuthConfigurationCheck` fails the boot rather than
+  serving grade data unauthenticated.
 
 ## Next
 
-### 1. Class collaboration + Klassenlehrer overview  — the big one
-*Assumes the Kollegiums-Instanz model.*
-- **Sharing:** a Klassenlehrer invites Fachlehrer to a class; each Fachlehrer
-  creates and owns their own subject within it; students are read-shared. Breaks
-  the clean single-owner model → needs the real authorization layer (class owned
-  by KL, subjects owned by their Fachlehrer, roles). Most bug-prone change; heavy
-  test coverage.
-- **KL overview screen:** subjects × students matrix; each cell = the student's
-  current subject grade (not individual Leistungen). Result column shows **both**
-  a configurable weighted overall average **and** an at-risk signal (red cells +
-  count of 5/6) — averaging alone hides a single failing subject.
-- **Cross-subject weighting** reuses the combine-and-normalize engine one level
-  up: Subject(`factor`) → SubjectGroup(`weightPercent`, e.g. Hauptfächer 70 /
-  Nebenfächer 30) → overall. Group config is class-level, owned by the KL, freely
-  configurable (no Bundesland default imposed).
-
-### 2. What-if / target-grade simulation
+### 1. What-if / target-grade simulation
 "What do I need in the next Klausur to reach a 2?" Directly student-helpful,
 small, leverages the existing calculation engine.
 
 ## Later / maybe
+- **Class collaboration + Klassenlehrer overview** — needs the Kollegiums-Instanz
+  model (multiple teachers sharing one instance), which the per-teacher self-host
+  focus does not assume. Deferred until that model is actually chosen. Would add a
+  real authorization layer (class owned by the KL, subjects owned by their
+  Fachlehrer, read-shared students, roles) plus a subjects × students overview
+  with configurable cross-subject weighting (Subject `factor` → SubjectGroup
+  `weightPercent`) and an at-risk signal (red cells + count of 5/6).
 - Read-only student or parent share link (high PII surface — defer, design
   carefully).
 - Subject/weighting templates to avoid re-entering category setups per class.

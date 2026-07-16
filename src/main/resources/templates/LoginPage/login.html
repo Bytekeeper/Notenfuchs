@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Anmelden – Notenfuchs</title>
+    <link rel="stylesheet" href="/static/css/notenfuchs.css">
+</head>
+<body>
+<main class="app-main" style="max-width: 360px; margin: 4rem auto 0;">
+    <h1>🦊 Notenfuchs</h1>
+    <div class="card">
+        {#if error}
+        <p style="color: var(--color-error); background: var(--color-error-bg); padding: 0.5rem 0.75rem; border-radius: var(--radius); margin-top: 0;">
+            Falscher Benutzername oder falsches Passwort.
+        </p>
+        {/if}
+        <form method="post" action="/j_security_check">
+            <div class="form-field">
+                <label for="j_username">Benutzername</label>
+                <input type="text" id="j_username" name="j_username" required autofocus>
+            </div>
+            <div class="form-field" style="margin-top: 0.75rem;">
+                <label for="j_password">Passwort</label>
+                <input type="password" id="j_password" name="j_password" required>
+            </div>
+            <button type="submit" style="margin-top: 1rem; width: 100%;">Anmelden</button>
+        </form>
+    </div>
+</main>
+</body>
+</html>

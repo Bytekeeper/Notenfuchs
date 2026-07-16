@@ -908,7 +908,8 @@ public class GradeGridResource {
     private TemplateInstance withUser(TemplateInstance instance) {
         return instance
                 .data("currentUserAuthenticated", currentUser.isAuthenticated())
-                .data("currentUserDisplayName", currentUser.displayName().orElse(""));
+                .data("currentUserDisplayName", currentUser.displayName().orElse(""))
+                .data("localAuthActive", currentUser.localAuthActive());
     }
 
     // ---- View models for the Qute template (and the .xlsx export, which reuses them) ----
