@@ -17,8 +17,9 @@ import java.math.RoundingMode;
  *
  * <p>{@link HalfYearGradeDisplay#WHOLE} shows {@code finalGrade}, optionally decorated with a
  * +/- tendency suffix (see {@link #tendencySuffix}) once {@code rawAverage} is far enough from
- * it (per {@code tendencyThresholdPercent}, a percentage of a whole grade step). It never shows
- * a half-grade.
+ * it (per {@code tendencyThreshold}, a raw deviation from a whole grade step - e.g. {@code 0.1}
+ * for +/-0.1 - compared directly, not a percentage that first needs converting to a fraction).
+ * It never shows a half-grade.
  *
  * <p>{@link HalfYearGradeDisplay#HALF} shows the raw average rounded to the nearest half-grade
  * ({@link #roundToHalf}) when no tendency threshold is configured - exactly as {@code WHOLE}
@@ -37,43 +38,42 @@ import java.math.RoundingMode;
 public class HalfYearGradeDisplayService {
 
     private static final BigDecimal HALF_STEP = new BigDecimal("0.5");
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     /**
      * The display label for one Halbjahr average cell, or {@code null} if the student has no
      * grades in that half yet ({@code rawAverage}/{@code finalGrade} both null - the caller's
      * usual "empty" signal, mirroring {@link SubjectAverageResult#EMPTY}).
      *
-     * @param rawAverage              the half's precise raw average
-     * @param finalGrade              the half's already-rounded whole grade (per the subject's
-     *                                {@link de.notenfuchs.domain.RoundingMode}, computed by
-     *                                {@link GradeService} exactly as for any other average) -
-     *                                the anchor both modes' tendency suffix is computed against
-     * @param mode                    whole or half-grade display
-     * @param tendencyThresholdPercent width (0-49) of the "plain" zone around a whole grade
-     *                                 within which no tendency suffix is shown; {@code null}
-     *                                 disables the suffix entirely (in {@code HALF}, that means
-     *                                 always showing a bare half-grade, never a suffix).
-     * @param scale                   the subject's grade scale, consulted for {@code lowerIsBetter}
+     * @param rawAverage        the half's precise raw average
+     * @param finalGrade        the half's already-rounded whole grade (per the subject's
+     *                          {@link de.notenfuchs.domain.RoundingMode}, computed by
+     *                          {@link GradeService} exactly as for any other average) - the
+     *                          anchor both modes' tendency suffix is computed against
+     * @param mode              whole or half-grade display
+     * @param tendencyThreshold width (0-0.49) of the "plain" zone around a whole grade within
+     *                          which no tendency suffix is shown, as a raw deviation (e.g.
+     *                          {@code 0.1}), not a percentage; {@code null} disables the suffix
+     *                          entirely (in {@code HALF}, that means always showing a bare
+     *                          half-grade, never a suffix).
+     * @param scale             the subject's grade scale, consulted for {@code lowerIsBetter}
      */
     public String label(BigDecimal rawAverage, Integer finalGrade, HalfYearGradeDisplay mode,
-                         Integer tendencyThresholdPercent, GradeScale scale) {
+                         BigDecimal tendencyThreshold, GradeScale scale) {
         if (rawAverage == null || finalGrade == null) {
             return null;
         }
-        if (tendencyThresholdPercent == null) {
+        if (tendencyThreshold == null) {
             return mode == HalfYearGradeDisplay.HALF
                     ? plain(roundToHalf(rawAverage))
                     : String.valueOf(finalGrade);
         }
-        String suffix = tendencySuffix(rawAverage, finalGrade, tendencyThresholdPercent, scale);
+        String suffix = tendencySuffix(rawAverage, finalGrade, tendencyThreshold, scale);
         if (suffix.isEmpty()) {
             return String.valueOf(finalGrade);
         }
         if (mode == HalfYearGradeDisplay.HALF) {
             BigDecimal neighborHalfGrade = neighborHalfGrade(rawAverage, finalGrade);
-            BigDecimal thresholdFraction = thresholdFraction(tendencyThresholdPercent);
-            if (rawAverage.subtract(neighborHalfGrade).abs().compareTo(thresholdFraction) <= 0) {
+            if (rawAverage.subtract(neighborHalfGrade).abs().compareTo(tendencyThreshold) <= 0) {
                 return plain(neighborHalfGrade);
             }
         }
@@ -88,19 +88,21 @@ public class HalfYearGradeDisplayService {
 
     /**
      * The +/- tendency suffix for a raw average against its already-rounded whole grade: empty
-     * once {@code rawAverage} is within {@code thresholdPercent}% of a whole grade step of
-     * {@code finalGrade} (the "plain" zone - deliberately symmetric on both sides, since unlike
-     * a single Land's own convention, e.g. Baden-Württemberg's NVO itself only names a
-     * discretionary "Grenzbereich" without codifying an exact bracket table); otherwise "+" when
-     * leaning toward the numerically better neighboring grade (per {@code scale.lowerIsBetter})
-     * or "-" when leaning toward the worse one.
+     * once {@code rawAverage} is within {@code threshold} of {@code finalGrade} (the "plain"
+     * zone - deliberately symmetric on both sides, since unlike a single Land's own convention,
+     * e.g. Baden-Württemberg's NVO itself only names a discretionary "Grenzbereich" without
+     * codifying an exact bracket table); otherwise "+" when leaning toward the numerically
+     * better neighboring grade (per {@code scale.lowerIsBetter}) or "-" when leaning toward the
+     * worse one.
      *
      * @param finalGrade the whole grade {@code rawAverage} was already rounded to - the anchor
      *                   the suffix is computed relative to, not a fresh independent rounding
+     * @param threshold  the "plain zone" width as a raw deviation (e.g. {@code 0.1}), not a
+     *                   percentage
      */
-    public String tendencySuffix(BigDecimal rawAverage, int finalGrade, int thresholdPercent, GradeScale scale) {
+    public String tendencySuffix(BigDecimal rawAverage, int finalGrade, BigDecimal threshold, GradeScale scale) {
         BigDecimal deviation = rawAverage.subtract(new BigDecimal(finalGrade));
-        if (deviation.abs().compareTo(thresholdFraction(thresholdPercent)) <= 0) {
+        if (deviation.abs().compareTo(threshold) <= 0) {
             return "";
         }
         boolean towardLowerNeighbor = deviation.signum() < 0;
@@ -118,10 +120,6 @@ public class HalfYearGradeDisplayService {
     private BigDecimal neighborHalfGrade(BigDecimal rawAverage, int finalGrade) {
         BigDecimal anchor = new BigDecimal(finalGrade);
         return rawAverage.compareTo(anchor) > 0 ? anchor.add(HALF_STEP) : anchor.subtract(HALF_STEP);
-    }
-
-    private static BigDecimal thresholdFraction(int thresholdPercent) {
-        return new BigDecimal(thresholdPercent).divide(HUNDRED);
     }
 
     private static String plain(BigDecimal value) {

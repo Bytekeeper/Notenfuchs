@@ -484,7 +484,7 @@ public class GradeGridResource {
      */
     private String displayLabel(Subject subject, SubjectAverageResult average) {
         return halfYearGradeDisplayService.label(average.rawAverage(), average.finalGrade(),
-                subject.schoolClass.halfYearGradeDisplay, subject.schoolClass.halfYearTendencyThresholdPercent,
+                subject.schoolClass.halfYearGradeDisplay, subject.schoolClass.halfYearTendencyThreshold,
                 subject.gradeScale);
     }
 

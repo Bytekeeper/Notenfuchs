@@ -7,7 +7,7 @@
 <h1>Notenerfassung: {subject.name}</h1>
 <p class="hint">Notenskala {subject.gradeScale.name} ({subject.gradeScale.min}–{subject.gradeScale.max}, {#if subject.gradeScale.lowerIsBetter}niedriger ist besser{#else}höher ist besser{/if}) · Rundung: {subject.roundingMode}</p>
 <p class="hint">Halbjahres-Stichtag: {cutoff} (<a href="/classes/{subject.schoolClass.id}">ändern</a>) · Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr.</p>
-<p class="hint">1./2.-HJ-Anzeige: {subject.schoolClass.halfYearGradeDisplay}{#if subject.schoolClass.halfYearTendencyThresholdPercent} (± {subject.schoolClass.halfYearTendencyThresholdPercent}% Tendenz){/if} (<a href="/classes/{subject.schoolClass.id}">ändern</a>) · Jahresnote bleibt immer eine ganze Note.</p>
+<p class="hint">1./2.-HJ-Anzeige: {subject.schoolClass.halfYearGradeDisplay}{#if subject.schoolClass.halfYearTendencyThreshold} (± {subject.schoolClass.halfYearTendencyThreshold} Tendenz){/if} (<a href="/classes/{subject.schoolClass.id}">ändern</a>) · Jahresnote bleibt immer eine ganze Note.</p>
 
 {#if gridEmpty}
     <p class="hint">Dieses Fach hat noch keine Kategorien/Leistungen. <a href="/subjects/{subject.id}">Erst Kategorien und Leistungen anlegen</a>.</p>

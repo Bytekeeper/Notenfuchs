@@ -20,6 +20,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -253,7 +254,7 @@ class GradeGridHalfYearIT {
         assertTrue(gridHtml.contains("data-scope=\"h1\">2<"), "half-grade label must actually render in the grid");
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
-        assertNull(persisted.halfYearTendencyThresholdPercent);
+        assertNull(persisted.halfYearTendencyThreshold);
     }
 
     /**
@@ -269,7 +270,7 @@ class GradeGridHalfYearIT {
 
         Long classId = createClass("HJ-Anzeige-HalbTendenz-" + unique, "2025/26");
         setHalfYearCutoff(classId, CUTOFF);
-        setHalfYearGradeDisplay(classId, "HALF", "10");
+        setHalfYearGradeDisplay(classId, "HALF", "0.1");
         Long studentId = createStudent(classId, "HJ-Anzeige-HalbTendenz-Schueler-" + unique);
         Long subjectId = createSubject(classId, "HJ-Anzeige-HalbTendenz-Fach-" + unique, gradeScale.id);
         Long categoryId = createCategory(subjectId, "HJ-Anzeige-HalbTendenz-Kat-" + unique, "100");
@@ -290,7 +291,7 @@ class GradeGridHalfYearIT {
         assertTrue(gridHtml.contains("data-scope=\"h1\">2.5"), "refined half-grade label must actually render in the grid");
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
-        assertEquals(10, persisted.halfYearTendencyThresholdPercent,
+        assertEquals(0, new BigDecimal("0.10").compareTo(persisted.halfYearTendencyThreshold),
                 "HALF no longer forces the tendency threshold back to null - it's reused, not discarded");
     }
 
@@ -301,19 +302,19 @@ class GradeGridHalfYearIT {
 
         Long classId = createClass("HJ-Anzeige-Tendenz-" + unique, "2025/26");
         setHalfYearCutoff(classId, CUTOFF);
-        setHalfYearGradeDisplay(classId, "WHOLE", "10");
+        setHalfYearGradeDisplay(classId, "WHOLE", "0.1");
         Long studentId = createStudent(classId, "HJ-Anzeige-Tendenz-Schueler-" + unique);
         Long subjectId = createSubject(classId, "HJ-Anzeige-Tendenz-Fach-" + unique, gradeScale.id);
         Long categoryId = createCategory(subjectId, "HJ-Anzeige-Tendenz-Kat-" + unique, "100");
         Long assessmentX = createAssessment(subjectId, categoryId, "HJ-Anzeige-Tendenz-X-" + unique, CUTOFF.minusDays(2));
 
-        // 3.2 is outside the +/-10% plain zone around 3, on the "worse" side (DE 1-6, lower is
+        // 3.2 is outside the +/-0.1 plain zone around 3, on the "worse" side (DE 1-6, lower is
         // better) -> "3-".
         JsonNode minusResponse = saveGradeAndParse(subjectId, studentId, assessmentX, "3.2");
         assertEquals("3-", minusResponse.get("h1DisplayLabel").asText());
 
         Long assessmentY = createAssessment(subjectId, categoryId, "HJ-Anzeige-Tendenz-Y-" + unique, CUTOFF.minusDays(1));
-        // Adding a 2.4 alongside the 3.2 moves the average to 2.8 - within 10% below the whole
+        // Adding a 2.4 alongside the 3.2 moves the average to 2.8 - within 0.1 below the whole
         // grade 3, on the "better" side -> "3+".
         JsonNode plusResponse = saveGradeAndParse(subjectId, studentId, assessmentY, "2.4");
         assertEquals("3+", plusResponse.get("h1DisplayLabel").asText());
@@ -384,10 +385,10 @@ class GradeGridHalfYearIT {
         assertEquals(200, response.statusCode(), response.body());
     }
 
-    private void setHalfYearGradeDisplay(Long classId, String mode, String tendencyThresholdPercent) throws Exception {
-        Map<String, String> form = tendencyThresholdPercent == null
+    private void setHalfYearGradeDisplay(Long classId, String mode, String tendencyThreshold) throws Exception {
+        Map<String, String> form = tendencyThreshold == null
                 ? Map.of("halfYearGradeDisplay", mode)
-                : Map.of("halfYearGradeDisplay", mode, "tendencyThresholdPercent", tendencyThresholdPercent);
+                : Map.of("halfYearGradeDisplay", mode, "tendencyThreshold", tendencyThreshold);
         HttpResponse<String> response = patch("/classes/" + classId + "/half-year-grade-display", form);
         assertEquals(200, response.statusCode(), response.body());
     }

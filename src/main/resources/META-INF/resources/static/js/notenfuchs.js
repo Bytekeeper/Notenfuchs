@@ -599,13 +599,12 @@
  * refines a would-be suffix into the neighboring half-grade once the raw average is close
  * enough to it.
  *
- * The number itself is a percent of a whole grade step, which isn't obvious from a bare number
- * once the placeholder is gone (i.e. as soon as a value is entered) - a persistent "%" suffix
- * next to the input plus a live "Beispiel bei Note 3: ..." line (recomputed on every keystroke
- * and mode change, always anchored at grade 3 since the band width is identical around every
- * whole grade) spell out concretely what the percent means instead of leaving it as an abstract
- * number - and the wording differs by mode, since "outside the plain zone" means something
- * different in each.
+ * The number itself is a raw deviation from a whole grade step (e.g. 0.1, not a percentage), which
+ * isn't obvious from a bare number once the placeholder is gone (i.e. as soon as a value is
+ * entered) - a live "Beispiel bei Note 3: ..." line (recomputed on every keystroke and mode
+ * change, always anchored at grade 3 since the band width is identical around every whole grade)
+ * spells out concretely what the number means instead of leaving it as an abstract value - and
+ * the wording differs by mode, since "outside the plain zone" means something different in each.
  *
  * Runs after the generic "Inline rename" listeners above (registered earlier in this file, so
  * document click listeners fire in that order), so the cancel-button resync below sees the
@@ -627,12 +626,11 @@
             example.textContent = "";
             return;
         }
-        const percent = parseFloat(input.value.replace(",", "."));
-        if (isNaN(percent) || percent < 0) {
+        const band = parseFloat(input.value.replace(",", "."));
+        if (isNaN(band) || band < 0) {
             example.textContent = "";
             return;
         }
-        const band = percent / 100;
         const select = form.querySelector('select[name="halfYearGradeDisplay"]');
         const isHalf = select && select.value === "HALF";
         const outside = isHalf ? "sonst 2,5 bzw. 3,5 (oder 3+ / 3-, falls auch das zu weit weg ist)"
@@ -643,14 +641,14 @@
 
     function syncTendencyInput(select) {
         const form = select.closest("form");
-        const input = form && form.querySelector('input[name="tendencyThresholdPercent"]');
+        const input = form && form.querySelector('input[name="tendencyThreshold"]');
         if (input) {
             updateTendencyExample(input);
         }
     }
 
     document.addEventListener("input", function (ev) {
-        const input = ev.target.closest('.half-year-grade-display-form input[name="tendencyThresholdPercent"]');
+        const input = ev.target.closest('.half-year-grade-display-form input[name="tendencyThreshold"]');
         if (input) {
             updateTendencyExample(input);
         }
@@ -667,7 +665,7 @@
         const toggle = ev.target.closest(".rename-toggle");
         if (toggle) {
             const input = toggle.closest(".rename-wrap")
-                .querySelector('.half-year-grade-display-form input[name="tendencyThresholdPercent"]');
+                .querySelector('.half-year-grade-display-form input[name="tendencyThreshold"]');
             if (input) {
                 updateTendencyExample(input);
             }

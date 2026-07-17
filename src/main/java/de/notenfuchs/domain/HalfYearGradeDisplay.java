@@ -8,7 +8,7 @@ package de.notenfuchs.domain;
 public enum HalfYearGradeDisplay {
     /**
      * The existing whole-number final grade, optionally decorated with a +/- tendency suffix
-     * (see {@link SchoolClass#halfYearTendencyThresholdPercent}) - never a half-grade.
+     * (see {@link SchoolClass#halfYearTendencyThreshold}) - never a half-grade.
      */
     WHOLE,
 

@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -72,17 +73,18 @@ public class SchoolClass extends PanacheEntity {
     public HalfYearGradeDisplay halfYearGradeDisplay = HalfYearGradeDisplay.WHOLE;
 
     /**
-     * Width (as a percentage of a whole grade step, e.g. {@code 10} for +/-10%) of the "plain"
-     * zone around a whole grade within which no +/- tendency suffix is shown. {@code null}
-     * (the default) disables the tendency suffix entirely. Meaningful under both
-     * {@link #halfYearGradeDisplay} values: {@code HALF} reuses this exact same threshold to
-     * decide the same thing {@code WHOLE} does (is the raw average far enough from the whole
-     * grade to say something more precise?) but expresses "something more precise" as the
-     * neighboring half-grade instead of a suffix, once the raw average is close enough to it -
-     * see {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Expected range is 0-49
+     * Width, as a raw deviation from a whole grade step (e.g. {@code 0.1} for +/-0.1), of the
+     * "plain" zone around a whole grade within which no +/- tendency suffix is shown - compared
+     * directly against a raw average rather than as a percentage that first needs converting to
+     * a fraction. {@code null} (the default) disables the tendency suffix entirely. Meaningful
+     * under both {@link #halfYearGradeDisplay} values: {@code HALF} reuses this exact same
+     * threshold to decide the same thing {@code WHOLE} does (is the raw average far enough from
+     * the whole grade to say something more precise?) but expresses "something more precise" as
+     * the neighboring half-grade instead of a suffix, once the raw average is close enough to it
+     * - see {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Expected range is 0-0.49
      * (enforced by the settings form's HTML bounds, like {@code GradeCategory#weightPercent}/
      * {@code Assessment#factor} - not re-validated server-side).
      */
-    @Column(name = "half_year_tendency_threshold_percent")
-    public Integer halfYearTendencyThresholdPercent;
+    @Column(name = "half_year_tendency_threshold", precision = 3, scale = 2)
+    public BigDecimal halfYearTendencyThreshold;
 }

@@ -35,6 +35,7 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -245,7 +246,7 @@ public class ClassUiResource {
 
     /**
      * Sets how the grade grid's H1/H2 Halbjahr columns display an average - see
-     * {@link SchoolClass#halfYearGradeDisplay}/{@link SchoolClass#halfYearTendencyThresholdPercent}
+     * {@link SchoolClass#halfYearGradeDisplay}/{@link SchoolClass#halfYearTendencyThreshold}
      * and {@link de.notenfuchs.service.HalfYearGradeDisplayService}. The tendency threshold is
      * valid alongside either mode - {@code HalfYearGradeDisplayService} reuses the same
      * whole-grade tendency computation in {@link HalfYearGradeDisplay#HALF}, refining it into a
@@ -258,13 +259,13 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance updateHalfYearGradeDisplay(@PathParam("id") Long id,
                                                          @FormParam("halfYearGradeDisplay") String halfYearGradeDisplay,
-                                                         @FormParam("tendencyThresholdPercent") Integer tendencyThresholdPercent) {
+                                                         @FormParam("tendencyThreshold") BigDecimal tendencyThreshold) {
         SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         HalfYearGradeDisplay mode = (halfYearGradeDisplay == null || halfYearGradeDisplay.isBlank())
                 ? HalfYearGradeDisplay.WHOLE
                 : HalfYearGradeDisplay.valueOf(halfYearGradeDisplay);
         schoolClass.halfYearGradeDisplay = mode;
-        schoolClass.halfYearTendencyThresholdPercent = tendencyThresholdPercent;
+        schoolClass.halfYearTendencyThreshold = tendencyThreshold;
         return halfYearGradeDisplayFragment.data("schoolClass", schoolClass);
     }
 

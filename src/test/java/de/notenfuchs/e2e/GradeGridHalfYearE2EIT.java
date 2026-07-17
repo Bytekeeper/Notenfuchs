@@ -182,7 +182,7 @@ class GradeGridHalfYearE2EIT {
         Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap.locator(".rename-toggle").click();
         Locator modeSelect = displayWrap.locator("select[name='halfYearGradeDisplay']");
-        Locator tendencyInput = displayWrap.locator("input[name='tendencyThresholdPercent']");
+        Locator tendencyInput = displayWrap.locator("input[name='tendencyThreshold']");
         assertThat(tendencyInput).isEnabled();
         modeSelect.selectOption("HALF");
         assertThat(tendencyInput).isEnabled();
@@ -217,42 +217,42 @@ class GradeGridHalfYearE2EIT {
         // tendency suffix.
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2.5");
 
-        // Switch back to whole grades with a +/-10% tendency band, then re-render the grid fresh.
+        // Switch back to whole grades with a +/-0.1 tendency band, then re-render the grid fresh.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
         Locator displayWrap2 = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap2.locator(".rename-toggle").click();
         displayWrap2.locator("select[name='halfYearGradeDisplay']").selectOption("WHOLE");
-        Locator tendencyInput2 = displayWrap2.locator("input[name='tendencyThresholdPercent']");
+        Locator tendencyInput2 = displayWrap2.locator("input[name='tendencyThreshold']");
         assertThat(tendencyInput2).isEnabled();
-        tendencyInput2.fill("10");
-        // The live example spells out what the bare number means (percent of a whole grade
-        // step), recomputed on every keystroke - see notenfuchs.js's updateTendencyExample.
+        tendencyInput2.fill("0.10");
+        // The live example spells out what the bare number means (a raw deviation, not a
+        // percentage), recomputed on every keystroke - see notenfuchs.js's updateTendencyExample.
         assertThat(displayWrap2.locator(".tendency-example")).hasText("Beispiel bei Note 3: 2,90–3,10 ohne Tendenz, sonst 3+ / 3-");
         displayWrap2.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Ganze Noten (± 10% Tendenz)");
+        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Ganze Noten (± 0.10 Tendenz)");
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
-        // 2.6 rounds to the whole grade 3 (COMMERCIAL) and sits >10% below it on the DE 1-6
+        // 2.6 rounds to the whole grade 3 (COMMERCIAL) and sits >0.1 below it on the DE 1-6
         // scale (lower is better) - leaning toward the better neighbor 2 -> "3+". WHOLE mode
         // never refines this into a half-grade - that refinement is HALF-mode-only, see
         // HalfYearGradeDisplayServiceTest.
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("3+");
 
-        // Switch to HALF while keeping the same 10% threshold - it's no longer forced back to
+        // Switch to HALF while keeping the same 0.1 threshold - it's no longer forced back to
         // null (see ClassUiResource#updateHalfYearGradeDisplay).
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
         Locator displayWrap3 = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap3.locator(".rename-toggle").click();
         displayWrap3.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
         displayWrap3.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten (± 10% Tendenz)");
+        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten (± 0.10 Tendenz)");
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
-        // Same 2.6 grade as above (finalGrade 3, COMMERCIAL): HALF+10% refines the "+" tendency
+        // Same 2.6 grade as above (finalGrade 3, COMMERCIAL): HALF+0.1 refines the "+" tendency
         // into the neighboring half-grade 2.5 it's close enough to, instead of showing "3+".
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2.5");
 
@@ -299,7 +299,7 @@ class GradeGridHalfYearE2EIT {
         Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap.locator(".rename-toggle").click();
         displayWrap.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
-        displayWrap.locator("input[name='tendencyThresholdPercent']").fill("10");
+        displayWrap.locator("input[name='tendencyThreshold']").fill("0.10");
         displayWrap.locator(".rename-save").click();
 
         page.locator("#studentName").fill(studentName);
