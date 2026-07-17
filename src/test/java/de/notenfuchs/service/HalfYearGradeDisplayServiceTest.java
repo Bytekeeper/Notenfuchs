@@ -123,20 +123,53 @@ class HalfYearGradeDisplayServiceTest {
         assertEquals("3", service.label(new BigDecimal("3.0"), 3, HalfYearGradeDisplay.WHOLE, 10, deScale()));
     }
 
+    @Test
+    void label_half_noTendencyConfigured_roundsToNearestHalfGrade() {
+        assertEquals("2.5", service.label(new BigDecimal("2.6"), 3, HalfYearGradeDisplay.HALF, null, deScale()));
+    }
+
     /**
-     * The combination this service exists to make impossible: HALF granularity ignores any
-     * configured tendency threshold entirely, never producing something like "3.5+" for a raw
-     * average of 3.4 (which would be nonsensical - 3.4 is numerically *better* than 3.5 on a
-     * lower-is-better scale, so a "+" suggesting it's leaning toward an even better neighbor
-     * would contradict the number it's attached to).
+     * The worked example this feature is built from: with a 10% threshold, HALF reuses WHOLE's
+     * tendency computation (anchored on finalGrade 2) and refines a would-be suffix into the
+     * neighboring half-grade 2.5 once the raw average is close enough to it. 2.1 stays plain
+     * (inside grade 2's own zone); 2.2/2.3 fall in the "murky middle" between grade 2 and 2.5 and
+     * get a suffix exactly like WHOLE would ("2-"); 2.4/2.5 are close enough to 2.5 to show it
+     * bare instead.
      */
     @Test
-    void label_half_ignoresTendencyThreshold_evenIfConfigured() {
-        assertEquals("3.5", service.label(new BigDecimal("3.4"), 3, HalfYearGradeDisplay.HALF, 10, deScale()));
+    void label_half_withTendency_refinesSuffixIntoNeighboringHalfGrade() {
+        assertEquals("2", service.label(new BigDecimal("2.1"), 2, HalfYearGradeDisplay.HALF, 10, deScale()));
+        assertEquals("2-", service.label(new BigDecimal("2.2"), 2, HalfYearGradeDisplay.HALF, 10, deScale()));
+        assertEquals("2-", service.label(new BigDecimal("2.3"), 2, HalfYearGradeDisplay.HALF, 10, deScale()));
+        assertEquals("2.5", service.label(new BigDecimal("2.4"), 2, HalfYearGradeDisplay.HALF, 10, deScale()));
+        assertEquals("2.5", service.label(new BigDecimal("2.5"), 2, HalfYearGradeDisplay.HALF, 10, deScale()));
+    }
+
+    /**
+     * The symmetric case on the "leaning better" side: 3.6 is outside whole grade 4's plain zone
+     * (leaning "+") but close enough to the half-grade 3.5 to show that instead - mirroring the
+     * 2.4 case above from the other direction.
+     */
+    @Test
+    void label_half_withTendency_refinesSuffixIntoNeighboringHalfGrade_fromAbove() {
+        assertEquals("3.5", service.label(new BigDecimal("3.6"), 4, HalfYearGradeDisplay.HALF, 10, deScale()));
+        assertEquals("4+", service.label(new BigDecimal("3.8"), 4, HalfYearGradeDisplay.HALF, 10, deScale()));
+    }
+
+    /**
+     * 2.5 is an exact tie, which a subject's own RoundingMode can break either way
+     * (IN_FAVOR_OF_STUDENT floors to 2, COMMERCIAL rounds up to 3 - see GradeServiceTest). Both
+     * must converge on the same half-grade here, since the refinement always checks the neighbor
+     * in whichever direction the tie happened to be broken.
+     */
+    @Test
+    void label_half_withTendency_exactTieConvergesRegardlessOfFinalGradeTieBreak() {
+        assertEquals("2.5", service.label(new BigDecimal("2.5"), 2, HalfYearGradeDisplay.HALF, 10, deScale()));
+        assertEquals("2.5", service.label(new BigDecimal("2.5"), 3, HalfYearGradeDisplay.HALF, 10, deScale()));
     }
 
     @Test
-    void label_half_roundsToNearestHalfGrade() {
-        assertEquals("2.5", service.label(new BigDecimal("2.6"), 3, HalfYearGradeDisplay.HALF, null, deScale()));
+    void label_half_withTendency_higherIsBetter_directionIsFlipped() {
+        assertEquals("9.5", service.label(new BigDecimal("9.45"), 9, HalfYearGradeDisplay.HALF, 10, pointsScaleHigherIsBetter()));
     }
 }

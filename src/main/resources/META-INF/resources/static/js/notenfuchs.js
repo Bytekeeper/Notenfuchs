@@ -32,6 +32,27 @@
         const saveUrl = root.dataset.saveUrl; // e.g. /subjects/42/grid/cell
         const avgUrl = root.dataset.averageUrlTemplate; // e.g. /subjects/42/grid/average/{studentId}
 
+        // Save requests have no server-side ordering guarantee - a fast edit followed by a
+        // slower one (or, for the same student, edits to two different cells) can have their
+        // responses arrive out of order. Without tracking "is this response still current",
+        // whichever response happens to land LAST wins the DOM update, even if it's actually
+        // the older edit - silently reverting a newer, already-saved value back to a stale
+        // display (the average briefly losing a tendency suffix, or worse, being just wrong).
+        // Two counters guard against this: one per cell (its own saved-state/value), one per
+        // student (the shared H1/H2/Jahr average row several cells can all update).
+        let studentSaveSeq = {};
+
+        function nextCellSeq(input) {
+            const seq = (parseInt(input.dataset.saveRequestId || "0", 10) + 1).toString();
+            input.dataset.saveRequestId = seq;
+            return seq;
+        }
+
+        function nextStudentSeq(studentId) {
+            studentSaveSeq[studentId] = (studentSaveSeq[studentId] || 0) + 1;
+            return studentSaveSeq[studentId];
+        }
+
         function cellAt(row, col) {
             return root.querySelector(
                 '.grade-input[data-row="' + row + '"][data-col="' + col + '"]'
@@ -91,6 +112,9 @@
 
             setState(input, "saving");
 
+            const cellSeq = nextCellSeq(input);
+            const studentSeq = nextStudentSeq(studentId);
+
             const body = new URLSearchParams();
             body.set("studentId", studentId);
             body.set("assessmentId", assessmentId);
@@ -110,17 +134,32 @@
                     return resp.json();
                 })
                 .then(function (data) {
-                    input.dataset.lastSaved = normalized;
-                    setState(input, "saved");
-                    clearSavedFlashSoon(input);
-                    if (data && typeof data.displayValue === "string") {
-                        input.value = data.displayValue;
+                    // The average row is shared by every cell of this student - checked and
+                    // applied FIRST and independently of the cell-specific block below, so an
+                    // unexpected error in the latter (e.g. a future change to
+                    // updateDerivedGrade) can never prevent this student's H1/H2/Jahr average
+                    // from refreshing.
+                    if (studentSaveSeq[studentId] === studentSeq) {
+                        updateAverageRow(studentId, data);
                     }
-                    updateAverageRow(studentId, data);
                     updateAssessmentAverage(data);
-                    updateDerivedGrade(input, data);
+                    // A newer edit of this same cell has already been issued (and its own
+                    // response applied, or is still in flight) - this response is stale, skip
+                    // everything cell-specific so it can't clobber the newer edit.
+                    if (input.dataset.saveRequestId === cellSeq) {
+                        input.dataset.lastSaved = normalized;
+                        setState(input, "saved");
+                        clearSavedFlashSoon(input);
+                        if (data && typeof data.displayValue === "string") {
+                            input.value = data.displayValue;
+                        }
+                        updateDerivedGrade(input, data);
+                    }
                 })
                 .catch(function (err) {
+                    if (input.dataset.saveRequestId !== cellSeq) {
+                        return;
+                    }
                     setState(input, "error");
                     input.title = err.message || "Fehler beim Speichern";
                 });
@@ -555,17 +594,18 @@
 
 /**
  * Halbjahr grade-display settings form (fragments/halfYearGradeDisplay.html): the tendency
- * threshold input only takes effect when "Ganze Noten" (WHOLE) is selected - see
- * HalfYearGradeDisplayService for why stacking a tendency onto a half-grade has no sensible
- * meaning. Disabling the input live (mirroring the server, which always forces the threshold
- * back to null when HALF is submitted) keeps a teacher from filling in a value that's about to
- * be silently dropped.
+ * threshold input is valid alongside either "Ganze Noten" (WHOLE) or "Halbe Noten" (HALF) - see
+ * HalfYearGradeDisplayService, which reuses the exact same threshold for both: in HALF it
+ * refines a would-be suffix into the neighboring half-grade once the raw average is close
+ * enough to it.
  *
  * The number itself is a percent of a whole grade step, which isn't obvious from a bare number
  * once the placeholder is gone (i.e. as soon as a value is entered) - a persistent "%" suffix
- * next to the input plus a live "Beispiel bei Note 3: ..." line (recomputed on every keystroke,
- * always anchored at grade 3 since the band width is identical around every whole grade) spell
- * out concretely what the percent means instead of leaving it as an abstract number.
+ * next to the input plus a live "Beispiel bei Note 3: ..." line (recomputed on every keystroke
+ * and mode change, always anchored at grade 3 since the band width is identical around every
+ * whole grade) spell out concretely what the percent means instead of leaving it as an abstract
+ * number - and the wording differs by mode, since "outside the plain zone" means something
+ * different in each.
  *
  * Runs after the generic "Inline rename" listeners above (registered earlier in this file, so
  * document click listeners fire in that order), so the cancel-button resync below sees the
@@ -583,7 +623,7 @@
         const example = form && form.querySelector(".tendency-example");
         if (!example) return;
 
-        if (input.disabled || input.value.trim() === "") {
+        if (input.value.trim() === "") {
             example.textContent = "";
             return;
         }
@@ -593,15 +633,18 @@
             return;
         }
         const band = percent / 100;
+        const select = form.querySelector('select[name="halfYearGradeDisplay"]');
+        const isHalf = select && select.value === "HALF";
+        const outside = isHalf ? "sonst 2,5 bzw. 3,5 (oder 3+ / 3-, falls auch das zu weit weg ist)"
+            : "sonst 3+ / 3-";
         example.textContent = "Beispiel bei Note 3: " + germanDecimal(3 - band) + "–"
-            + germanDecimal(3 + band) + " ohne Tendenz, sonst 3+ / 3-";
+            + germanDecimal(3 + band) + " ohne Tendenz, " + outside;
     }
 
     function syncTendencyInput(select) {
         const form = select.closest("form");
         const input = form && form.querySelector('input[name="tendencyThresholdPercent"]');
         if (input) {
-            input.disabled = select.value !== "WHOLE";
             updateTendencyExample(input);
         }
     }

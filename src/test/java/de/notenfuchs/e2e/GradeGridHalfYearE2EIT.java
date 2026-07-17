@@ -1,8 +1,10 @@
 package de.notenfuchs.e2e;
 
+import com.microsoft.playwright.APIResponse;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.Route;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.SelectOption;
 import io.quarkiverse.playwright.InjectPlaywright;
@@ -13,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
@@ -145,12 +149,13 @@ class GradeGridHalfYearE2EIT {
     }
 
     /**
-     * Covers {@code fragments/halfYearGradeDisplay.html} + its notenfuchs.js live-disable
-     * behavior: the tendency % input only makes sense for "Ganze Noten" and must disable itself
-     * the moment "Halbe Noten" is picked, even before saving. Then checks both display modes
-     * actually change what the H1 average cell renders - a half-grade for HALF, a whole grade
-     * decorated with a tendency suffix for WHOLE+threshold - complementing the JSON-level
-     * assertions in {@code de.notenfuchs.web.GradeGridHalfYearIT}.
+     * Covers {@code fragments/halfYearGradeDisplay.html}: the tendency % input stays enabled
+     * regardless of which mode is selected (it's meaningful for both - see
+     * HalfYearGradeDisplayService). Then checks both display modes actually change what the H1
+     * average cell renders - a bare half-grade for HALF without a threshold, a whole grade
+     * decorated with a tendency suffix for WHOLE+threshold, and finally HALF+threshold refining
+     * that same suffix into a half-grade or, in the "murky middle", falling back to the suffix -
+     * complementing the JSON-level assertions in {@code de.notenfuchs.web.GradeGridHalfYearIT}.
      */
     @Test
     void halfYearGradeDisplaySetting_changesHowTheH1AverageCellRenders() {
@@ -172,16 +177,15 @@ class GradeGridHalfYearE2EIT {
         cutoffWrap.locator(".rename-save").click();
         assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
 
-        // Switch to "Halbe Noten" - live-disabling the tendency input along the way, before it's
-        // even saved (see HalfYearGradeDisplayService's javadoc for why the combination must be
-        // structurally impossible).
+        // Switch to "Halbe Noten" - the tendency input stays enabled, since it's meaningful for
+        // both modes (unlike the earlier, since-reverted design where HALF disabled it).
         Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap.locator(".rename-toggle").click();
         Locator modeSelect = displayWrap.locator("select[name='halfYearGradeDisplay']");
         Locator tendencyInput = displayWrap.locator("input[name='tendencyThresholdPercent']");
         assertThat(tendencyInput).isEnabled();
         modeSelect.selectOption("HALF");
-        assertThat(tendencyInput).isDisabled();
+        assertThat(tendencyInput).isEnabled();
         displayWrap.locator(".rename-save").click();
         assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten");
 
@@ -231,7 +235,125 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
         // 2.6 rounds to the whole grade 3 (COMMERCIAL) and sits >10% below it on the DE 1-6
-        // scale (lower is better) - leaning toward the better neighbor 2 -> "3+".
+        // scale (lower is better) - leaning toward the better neighbor 2 -> "3+". WHOLE mode
+        // never refines this into a half-grade - that refinement is HALF-mode-only, see
+        // HalfYearGradeDisplayServiceTest.
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("3+");
+
+        // Switch to HALF while keeping the same 10% threshold - it's no longer forced back to
+        // null (see ClassUiResource#updateHalfYearGradeDisplay).
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        Locator displayWrap3 = page.locator("#half-year-grade-display-fragment .rename-wrap");
+        displayWrap3.locator(".rename-toggle").click();
+        displayWrap3.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
+        displayWrap3.locator(".rename-save").click();
+        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten (± 10% Tendenz)");
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        // Same 2.6 grade as above (finalGrade 3, COMMERCIAL): HALF+10% refines the "+" tendency
+        // into the neighboring half-grade 2.5 it's close enough to, instead of showing "3+".
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2.5");
+
+        // 2.2 sits in the "murky middle" between whole grade 2 and half-grade 2.5 - too far from
+        // 2 to be plain, not close enough to 2.5 to refine into it - so HALF+tendency falls back
+        // to exactly the suffix WHOLE would show for the same value.
+        Locator h1Cell2 = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        h1Cell2.fill("2.2");
+        h1Cell2.evaluate("el => el.blur()");
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2-");
+    }
+
+    /**
+     * Regression test for a real bug report: {@code saveCell()} in notenfuchs.js had no
+     * protection against a save request's response arriving out of order - e.g. a fast edit
+     * (2.05, label plain "2") followed almost immediately by a slower one (2.2, label "2-")
+     * could have the OLDER response land after the newer one and win the DOM update, silently
+     * reverting the display to a stale value even though the backend's response for the actual
+     * current value (2.2) was correct all along. Uses {@code page.route()} plus a
+     * {@code CountDownLatch} to deterministically force the older request's response to arrive
+     * after the newer one - not relying on real network timing, which is exactly why the bug
+     * was hard to pin down by hand. See notenfuchs.js's {@code nextCellSeq}/{@code nextStudentSeq}
+     * for the fix.
+     */
+    @Test
+    void savingCell_ignoresAnOutOfOrderStaleResponse() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        String className = "E2E-Race-Klasse-" + unique;
+        String studentName = "E2E-Race-Schueler-" + unique;
+        String subjectName = "E2E-Race-Fach-" + unique;
+        String categoryName = "E2E-Race-Kategorie-" + unique;
+
+        page.navigate(baseUrl());
+        page.locator("#name").fill(className);
+        page.locator("#schoolYear").fill("2025/26");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+
+        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
+        cutoffWrap.locator(".rename-toggle").click();
+        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffWrap.locator(".rename-save").click();
+
+        Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
+        displayWrap.locator(".rename-toggle").click();
+        displayWrap.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
+        displayWrap.locator("input[name='tendencyThresholdPercent']").fill("10");
+        displayWrap.locator(".rename-save").click();
+
+        page.locator("#studentName").fill(studentName);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
+
+        page.locator("#subjectName").fill(subjectName);
+        page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
+        page.locator("#roundingMode").selectOption("COMMERCIAL");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("100");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
+        categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        CountDownLatch newerResponseFulfilled = new CountDownLatch(1);
+        page.route("**/grid/cell", route -> {
+            String body = route.request().postData();
+            boolean isOlderEdit = body != null && body.contains("value=2.05");
+            APIResponse response = route.fetch();
+            if (isOlderEdit) {
+                // Don't block this callback itself (that could starve the newer request's own
+                // route handler) - hand the delayed fulfill off to a background thread instead.
+                new Thread(() -> {
+                    try {
+                        newerResponseFulfilled.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    route.fulfill(new Route.FulfillOptions().setResponse(response));
+                }).start();
+            } else {
+                route.fulfill(new Route.FulfillOptions().setResponse(response));
+                newerResponseFulfilled.countDown();
+            }
+        });
+
+        Locator h1Cell = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        h1Cell.fill("2.05");
+        h1Cell.evaluate("el => el.blur()");
+        h1Cell.fill("2.2");
+        h1Cell.evaluate("el => el.blur()");
+
+        // The older (2.05) request's response is deliberately released only after the newer
+        // (2.2) one has already been fulfilled and applied - without the sequencing guard in
+        // notenfuchs.js, this stale response would win and silently drop the "-" suffix.
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2-");
+        assertThat(h1Cell).hasValue("2.2");
     }
 }

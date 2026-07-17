@@ -246,12 +246,10 @@ public class ClassUiResource {
     /**
      * Sets how the grade grid's H1/H2 Halbjahr columns display an average - see
      * {@link SchoolClass#halfYearGradeDisplay}/{@link SchoolClass#halfYearTendencyThresholdPercent}
-     * and {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Switching to
-     * {@link HalfYearGradeDisplay#HALF} always forces the tendency threshold back to
-     * {@code null} server-side, regardless of what was submitted - the combination is
-     * structurally impossible, not just unused (see the class-level Javadoc on
-     * {@code HalfYearGradeDisplayService} for why "half-grade with tendency" has no sensible
-     * meaning).
+     * and {@link de.notenfuchs.service.HalfYearGradeDisplayService}. The tendency threshold is
+     * valid alongside either mode - {@code HalfYearGradeDisplayService} reuses the same
+     * whole-grade tendency computation in {@link HalfYearGradeDisplay#HALF}, refining it into a
+     * half-grade instead of a suffix when the raw average is close enough to one.
      */
     @PATCH
     @Path("/{id}/half-year-grade-display")
@@ -266,7 +264,7 @@ public class ClassUiResource {
                 ? HalfYearGradeDisplay.WHOLE
                 : HalfYearGradeDisplay.valueOf(halfYearGradeDisplay);
         schoolClass.halfYearGradeDisplay = mode;
-        schoolClass.halfYearTendencyThresholdPercent = mode == HalfYearGradeDisplay.WHOLE ? tendencyThresholdPercent : null;
+        schoolClass.halfYearTendencyThresholdPercent = tendencyThresholdPercent;
         return halfYearGradeDisplayFragment.data("schoolClass", schoolClass);
     }
 

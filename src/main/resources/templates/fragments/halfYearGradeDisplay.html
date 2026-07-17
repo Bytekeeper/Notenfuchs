@@ -2,7 +2,7 @@
     <div class="rename-wrap">
         <span class="rename-view">
             {#if schoolClass.halfYearGradeDisplay.name == 'HALF'}
-                <span class="rename-display">Halbe Noten</span>
+                <span class="rename-display">Halbe Noten{#if schoolClass.halfYearTendencyThresholdPercent} (± {schoolClass.halfYearTendencyThresholdPercent}% Tendenz){/if}</span>
             {#else}
                 <span class="rename-display">Ganze Noten{#if schoolClass.halfYearTendencyThresholdPercent} (± {schoolClass.halfYearTendencyThresholdPercent}% Tendenz){/if}</span>
             {/if}
@@ -15,10 +15,9 @@
             </select>
             <span class="tendency-input-wrap">
                 <input type="number" name="tendencyThresholdPercent" min="0" max="49" step="1"
-                       placeholder="Tendenz" title="Breite der Zone um eine ganze Note, in der keine Tendenz (+/-) angezeigt wird - als Prozent einer ganzen Notenstufe, nur bei ganzen Noten wirksam"
+                       placeholder="Tendenz" title="Breite der Zone um eine ganze Note, in der keine Tendenz (+/-) angezeigt wird - als Prozent einer ganzen Notenstufe. Bei halben Noten wird daraus die Nähe zur halben Note statt eines +/- Suffixes."
                        value="{schoolClass.halfYearTendencyThresholdPercent ?: ''}"
-                       data-original="{schoolClass.halfYearTendencyThresholdPercent ?: ''}"
-                       {#if schoolClass.halfYearGradeDisplay.name != 'WHOLE'}disabled{/if}>
+                       data-original="{schoolClass.halfYearTendencyThresholdPercent ?: ''}">
                 <span class="tendency-unit">%</span>
             </span>
             <button type="submit" class="rename-save" aria-label="Speichern">✓</button>

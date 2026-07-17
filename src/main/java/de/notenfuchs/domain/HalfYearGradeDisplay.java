@@ -13,10 +13,11 @@ public enum HalfYearGradeDisplay {
     WHOLE,
 
     /**
-     * The raw average rounded to the nearest half-grade (e.g. 2.5) instead of a whole number.
-     * A tendency suffix never applies here - see
-     * {@link de.notenfuchs.service.HalfYearGradeDisplayService} for why stacking a +/- onto an
-     * already-finer half-grade step has no sensible meaning.
+     * The raw average rounded to the nearest half-grade (e.g. 2.5) instead of a whole number,
+     * when no tendency threshold is configured. With one configured, reuses {@code WHOLE}'s
+     * exact tendency computation and refines a would-be suffix into the neighboring half-grade
+     * once the raw average is close enough to it - see
+     * {@link de.notenfuchs.service.HalfYearGradeDisplayService}.
      */
     HALF;
 

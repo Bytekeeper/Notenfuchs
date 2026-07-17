@@ -74,11 +74,12 @@ public class SchoolClass extends PanacheEntity {
     /**
      * Width (as a percentage of a whole grade step, e.g. {@code 10} for +/-10%) of the "plain"
      * zone around a whole grade within which no +/- tendency suffix is shown. {@code null}
-     * (the default) disables the tendency suffix entirely. Only consulted when
-     * {@link #halfYearGradeDisplay} is {@code WHOLE} - switching to {@code HALF} forces this
-     * back to {@code null} (see {@code ClassUiResource#updateHalfYearGradeDisplay}), since a
-     * tendency suffix stacked onto an already-finer half-grade step has no established meaning
-     * (see {@link de.notenfuchs.service.HalfYearGradeDisplayService}). Expected range is 0-49
+     * (the default) disables the tendency suffix entirely. Meaningful under both
+     * {@link #halfYearGradeDisplay} values: {@code HALF} reuses this exact same threshold to
+     * decide the same thing {@code WHOLE} does (is the raw average far enough from the whole
+     * grade to say something more precise?) but expresses "something more precise" as the
+     * neighboring half-grade instead of a suffix, once the raw average is close enough to it -
+     * see {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Expected range is 0-49
      * (enforced by the settings form's HTML bounds, like {@code GradeCategory#weightPercent}/
      * {@code Assessment#factor} - not re-validated server-side).
      */

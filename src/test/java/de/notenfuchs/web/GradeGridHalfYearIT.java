@@ -231,29 +231,67 @@ class GradeGridHalfYearIT {
     }
 
     @Test
-    void halfYearGradeDisplay_half_showsRoundedHalfGrade_regardlessOfConfiguredTendency() throws Exception {
+    void halfYearGradeDisplay_half_withoutTendency_showsRoundedHalfGrade() throws Exception {
         String unique = Long.toString(System.nanoTime());
         GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
 
         Long classId = createClass("HJ-Anzeige-Halb-" + unique, "2025/26");
         setHalfYearCutoff(classId, CUTOFF);
-        // Submitting a tendency threshold alongside HALF must be silently ignored/dropped - see
-        // the structurally-impossible-combination note on HalfYearGradeDisplayService.
-        setHalfYearGradeDisplay(classId, "HALF", "10");
+        setHalfYearGradeDisplay(classId, "HALF", null);
         Long studentId = createStudent(classId, "HJ-Anzeige-Halb-Schueler-" + unique);
         Long subjectId = createSubject(classId, "HJ-Anzeige-Halb-Fach-" + unique, gradeScale.id);
         Long categoryId = createCategory(subjectId, "HJ-Anzeige-Halb-Kat-" + unique, "100");
         Long assessmentId = createAssessment(subjectId, categoryId, "HJ-Anzeige-Halb-X-" + unique, CUTOFF.minusDays(1));
 
-        JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
-        assertEquals("2.5", response.get("h1DisplayLabel").asText());
+        // 2.2 rounds to the half-grade 2.0 - no tendency configured, so no suffix logic ever
+        // runs, unlike the HALF+tendency case below where the same-ish value falls in the
+        // "murky middle" and gets a suffix instead.
+        JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "2.2");
+        assertEquals("2", response.get("h1DisplayLabel").asText());
 
         String gridHtml = get("/subjects/" + subjectId + "/grid").body();
-        assertTrue(gridHtml.contains("data-scope=\"h1\">2.5"), "half-grade label must actually render in the grid");
+        assertTrue(gridHtml.contains("data-scope=\"h1\">2<"), "half-grade label must actually render in the grid");
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
-        assertNull(persisted.halfYearTendencyThresholdPercent,
-                "switching to HALF must force the tendency threshold back to null server-side");
+        assertNull(persisted.halfYearTendencyThresholdPercent);
+    }
+
+    /**
+     * The feature this app now supports: HALF reuses WHOLE's tendency computation and refines a
+     * would-be suffix into the neighboring half-grade once the raw average is close enough to
+     * it - see HalfYearGradeDisplayService. Also confirms the threshold is genuinely persisted
+     * under HALF now, unlike the earlier, since-reverted design where it was always nulled.
+     */
+    @Test
+    void halfYearGradeDisplay_halfWithTendency_refinesSuffixIntoHalfGrade() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
+
+        Long classId = createClass("HJ-Anzeige-HalbTendenz-" + unique, "2025/26");
+        setHalfYearCutoff(classId, CUTOFF);
+        setHalfYearGradeDisplay(classId, "HALF", "10");
+        Long studentId = createStudent(classId, "HJ-Anzeige-HalbTendenz-Schueler-" + unique);
+        Long subjectId = createSubject(classId, "HJ-Anzeige-HalbTendenz-Fach-" + unique, gradeScale.id);
+        Long categoryId = createCategory(subjectId, "HJ-Anzeige-HalbTendenz-Kat-" + unique, "100");
+        Long assessmentId = createAssessment(subjectId, categoryId, "HJ-Anzeige-HalbTendenz-X-" + unique, CUTOFF.minusDays(1));
+
+        // 2.2 is in the "murky middle" between whole grade 2 and half-grade 2.5 - outside 2's
+        // plain zone, not close enough to 2.5 - so it falls back to the same suffix WHOLE would
+        // show.
+        JsonNode murkyMiddle = saveGradeAndParse(subjectId, studentId, assessmentId, "2.2");
+        assertEquals("2-", murkyMiddle.get("h1DisplayLabel").asText());
+
+        // 2.6 (finalGrade 3, COMMERCIAL) is outside grade 3's plain zone too (leaning "+"), but
+        // close enough to the half-grade 2.5 to refine into it instead of showing "3+".
+        JsonNode refined = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
+        assertEquals("2.5", refined.get("h1DisplayLabel").asText());
+
+        String gridHtml = get("/subjects/" + subjectId + "/grid").body();
+        assertTrue(gridHtml.contains("data-scope=\"h1\">2.5"), "refined half-grade label must actually render in the grid");
+
+        SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
+        assertEquals(10, persisted.halfYearTendencyThresholdPercent,
+                "HALF no longer forces the tendency threshold back to null - it's reused, not discarded");
     }
 
     @Test
@@ -347,8 +385,10 @@ class GradeGridHalfYearIT {
     }
 
     private void setHalfYearGradeDisplay(Long classId, String mode, String tendencyThresholdPercent) throws Exception {
-        HttpResponse<String> response = patch("/classes/" + classId + "/half-year-grade-display",
-                Map.of("halfYearGradeDisplay", mode, "tendencyThresholdPercent", tendencyThresholdPercent));
+        Map<String, String> form = tendencyThresholdPercent == null
+                ? Map.of("halfYearGradeDisplay", mode)
+                : Map.of("halfYearGradeDisplay", mode, "tendencyThresholdPercent", tendencyThresholdPercent);
+        HttpResponse<String> response = patch("/classes/" + classId + "/half-year-grade-display", form);
         assertEquals(200, response.statusCode(), response.body());
     }
 
