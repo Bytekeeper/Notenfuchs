@@ -9,6 +9,18 @@
 --
 -- grade_scale is shared reference data (seeded once by Flyway in
 -- V1__init.sql) and is deliberately left untouched here.
+--
+-- Every insert below assigns its id explicitly via nextval() on the same
+-- pooled `<table>_seq` sequence Hibernate itself draws from at runtime (see
+-- V1__init.sql's comment on why those sequences exist, decoupled from the
+-- identity columns' own hidden counters) - not the table's IDENTITY default.
+-- An insert that let the IDENTITY default assign the id would advance only
+-- that hidden counter, leaving Hibernate's sequence exactly where it was
+-- (i.e. TRUNCATE ... RESTART IDENTITY resets the former but not the latter,
+-- since it's a plain CREATE SEQUENCE, not one owned by an identity column).
+-- After a nightly reset + redeploy, the app's first real insert would then
+-- collide with a seeded row's id. Drawing from Hibernate's own sequence here
+-- keeps the two permanently in sync with no separate setval step needed.
 
 TRUNCATE TABLE grade, points_grade_band, assessment, grade_category, subject, student, school_class
     RESTART IDENTITY CASCADE;
@@ -23,13 +35,13 @@ TRUNCATE TABLE grade, points_grade_band, assessment, grade_category, subject, st
 -- into the first half, so the grid's Ohne Datum/H1/H2/Jahr split view has
 -- at least one Leistung on each side of the cutoff to show off.
 WITH new_class AS (
-    INSERT INTO school_class (name, school_year, owner_subject, half_year_cutoff)
-    VALUES ('Demo-Klasse 8b', '2025/26', 'lehrer', CURRENT_DATE - INTERVAL '12 days')
+    INSERT INTO school_class (id, name, school_year, owner_subject, half_year_cutoff)
+    VALUES (nextval('school_class_seq'), 'Demo-Klasse 8b', '2025/26', 'lehrer', CURRENT_DATE - INTERVAL '12 days')
     RETURNING id
 ),
 new_students AS (
-    INSERT INTO student (school_class_id, name)
-    SELECT new_class.id, s.name
+    INSERT INTO student (id, school_class_id, name)
+    SELECT nextval('student_seq'), new_class.id, s.name
     FROM new_class, (VALUES
         ('Anna Beispiel'),
         ('Ben Muster'),
@@ -40,15 +52,15 @@ new_students AS (
     RETURNING id, name
 ),
 new_subject AS (
-    INSERT INTO subject (school_class_id, name, grade_scale_id, rounding_mode)
-    SELECT new_class.id, 'Mathematik', grade_scale.id, 'IN_FAVOR_OF_STUDENT'
+    INSERT INTO subject (id, school_class_id, name, grade_scale_id, rounding_mode)
+    SELECT nextval('subject_seq'), new_class.id, 'Mathematik', grade_scale.id, 'IN_FAVOR_OF_STUDENT'
     FROM new_class, grade_scale
     WHERE grade_scale.name = 'DE 1-6'
     RETURNING id
 ),
 new_categories AS (
-    INSERT INTO grade_category (subject_id, name, weight_percent)
-    SELECT new_subject.id, c.name, c.weight_percent
+    INSERT INTO grade_category (id, subject_id, name, weight_percent)
+    SELECT nextval('grade_category_seq'), new_subject.id, c.name, c.weight_percent
     FROM new_subject, (VALUES
         ('Schriftlich', 50.00),
         ('Mündlich', 50.00)
@@ -59,8 +71,8 @@ new_categories AS (
 -- (points -> grade) conversion in the example - see the points_grade_band
 -- insert below for its bands.
 new_assessments AS (
-    INSERT INTO assessment (category_id, name, date, factor, points_based)
-    SELECT new_categories.id, a.name, a.assessment_date, a.factor, a.points_based
+    INSERT INTO assessment (id, category_id, name, date, factor, points_based)
+    SELECT nextval('assessment_seq'), new_categories.id, a.name, a.assessment_date, a.factor, a.points_based
     FROM new_categories
     JOIN (VALUES
         ('Schriftlich', 'Klassenarbeit 1', CURRENT_DATE - INTERVAL '30 days', 2.00, FALSE),
@@ -70,8 +82,8 @@ new_assessments AS (
         ON a.category_name = new_categories.name
     RETURNING id, name
 )
-INSERT INTO grade (assessment_id, student_id, value, points)
-SELECT new_assessments.id, new_students.id, g.value, g.points
+INSERT INTO grade (id, assessment_id, student_id, value, points)
+SELECT nextval('grade_seq'), new_assessments.id, new_students.id, g.value, g.points
 FROM new_assessments
 JOIN (VALUES
     ('Klassenarbeit 1', 'Anna Beispiel', 1.7, NULL),
@@ -98,8 +110,8 @@ JOIN new_students ON new_students.name = g.student_name;
 -- points-based Assessment (60 -> best grade, 20 -> worst grade on the
 -- subject's own GradeScale) - left unedited, so the example matches what a
 -- teacher sees the first time they flip an Assessment to "Punktebasiert".
-INSERT INTO points_grade_band (assessment_id, min_points, grade_value)
-SELECT assessment.id, b.min_points, b.grade_value
+INSERT INTO points_grade_band (id, assessment_id, min_points, grade_value)
+SELECT nextval('points_grade_band_seq'), assessment.id, b.min_points, b.grade_value
 FROM assessment
 JOIN grade_category ON grade_category.id = assessment.category_id
 JOIN subject ON subject.id = grade_category.subject_id
@@ -115,8 +127,8 @@ WHERE assessment.name = 'Klassenarbeit 2 (Punkte)'
 -- numerically identical to the Ø je Fach column average, though; the
 -- feature's actual point (averaging across Fächer on different GradeScales)
 -- only becomes visible once a second Fach is added to a class.
-INSERT INTO behavior_grade (student_id, subject_id, value)
-SELECT st.id, su.id, v.value
+INSERT INTO behavior_grade (id, student_id, subject_id, value)
+SELECT nextval('behavior_grade_seq'), st.id, su.id, v.value
 FROM student st
 JOIN school_class sc ON sc.id = st.school_class_id
 JOIN subject su ON su.school_class_id = sc.id AND su.name = 'Mathematik'
