@@ -213,11 +213,15 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
-    public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name) {
+    public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name,
+                                    @FormParam("schoolYear") String schoolYear) {
         String subject = currentUser.effectiveSubject();
         SchoolClass entity = guard.requireOwnedClass(id, subject);
         if (name != null && !name.isBlank()) {
             entity.name = name;
+        }
+        if (schoolYear != null && !schoolYear.isBlank()) {
+            entity.schoolYear = schoolYear;
         }
         return classListFragment.data("classes", guard.listOwnedClasses(subject));
     }
@@ -303,13 +307,15 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public TemplateInstance renameStudent(@PathParam("id") Long id, @PathParam("studentId") Long studentId,
-                                           @FormParam("name") String name) {
+                                           @FormParam("name") String name,
+                                           @FormParam("displayName") String displayName) {
         String subject = currentUser.effectiveSubject();
         SchoolClass schoolClass = guard.requireOwnedClass(id, subject);
         Student student = guard.requireOwnedStudent(studentId, subject);
         if (name != null && !name.isBlank()) {
             student.name = name;
         }
+        student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
     }

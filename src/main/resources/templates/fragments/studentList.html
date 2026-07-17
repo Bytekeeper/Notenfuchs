@@ -17,6 +17,7 @@
                                 </span>
                                 <form class="rename-form" hx-patch="/classes/{schoolClass.id}/students/{st.id}/rename" hx-target="#student-list-fragment" hx-swap="outerHTML">
                                     <input type="text" name="name" value="{st.name}" required>
+                                    <input type="text" name="displayName" value="{st.displayName ?: ''}" data-original="{st.displayName ?: ''}" placeholder="Kürzel">
                                     <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
                                     <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
                                 </form>

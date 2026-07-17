@@ -74,14 +74,27 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
   schools that already run central SSO; in production, if neither is
   configured, `security/AuthConfigurationCheck` fails the boot rather than
   serving grade data unauthenticated.
+- **Editability:** a student's Kürzel and a class's Schuljahr are now editable
+  after creation, not just at creation time — the same inline pencil-edit
+  (`rename-wrap`/`rename-form`) already used for names now carries these along
+  as a second field in the same form (`ClassUiResource#rename`/`#renameStudent`),
+  mirroring how Subject's rename form already combines name + roundingMode.
+  Clearing the Kürzel field sets it back to `null`, same as leaving it blank on
+  creation.
 
 ## Next
 
-### 1. What-if / target-grade simulation
-"What do I need in the next Klausur to reach a 2?" Directly student-helpful,
-small, leverages the existing calculation engine.
+### Points -> Grade
+Anscheinend wird oft folgendes pattern verwendet:
+Max Punkte = 1.0
+N Punkte = 3.5
+
+statt Min Punkte -> 6.0
+Derzeit kommen komische Sachen dabei raus, wenn man obigen eingibt.
 
 ## Later / maybe
+- "What do I need in the next Klausur to reach a 2?" Directly student-helpful,
+small, leverages the existing calculation engine.
 - **Class collaboration + Klassenlehrer overview** — needs the Kollegiums-Instanz
   model (multiple teachers sharing one instance), which the per-teacher self-host
   focus does not assume. Deferred until that model is actually chosen. Would add a
