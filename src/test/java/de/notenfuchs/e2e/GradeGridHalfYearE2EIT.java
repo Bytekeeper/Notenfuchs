@@ -143,4 +143,95 @@ class GradeGridHalfYearE2EIT {
         assertThat(page.locator(".average-final[data-scope='h2']")).hasText("4");
         assertThat(page.locator(".average-final[data-scope='jahr']")).hasText("3");
     }
+
+    /**
+     * Covers {@code fragments/halfYearGradeDisplay.html} + its notenfuchs.js live-disable
+     * behavior: the tendency % input only makes sense for "Ganze Noten" and must disable itself
+     * the moment "Halbe Noten" is picked, even before saving. Then checks both display modes
+     * actually change what the H1 average cell renders - a half-grade for HALF, a whole grade
+     * decorated with a tendency suffix for WHOLE+threshold - complementing the JSON-level
+     * assertions in {@code de.notenfuchs.web.GradeGridHalfYearIT}.
+     */
+    @Test
+    void halfYearGradeDisplaySetting_changesHowTheH1AverageCellRenders() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "E2E-HJ-Anzeige-Klasse-" + unique;
+        String studentName = "E2E-HJ-Anzeige-Schueler-" + unique;
+        String subjectName = "E2E-HJ-Anzeige-Fach-" + unique;
+        String categoryName = "E2E-HJ-Anzeige-Kategorie-" + unique;
+
+        page.navigate(baseUrl());
+        page.locator("#name").fill(className);
+        page.locator("#schoolYear").fill("2025/26");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+
+        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
+        cutoffWrap.locator(".rename-toggle").click();
+        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffWrap.locator(".rename-save").click();
+        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
+
+        // Switch to "Halbe Noten" - live-disabling the tendency input along the way, before it's
+        // even saved (see HalfYearGradeDisplayService's javadoc for why the combination must be
+        // structurally impossible).
+        Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
+        displayWrap.locator(".rename-toggle").click();
+        Locator modeSelect = displayWrap.locator("select[name='halfYearGradeDisplay']");
+        Locator tendencyInput = displayWrap.locator("input[name='tendencyThresholdPercent']");
+        assertThat(tendencyInput).isEnabled();
+        modeSelect.selectOption("HALF");
+        assertThat(tendencyInput).isDisabled();
+        displayWrap.locator(".rename-save").click();
+        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten");
+
+        page.locator("#studentName").fill(studentName);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
+
+        page.locator("#subjectName").fill(subjectName);
+        page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
+        page.locator("#roundingMode").selectOption("COMMERCIAL");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("100");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
+        categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        assertThat(categoryCard.locator("table.entity-list tbody tr:not(.empty-row)")).hasCount(1);
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        Locator h1Cell = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        h1Cell.fill("2.6");
+        h1Cell.evaluate("el => el.blur()");
+        // HALF mode: 2.6 rounds to the nearest half-grade (2.5) - never a whole grade, never a
+        // tendency suffix.
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2.5");
+
+        // Switch back to whole grades with a +/-10% tendency band, then re-render the grid fresh.
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        Locator displayWrap2 = page.locator("#half-year-grade-display-fragment .rename-wrap");
+        displayWrap2.locator(".rename-toggle").click();
+        displayWrap2.locator("select[name='halfYearGradeDisplay']").selectOption("WHOLE");
+        Locator tendencyInput2 = displayWrap2.locator("input[name='tendencyThresholdPercent']");
+        assertThat(tendencyInput2).isEnabled();
+        tendencyInput2.fill("10");
+        // The live example spells out what the bare number means (percent of a whole grade
+        // step), recomputed on every keystroke - see notenfuchs.js's updateTendencyExample.
+        assertThat(displayWrap2.locator(".tendency-example")).hasText("Beispiel bei Note 3: 2,90–3,10 ohne Tendenz, sonst 3+ / 3-");
+        displayWrap2.locator(".rename-save").click();
+        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Ganze Noten (± 10% Tendenz)");
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        // 2.6 rounds to the whole grade 3 (COMMERCIAL) and sits >10% below it on the DE 1-6
+        // scale (lower is better) - leaning toward the better neighbor 2 -> "3+".
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("3+");
+    }
 }

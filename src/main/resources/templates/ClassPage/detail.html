@@ -30,6 +30,8 @@
     <div class="card">
         <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
         {#include fragments/halfYearCutoff /}
+        <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
+        {#include fragments/halfYearGradeDisplay /}
     </div>
 </section>
 

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.HalfYearGradeDisplay;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
@@ -211,6 +212,96 @@ class GradeGridHalfYearIT {
     }
 
     @Test
+    void halfYearGradeDisplay_defaultsToWhole_labelMatchesPlainFinalGrade() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
+
+        Long classId = createClass("HJ-Anzeige-Default-" + unique, "2025/26");
+        setHalfYearCutoff(classId, CUTOFF);
+        Long studentId = createStudent(classId, "HJ-Anzeige-Default-Schueler-" + unique);
+        Long subjectId = createSubject(classId, "HJ-Anzeige-Default-Fach-" + unique, gradeScale.id);
+        Long categoryId = createCategory(subjectId, "HJ-Anzeige-Default-Kat-" + unique, "100");
+        Long assessmentId = createAssessment(subjectId, categoryId, "HJ-Anzeige-Default-X-" + unique, CUTOFF.minusDays(1));
+
+        JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "3.2");
+        // No cutoff-side config was ever changed here - a fresh class must render exactly as
+        // before this feature existed: h1DisplayLabel is just the plain finalGrade, no suffix.
+        assertEquals("3", response.get("h1DisplayLabel").asText());
+        assertEquals(response.get("h1FinalGrade").asText(), response.get("h1DisplayLabel").asText());
+    }
+
+    @Test
+    void halfYearGradeDisplay_half_showsRoundedHalfGrade_regardlessOfConfiguredTendency() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
+
+        Long classId = createClass("HJ-Anzeige-Halb-" + unique, "2025/26");
+        setHalfYearCutoff(classId, CUTOFF);
+        // Submitting a tendency threshold alongside HALF must be silently ignored/dropped - see
+        // the structurally-impossible-combination note on HalfYearGradeDisplayService.
+        setHalfYearGradeDisplay(classId, "HALF", "10");
+        Long studentId = createStudent(classId, "HJ-Anzeige-Halb-Schueler-" + unique);
+        Long subjectId = createSubject(classId, "HJ-Anzeige-Halb-Fach-" + unique, gradeScale.id);
+        Long categoryId = createCategory(subjectId, "HJ-Anzeige-Halb-Kat-" + unique, "100");
+        Long assessmentId = createAssessment(subjectId, categoryId, "HJ-Anzeige-Halb-X-" + unique, CUTOFF.minusDays(1));
+
+        JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
+        assertEquals("2.5", response.get("h1DisplayLabel").asText());
+
+        String gridHtml = get("/subjects/" + subjectId + "/grid").body();
+        assertTrue(gridHtml.contains("data-scope=\"h1\">2.5"), "half-grade label must actually render in the grid");
+
+        SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
+        assertNull(persisted.halfYearTendencyThresholdPercent,
+                "switching to HALF must force the tendency threshold back to null server-side");
+    }
+
+    @Test
+    void halfYearGradeDisplay_whole_withTendency_appendsDirectionalSuffix() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
+
+        Long classId = createClass("HJ-Anzeige-Tendenz-" + unique, "2025/26");
+        setHalfYearCutoff(classId, CUTOFF);
+        setHalfYearGradeDisplay(classId, "WHOLE", "10");
+        Long studentId = createStudent(classId, "HJ-Anzeige-Tendenz-Schueler-" + unique);
+        Long subjectId = createSubject(classId, "HJ-Anzeige-Tendenz-Fach-" + unique, gradeScale.id);
+        Long categoryId = createCategory(subjectId, "HJ-Anzeige-Tendenz-Kat-" + unique, "100");
+        Long assessmentX = createAssessment(subjectId, categoryId, "HJ-Anzeige-Tendenz-X-" + unique, CUTOFF.minusDays(2));
+
+        // 3.2 is outside the +/-10% plain zone around 3, on the "worse" side (DE 1-6, lower is
+        // better) -> "3-".
+        JsonNode minusResponse = saveGradeAndParse(subjectId, studentId, assessmentX, "3.2");
+        assertEquals("3-", minusResponse.get("h1DisplayLabel").asText());
+
+        Long assessmentY = createAssessment(subjectId, categoryId, "HJ-Anzeige-Tendenz-Y-" + unique, CUTOFF.minusDays(1));
+        // Adding a 2.4 alongside the 3.2 moves the average to 2.8 - within 10% below the whole
+        // grade 3, on the "better" side -> "3+".
+        JsonNode plusResponse = saveGradeAndParse(subjectId, studentId, assessmentY, "2.4");
+        assertEquals("3+", plusResponse.get("h1DisplayLabel").asText());
+    }
+
+    @Test
+    void halfYearGradeDisplayUpdate_onForeignClass_returnsNotFound() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long foreignClassId = QuarkusTransaction.requiringNew().call(() -> {
+            SchoolClass foreign = new SchoolClass();
+            foreign.name = "HJ-Anzeige-Fremd-" + unique;
+            foreign.schoolYear = "2025/26";
+            foreign.ownerSubject = "teacherB-" + unique;
+            foreign.persist();
+            return foreign.id;
+        });
+
+        HttpResponse<String> response = patch("/classes/" + foreignClassId + "/half-year-grade-display",
+                Map.of("halfYearGradeDisplay", "HALF"));
+        assertEquals(404, response.statusCode());
+
+        SchoolClass unchanged = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(foreignClassId));
+        assertEquals(HalfYearGradeDisplay.WHOLE, unchanged.halfYearGradeDisplay);
+    }
+
+    @Test
     void halfYearCutoffUpdate_onForeignClass_returnsNotFound() throws Exception {
         String unique = Long.toString(System.nanoTime());
         Long foreignClassId = QuarkusTransaction.requiringNew().call(() -> {
@@ -252,6 +343,12 @@ class GradeGridHalfYearIT {
     private void setHalfYearCutoff(Long classId, LocalDate cutoff) throws Exception {
         HttpResponse<String> response = patch("/classes/" + classId + "/half-year-cutoff",
                 Map.of("halfYearCutoff", cutoff.toString()));
+        assertEquals(200, response.statusCode(), response.body());
+    }
+
+    private void setHalfYearGradeDisplay(Long classId, String mode, String tendencyThresholdPercent) throws Exception {
+        HttpResponse<String> response = patch("/classes/" + classId + "/half-year-grade-display",
+                Map.of("halfYearGradeDisplay", mode, "tendencyThresholdPercent", tendencyThresholdPercent));
         assertEquals(200, response.statusCode(), response.body());
     }
 

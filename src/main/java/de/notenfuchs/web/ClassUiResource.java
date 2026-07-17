@@ -2,6 +2,7 @@ package de.notenfuchs.web;
 
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.HalfYearGradeDisplay;
 import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
@@ -87,6 +88,10 @@ public class ClassUiResource {
     @Inject
     @Location("fragments/halfYearCutoff.html")
     Template halfYearCutoffFragment;
+
+    @Inject
+    @Location("fragments/halfYearGradeDisplay.html")
+    Template halfYearGradeDisplayFragment;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -232,6 +237,33 @@ public class ClassUiResource {
         SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         schoolClass.halfYearCutoff = halfYearCutoff;
         return halfYearCutoffFragment.data("schoolClass", schoolClass);
+    }
+
+    /**
+     * Sets how the grade grid's H1/H2 Halbjahr columns display an average - see
+     * {@link SchoolClass#halfYearGradeDisplay}/{@link SchoolClass#halfYearTendencyThresholdPercent}
+     * and {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Switching to
+     * {@link HalfYearGradeDisplay#HALF} always forces the tendency threshold back to
+     * {@code null} server-side, regardless of what was submitted - the combination is
+     * structurally impossible, not just unused (see the class-level Javadoc on
+     * {@code HalfYearGradeDisplayService} for why "half-grade with tendency" has no sensible
+     * meaning).
+     */
+    @PATCH
+    @Path("/{id}/half-year-grade-display")
+    @Produces(MediaType.TEXT_HTML)
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public TemplateInstance updateHalfYearGradeDisplay(@PathParam("id") Long id,
+                                                         @FormParam("halfYearGradeDisplay") String halfYearGradeDisplay,
+                                                         @FormParam("tendencyThresholdPercent") Integer tendencyThresholdPercent) {
+        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        HalfYearGradeDisplay mode = (halfYearGradeDisplay == null || halfYearGradeDisplay.isBlank())
+                ? HalfYearGradeDisplay.WHOLE
+                : HalfYearGradeDisplay.valueOf(halfYearGradeDisplay);
+        schoolClass.halfYearGradeDisplay = mode;
+        schoolClass.halfYearTendencyThresholdPercent = mode == HalfYearGradeDisplay.WHOLE ? tendencyThresholdPercent : null;
+        return halfYearGradeDisplayFragment.data("schoolClass", schoolClass);
     }
 
     @POST

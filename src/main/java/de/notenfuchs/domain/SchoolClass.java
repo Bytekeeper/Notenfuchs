@@ -3,11 +3,14 @@ package de.notenfuchs.domain;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 
@@ -55,4 +58,30 @@ public class SchoolClass extends PanacheEntity {
      */
     @Column(name = "half_year_cutoff")
     public LocalDate halfYearCutoff;
+
+    /**
+     * How the grade grid's H1/H2 Halbjahr average columns are displayed (never "Jahr", which
+     * always stays a plain whole grade regardless of this setting - no state's regulations
+     * apply half-grades/tendency to a final-year Zeugnisnote, only to interim reports). Defaults
+     * to {@code WHOLE} so an unconfigured class renders exactly as before this feature existed.
+     * See {@link HalfYearGradeDisplay} and {@link de.notenfuchs.service.HalfYearGradeDisplayService}.
+     */
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "half_year_grade_display", nullable = false)
+    public HalfYearGradeDisplay halfYearGradeDisplay = HalfYearGradeDisplay.WHOLE;
+
+    /**
+     * Width (as a percentage of a whole grade step, e.g. {@code 10} for +/-10%) of the "plain"
+     * zone around a whole grade within which no +/- tendency suffix is shown. {@code null}
+     * (the default) disables the tendency suffix entirely. Only consulted when
+     * {@link #halfYearGradeDisplay} is {@code WHOLE} - switching to {@code HALF} forces this
+     * back to {@code null} (see {@code ClassUiResource#updateHalfYearGradeDisplay}), since a
+     * tendency suffix stacked onto an already-finer half-grade step has no established meaning
+     * (see {@link de.notenfuchs.service.HalfYearGradeDisplayService}). Expected range is 0-49
+     * (enforced by the settings form's HTML bounds, like {@code GradeCategory#weightPercent}/
+     * {@code Assessment#factor} - not re-validated server-side).
+     */
+    @Column(name = "half_year_tendency_threshold_percent")
+    public Integer halfYearTendencyThresholdPercent;
 }

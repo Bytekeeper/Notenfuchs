@@ -13,6 +13,7 @@ import de.notenfuchs.service.CategoryData;
 import de.notenfuchs.service.GradeData;
 import de.notenfuchs.service.GradeService;
 import de.notenfuchs.service.HalfYearAssessmentPartitioner;
+import de.notenfuchs.service.HalfYearGradeDisplayService;
 import de.notenfuchs.service.PointsConversionService;
 import de.notenfuchs.service.PointsGradeBandData;
 import de.notenfuchs.service.SubjectAverageResult;
@@ -84,6 +85,7 @@ public class GradeGridResource {
     private final GradeService gradeService = new GradeService();
     private final PointsConversionService pointsConversionService = new PointsConversionService();
     private final HalfYearAssessmentPartitioner halfYearPartitioner = new HalfYearAssessmentPartitioner();
+    private final HalfYearGradeDisplayService halfYearGradeDisplayService = new HalfYearGradeDisplayService();
 
     @Inject
     CurrentUser currentUser;
@@ -312,7 +314,9 @@ public class GradeGridResource {
             rows.add(new HalfYearRowView(i, new StudentView(student.id, effectiveName(student)),
                     undatedBuild.cellsByStudent().get(i),
                     h1Build.cellsByStudent().get(i), h1Avg.rawAverage(), h1Avg.finalGrade(),
+                    displayLabel(subject, h1Avg),
                     h2Build.cellsByStudent().get(i), h2Avg.rawAverage(), h2Avg.finalGrade(),
+                    displayLabel(subject, h2Avg),
                     jahrAvg.rawAverage(), jahrAvg.finalGrade()));
         }
 
@@ -473,6 +477,17 @@ public class GradeGridResource {
         return result;
     }
 
+    /**
+     * Formats one H1/H2 average per {@link de.notenfuchs.domain.SchoolClass#halfYearGradeDisplay}
+     * - "Jahr" never goes through this, it always stays the plain {@code finalGrade} (see
+     * {@link HalfYearGradeDisplayService}).
+     */
+    private String displayLabel(Subject subject, SubjectAverageResult average) {
+        return halfYearGradeDisplayService.label(average.rawAverage(), average.finalGrade(),
+                subject.schoolClass.halfYearGradeDisplay, subject.schoolClass.halfYearTendencyThresholdPercent,
+                subject.gradeScale);
+    }
+
     @POST
     @Path("/cell")
     @Produces(MediaType.APPLICATION_JSON)
@@ -594,10 +609,12 @@ public class GradeGridResource {
                 ? plain(h1Average.rawAverage()) : null;
         String h2RawAverageStr = h2Average != null && h2Average.rawAverage() != null
                 ? plain(h2Average.rawAverage()) : null;
+        String h1DisplayLabel = h1Average != null ? displayLabel(subject, h1Average) : null;
+        String h2DisplayLabel = h2Average != null ? displayLabel(subject, h2Average) : null;
         return new CellSaveResponse(displayValue, rawAverageStr, average.finalGrade(),
                 assessment.id, assessmentRawAverageStr, assessmentAverage.finalGrade(), derivedGradeDisplay,
-                h1RawAverageStr, h1Average != null ? h1Average.finalGrade() : null,
-                h2RawAverageStr, h2Average != null ? h2Average.finalGrade() : null);
+                h1RawAverageStr, h1Average != null ? h1Average.finalGrade() : null, h1DisplayLabel,
+                h2RawAverageStr, h2Average != null ? h2Average.finalGrade() : null, h2DisplayLabel);
     }
 
     /**
@@ -790,9 +807,9 @@ public class GradeGridResource {
                 xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
                 writeCells(xlsxRow, row.undatedCells(), undatedStartCol);
                 writeCells(xlsxRow, row.h1Cells(), h1StartCol);
-                writeAverage(xlsxRow, h1AvgRawCol, h1AvgFinalCol, row.h1RawAverage(), row.h1FinalGrade());
+                writeAverageWithLabel(xlsxRow, h1AvgRawCol, h1AvgFinalCol, row.h1RawAverage(), row.h1DisplayLabel());
                 writeCells(xlsxRow, row.h2Cells(), h2StartCol);
-                writeAverage(xlsxRow, h2AvgRawCol, h2AvgFinalCol, row.h2RawAverage(), row.h2FinalGrade());
+                writeAverageWithLabel(xlsxRow, h2AvgRawCol, h2AvgFinalCol, row.h2RawAverage(), row.h2DisplayLabel());
                 writeAverage(xlsxRow, jahrAvgRawCol, jahrAvgFinalCol, row.jahrRawAverage(), row.jahrFinalGrade());
             }
 
@@ -863,6 +880,27 @@ public class GradeGridResource {
         }
         if (finalGrade != null) {
             xlsxRow.createCell(finalCol).setCellValue(finalGrade);
+        }
+    }
+
+    /**
+     * Same as {@link #writeAverage}, but for an H1/H2 "Note" column: the label is a plain whole
+     * number in the default {@code WHOLE}-without-tendency configuration (written as a numeric
+     * cell, exactly like {@link #writeAverage}, so existing spreadsheets keep working), but falls
+     * back to a text cell once it's a half-grade or carries a +/- tendency suffix that a numeric
+     * cell can't represent.
+     */
+    private void writeAverageWithLabel(Row xlsxRow, int rawCol, int finalCol, BigDecimal rawAverage, String displayLabel) {
+        if (rawAverage != null) {
+            xlsxRow.createCell(rawCol).setCellValue(rawAverage.doubleValue());
+        }
+        if (displayLabel != null) {
+            Cell cell = xlsxRow.createCell(finalCol);
+            try {
+                cell.setCellValue(new BigDecimal(displayLabel).doubleValue());
+            } catch (NumberFormatException e) {
+                cell.setCellValue(displayLabel);
+            }
         }
     }
 
@@ -956,12 +994,18 @@ public class GradeGridResource {
      *                                                            otherwise (the classic single
      *                                                            view has no half columns to
      *                                                            update)
+     * @param h1DisplayLabel/h2DisplayLabel what the grid actually renders in the H1/H2 average
+     *                                      cell - {@code h1FinalGrade}/{@code h2FinalGrade}
+     *                                      optionally decorated with a tendency suffix, or a
+     *                                      half-grade, per
+     *                                      {@code SchoolClass#halfYearGradeDisplay} (see
+     *                                      {@link de.notenfuchs.service.HalfYearGradeDisplayService})
      */
     public record CellSaveResponse(String displayValue, String rawAverage, Integer finalGrade,
                                     Long assessmentId, String assessmentRawAverage, Integer assessmentFinalGrade,
                                     String derivedGradeDisplay,
-                                    String h1RawAverage, Integer h1FinalGrade,
-                                    String h2RawAverage, Integer h2FinalGrade) {
+                                    String h1RawAverage, Integer h1FinalGrade, String h1DisplayLabel,
+                                    String h2RawAverage, Integer h2FinalGrade, String h2DisplayLabel) {
     }
 
     // ---- Halbjahr split view - see loadHalfYearGridData(Subject, LocalDate) ----
@@ -990,7 +1034,9 @@ public class GradeGridResource {
     public record HalfYearRowView(int rowIndex, StudentView student,
                                    List<CellView> undatedCells,
                                    List<CellView> h1Cells, BigDecimal h1RawAverage, Integer h1FinalGrade,
+                                   String h1DisplayLabel,
                                    List<CellView> h2Cells, BigDecimal h2RawAverage, Integer h2FinalGrade,
+                                   String h2DisplayLabel,
                                    BigDecimal jahrRawAverage, Integer jahrFinalGrade) {
     }
 }

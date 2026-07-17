@@ -132,12 +132,15 @@
         // refresh all of a student's average columns live, without a page reload.
         function updateAverageRow(studentId, data) {
             if (!data) return;
+            // "jahr" always shows the plain finalGrade (whole number) - only H1/H2 can be
+            // decorated with a tendency suffix or shown as a half-grade, per
+            // SchoolClass#halfYearGradeDisplay (see HalfYearGradeDisplayService).
             updateAverageScope(studentId, "jahr", data.rawAverage, data.finalGrade);
-            updateAverageScope(studentId, "h1", data.h1RawAverage, data.h1FinalGrade);
-            updateAverageScope(studentId, "h2", data.h2RawAverage, data.h2FinalGrade);
+            updateAverageScope(studentId, "h1", data.h1RawAverage, data.h1DisplayLabel);
+            updateAverageScope(studentId, "h2", data.h2RawAverage, data.h2DisplayLabel);
         }
 
-        function updateAverageScope(studentId, scope, rawAverage, finalGrade) {
+        function updateAverageScope(studentId, scope, rawAverage, finalLabel) {
             const rawCell = root.querySelector(
                 '.average-raw[data-student-id="' + studentId + '"][data-scope="' + scope + '"]'
             );
@@ -148,7 +151,7 @@
                 rawCell.textContent = rawAverage != null ? rawAverage : "–";
             }
             if (finalCell) {
-                finalCell.textContent = finalGrade != null ? finalGrade : "–";
+                finalCell.textContent = finalLabel != null ? finalLabel : "–";
             }
         }
 
@@ -546,6 +549,92 @@
         if (wrap) {
             resetInput(wrap);
             wrap.classList.remove("editing");
+        }
+    });
+})();
+
+/**
+ * Halbjahr grade-display settings form (fragments/halfYearGradeDisplay.html): the tendency
+ * threshold input only takes effect when "Ganze Noten" (WHOLE) is selected - see
+ * HalfYearGradeDisplayService for why stacking a tendency onto a half-grade has no sensible
+ * meaning. Disabling the input live (mirroring the server, which always forces the threshold
+ * back to null when HALF is submitted) keeps a teacher from filling in a value that's about to
+ * be silently dropped.
+ *
+ * The number itself is a percent of a whole grade step, which isn't obvious from a bare number
+ * once the placeholder is gone (i.e. as soon as a value is entered) - a persistent "%" suffix
+ * next to the input plus a live "Beispiel bei Note 3: ..." line (recomputed on every keystroke,
+ * always anchored at grade 3 since the band width is identical around every whole grade) spell
+ * out concretely what the percent means instead of leaving it as an abstract number.
+ *
+ * Runs after the generic "Inline rename" listeners above (registered earlier in this file, so
+ * document click listeners fire in that order), so the cancel-button resync below sees the
+ * select's value already restored from data-original.
+ */
+(function () {
+    "use strict";
+
+    function germanDecimal(value) {
+        return value.toFixed(2).replace(".", ",");
+    }
+
+    function updateTendencyExample(input) {
+        const form = input.closest("form");
+        const example = form && form.querySelector(".tendency-example");
+        if (!example) return;
+
+        if (input.disabled || input.value.trim() === "") {
+            example.textContent = "";
+            return;
+        }
+        const percent = parseFloat(input.value.replace(",", "."));
+        if (isNaN(percent) || percent < 0) {
+            example.textContent = "";
+            return;
+        }
+        const band = percent / 100;
+        example.textContent = "Beispiel bei Note 3: " + germanDecimal(3 - band) + "–"
+            + germanDecimal(3 + band) + " ohne Tendenz, sonst 3+ / 3-";
+    }
+
+    function syncTendencyInput(select) {
+        const form = select.closest("form");
+        const input = form && form.querySelector('input[name="tendencyThresholdPercent"]');
+        if (input) {
+            input.disabled = select.value !== "WHOLE";
+            updateTendencyExample(input);
+        }
+    }
+
+    document.addEventListener("input", function (ev) {
+        const input = ev.target.closest('.half-year-grade-display-form input[name="tendencyThresholdPercent"]');
+        if (input) {
+            updateTendencyExample(input);
+        }
+    });
+
+    document.addEventListener("change", function (ev) {
+        const select = ev.target.closest('.half-year-grade-display-form select[name="halfYearGradeDisplay"]');
+        if (select) {
+            syncTendencyInput(select);
+        }
+    });
+
+    document.addEventListener("click", function (ev) {
+        const toggle = ev.target.closest(".rename-toggle");
+        if (toggle) {
+            const input = toggle.closest(".rename-wrap")
+                .querySelector('.half-year-grade-display-form input[name="tendencyThresholdPercent"]');
+            if (input) {
+                updateTendencyExample(input);
+            }
+            return;
+        }
+        const cancel = ev.target.closest(".half-year-grade-display-form .rename-cancel");
+        if (!cancel) return;
+        const select = cancel.closest("form").querySelector('select[name="halfYearGradeDisplay"]');
+        if (select) {
+            syncTendencyInput(select);
         }
     });
 })();

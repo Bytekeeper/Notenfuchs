@@ -211,6 +211,25 @@ button.danger:hover { background: var(--color-error); color: white; }
     width: 4.5rem;
 }
 
+.tendency-input-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.tendency-unit {
+    color: var(--color-text-muted);
+}
+
+.half-year-grade-display-form {
+    flex-wrap: wrap;
+}
+
+.half-year-grade-display-form .tendency-example {
+    flex-basis: 100%;
+    margin-top: 0;
+}
+
 .rename-toggle, .rename-save, .rename-cancel {
     display: inline-flex;
     align-items: center;

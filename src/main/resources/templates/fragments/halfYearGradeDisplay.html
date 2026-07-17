@@ -1,0 +1,29 @@
+<div id="half-year-grade-display-fragment">
+    <div class="rename-wrap">
+        <span class="rename-view">
+            {#if schoolClass.halfYearGradeDisplay.name == 'HALF'}
+                <span class="rename-display">Halbe Noten</span>
+            {#else}
+                <span class="rename-display">Ganze Noten{#if schoolClass.halfYearTendencyThresholdPercent} (± {schoolClass.halfYearTendencyThresholdPercent}% Tendenz){/if}</span>
+            {/if}
+            <button type="button" class="rename-toggle" title="Anzeige ändern" aria-label="Anzeige ändern"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
+        </span>
+        <form class="rename-form half-year-grade-display-form" hx-patch="/classes/{schoolClass.id}/half-year-grade-display" hx-target="#half-year-grade-display-fragment" hx-swap="outerHTML">
+            <select name="halfYearGradeDisplay" data-original="{schoolClass.halfYearGradeDisplay.name}">
+                <option value="WHOLE" {#if schoolClass.halfYearGradeDisplay.name == 'WHOLE'}selected{/if}>Ganze Noten</option>
+                <option value="HALF" {#if schoolClass.halfYearGradeDisplay.name == 'HALF'}selected{/if}>Halbe Noten</option>
+            </select>
+            <span class="tendency-input-wrap">
+                <input type="number" name="tendencyThresholdPercent" min="0" max="49" step="1"
+                       placeholder="Tendenz" title="Breite der Zone um eine ganze Note, in der keine Tendenz (+/-) angezeigt wird - als Prozent einer ganzen Notenstufe, nur bei ganzen Noten wirksam"
+                       value="{schoolClass.halfYearTendencyThresholdPercent ?: ''}"
+                       data-original="{schoolClass.halfYearTendencyThresholdPercent ?: ''}"
+                       {#if schoolClass.halfYearGradeDisplay.name != 'WHOLE'}disabled{/if}>
+                <span class="tendency-unit">%</span>
+            </span>
+            <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+            <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
+            <span class="tendency-example hint"></span>
+        </form>
+    </div>
+</div>
