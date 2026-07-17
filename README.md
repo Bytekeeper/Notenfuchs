@@ -307,6 +307,8 @@ or unknown id returns 404:
 - `GET/POST /api/grade-categories`, `GET/PUT/DELETE /api/grade-categories/{id}` (filter with `?subjectId=`)
 - `GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{id}` (filter with `?categoryId=`)
 - `GET/POST /api/grades`, `GET/PUT/DELETE /api/grades/{id}` (filter with `?studentId=` / `?assessmentId=`)
+- `GET/POST /api/behavior-grades`, `GET/PUT/DELETE /api/behavior-grades/{id}` (filter with
+  `?studentId=` / `?subjectId=`) - Verhaltensnoten, independent of the academic grade above
 - `GET /api/grade-scales`, `GET /api/grade-scales/{id}` (read-only, shared across all teachers)
 - `GET /api/school-classes/{classId}/averages` - computed raw average + final grade for
   every student x subject combination in that class
@@ -330,6 +332,13 @@ keyboard navigation) - no React/SPA, no Node build step.
 - `/classes/{id}/roster/import/preview` and `/classes/{id}/roster/import` - upload a CSV
   of student names, preview which rows are new vs. already-existing (by exact name match),
   then confirm to create the new students
+- `/classes/{id}/behavior-grid` - the Verhaltensnoten grid: students as rows, every Fach
+  of the class as columns, for entering a behavior/conduct grade per student per Fach.
+  Independent of `GradeService`/the academic average - it's its own figure on the
+  Halbjahres-/Endjahreszeugnis. Shows a live per-Fach average (own scale, rounded final
+  grade) and a per-student average across all their Fächer (raw only, since Fächer may
+  use different scales), highlighted when close to a whole-grade rounding boundary
+  (e.g. 2.4-2.6, near 2.5)
 
 ### Roster CSV format
 

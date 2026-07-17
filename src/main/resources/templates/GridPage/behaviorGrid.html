@@ -1,0 +1,74 @@
+{#include base}
+{#title}Verhaltensnoten – {schoolClass.name}{/title}
+
+<div class="breadcrumbs">
+    <a href="/classes">Klassen</a> / <a href="/classes/{schoolClass.id}">{schoolClass.name}</a> / Verhaltensnoten
+</div>
+<h1>Verhaltensnoten: {schoolClass.name}</h1>
+<p class="hint">Eine Verhaltensnote je Schüler und Fach – fließt nicht in die Fachnote ein, sondern erscheint als eigene Note auf dem Halbjahres-/Endjahreszeugnis.</p>
+
+{#if gridEmpty}
+    <p class="hint">Diese Klasse hat noch keine Fächer. <a href="/classes/{schoolClass.id}">Erst Fächer anlegen</a>.</p>
+{#else if rows.isEmpty}
+    <p class="hint">Diese Klasse hat noch keine Schüler. <a href="/classes/{schoolClass.id}">Erst Schüler anlegen</a>.</p>
+{#else}
+    <div class="grid-wrapper">
+        <table class="grade-grid behavior-grid-root"
+               data-save-url="/classes/{schoolClass.id}/behavior-grid/cell"
+               data-max-row="{maxRow}"
+               data-max-col="{maxCol}">
+            <thead>
+                <tr>
+                    <th>Schüler</th>
+                    {#for s in subjects}
+                        <th class="assessment-header">{s.name}<span class="factor">{s.gradeScale.min}–{s.gradeScale.max}</span></th>
+                    {/for}
+                    <th>Ø</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#for row in rows}
+                    <tr>
+                        <td class="student-cell">{row.student.effectiveName}</td>
+                        {#for cell in row.cells}
+                            <td class="grade-cell">
+                                <input type="text"
+                                       inputmode="decimal"
+                                       class="grade-input"
+                                       data-row="{row.rowIndex}"
+                                       data-col="{cell.colIndex}"
+                                       data-student-id="{row.student.id}"
+                                       data-subject-id="{cell.subjectId}"
+                                       value="{cell.displayValue ?: ''}">
+                            </td>
+                        {/for}
+                        <td class="average-cell {#if row.borderline}borderline{/if}" data-student-id="{row.student.id}">
+                            <span class="behavior-average-raw" data-student-id="{row.student.id}">{row.rawAverage ?: '–'}</span>
+                        </td>
+                    </tr>
+                {/for}
+            </tbody>
+            <tfoot>
+                <tr class="average-row">
+                    <td class="student-cell">Ø je Fach</td>
+                    {#for sf in subjectFooters}
+                        <td class="average-cell">
+                            <span class="behavior-subject-average-final" data-subject-id="{sf.subjectId}">{sf.finalGrade ?: '–'}</span>
+                            <span class="raw-average behavior-subject-average-raw" data-subject-id="{sf.subjectId}">{sf.rawAverage ?: '–'}</span>
+                        </td>
+                    {/for}
+                    <td class="average-cell"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <p class="grid-legend">
+        Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
+        Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
+        Zelle leeren + verlassen löscht die Note. Ø ganz rechts: Durchschnitt des Schülers über alle
+        Fächer, gelb markiert bei Nähe zu einer Rundungsgrenze (x,4–x,6). Ø je Fach unten: Durchschnitt
+        des Fachs über alle Schüler.
+    </p>
+{/if}
+
+{/include}

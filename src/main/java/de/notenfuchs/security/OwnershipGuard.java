@@ -1,6 +1,7 @@
 package de.notenfuchs.security;
 
 import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.BehaviorGrade;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.PointsGradeBand;
@@ -85,6 +86,14 @@ public class OwnershipGuard {
         PointsGradeBand entity = PointsGradeBand.findById(bandId);
         if (entity == null || !isOwned(entity.assessment.category.subject.schoolClass, currentSubject)) {
             throw new NotFoundException("PointsGradeBand " + bandId + " not found");
+        }
+        return entity;
+    }
+
+    public BehaviorGrade requireOwnedBehaviorGrade(Long behaviorGradeId, String currentSubject) {
+        BehaviorGrade entity = BehaviorGrade.findById(behaviorGradeId);
+        if (entity == null || !isOwned(entity.subject.schoolClass, currentSubject)) {
+            throw new NotFoundException("BehaviorGrade " + behaviorGradeId + " not found");
         }
         return entity;
     }

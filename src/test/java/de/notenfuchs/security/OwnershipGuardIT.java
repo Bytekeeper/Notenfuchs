@@ -1,6 +1,7 @@
 package de.notenfuchs.security;
 
 import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.BehaviorGrade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
@@ -145,6 +146,25 @@ class OwnershipGuardIT {
 
         assertThrows(NotFoundException.class, () -> guard.requireOwnedPointsGradeBand(band.id, "teacherA"));
         assertEquals(band.id, guard.requireOwnedPointsGradeBand(band.id, "teacherB").id);
+    }
+
+    @Test
+    @TestTransaction
+    void requireOwnedBehaviorGrade_belongingToForeignClass_throwsNotFound() {
+        SchoolClass b = persistClass("teacherB");
+        Subject subject = persistSubject(b);
+        Student student = new Student();
+        student.schoolClass = b;
+        student.name = "Fremder Schueler";
+        student.persist();
+        BehaviorGrade behaviorGrade = new BehaviorGrade();
+        behaviorGrade.student = student;
+        behaviorGrade.subject = subject;
+        behaviorGrade.value = new BigDecimal("2");
+        behaviorGrade.persist();
+
+        assertThrows(NotFoundException.class, () -> guard.requireOwnedBehaviorGrade(behaviorGrade.id, "teacherA"));
+        assertEquals(behaviorGrade.id, guard.requireOwnedBehaviorGrade(behaviorGrade.id, "teacherB").id);
     }
 
     private SchoolClass persistClass(String owner) {

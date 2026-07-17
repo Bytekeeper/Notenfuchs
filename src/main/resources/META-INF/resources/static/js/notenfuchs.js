@@ -264,6 +264,231 @@
 })();
 
 /**
+ * Verhaltensnoten grid: the same keyboard navigation/autosave shape as the grade grid above, but
+ * over (student, Fach) cells instead of (student, Leistung) ones - no points-based cells, no
+ * Halbjahr scopes, and the row average carries a "borderline" flag instead of a discrete grade
+ * (see BehaviorGridResource/BehaviorGradeService for why). Kept as its own small init function
+ * scanning ".behavior-grid-root" (not ".grade-grid-root") rather than generalizing initGradeGrid
+ * above, since the field names genuinely differ (subjectId, not assessmentId) and reusing that
+ * function as-is would mean lying about what the id represents.
+ *
+ *   data-row / data-col               - zero-based grid position
+ *   data-student-id / data-subject-id - identify the cell being saved
+ */
+(function () {
+    "use strict";
+
+    function initBehaviorGrid(root) {
+        if (!root || root.dataset.bgInitialized === "1") {
+            return;
+        }
+        root.dataset.bgInitialized = "1";
+
+        const saveUrl = root.dataset.saveUrl;
+
+        function cellAt(row, col) {
+            return root.querySelector(
+                '.grade-input[data-row="' + row + '"][data-col="' + col + '"]'
+            );
+        }
+
+        function maxRow() {
+            return parseInt(root.dataset.maxRow || "0", 10);
+        }
+
+        function maxCol() {
+            return parseInt(root.dataset.maxCol || "0", 10);
+        }
+
+        function focusCell(input) {
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }
+
+        function normalizeValue(raw) {
+            return raw.trim().replace(",", ".");
+        }
+
+        function setState(input, state) {
+            input.classList.remove("state-saved", "state-error", "state-saving");
+            if (state) {
+                input.classList.add("state-" + state);
+            }
+        }
+
+        function clearSavedFlashSoon(input) {
+            setTimeout(function () {
+                if (input.classList.contains("state-saved")) {
+                    input.classList.remove("state-saved");
+                }
+            }, 1200);
+        }
+
+        function saveCell(input) {
+            const studentId = input.dataset.studentId;
+            const subjectId = input.dataset.subjectId;
+            const rawValue = input.value;
+            const normalized = normalizeValue(rawValue);
+
+            if (input.dataset.lastSaved === undefined) {
+                input.dataset.lastSaved = "";
+            }
+            if (normalized === input.dataset.lastSaved) {
+                // nothing changed since last save/load
+                return;
+            }
+
+            setState(input, "saving");
+
+            const body = new URLSearchParams();
+            body.set("studentId", studentId);
+            body.set("subjectId", subjectId);
+            body.set("value", normalized);
+
+            fetch(saveUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body.toString()
+            })
+                .then(function (resp) {
+                    if (!resp.ok) {
+                        return resp.text().then(function (msg) {
+                            throw new Error(msg || ("HTTP " + resp.status));
+                        });
+                    }
+                    return resp.json();
+                })
+                .then(function (data) {
+                    input.dataset.lastSaved = normalized;
+                    setState(input, "saved");
+                    clearSavedFlashSoon(input);
+                    if (data && typeof data.displayValue === "string") {
+                        input.value = data.displayValue;
+                    }
+                    updateStudentAverage(studentId, data);
+                    updateSubjectAverage(data);
+                })
+                .catch(function (err) {
+                    setState(input, "error");
+                    input.title = err.message || "Fehler beim Speichern";
+                });
+        }
+
+        function updateStudentAverage(studentId, data) {
+            if (!data) return;
+            const cell = root.querySelector('.average-cell[data-student-id="' + studentId + '"]');
+            if (!cell) return;
+            const raw = cell.querySelector(".behavior-average-raw");
+            if (raw) {
+                raw.textContent = data.studentRawAverage != null ? data.studentRawAverage : "–";
+            }
+            cell.classList.toggle("borderline", !!data.studentBorderline);
+        }
+
+        function updateSubjectAverage(data) {
+            if (!data || data.subjectId == null) return;
+            const footer = root.querySelector("tfoot");
+            if (!footer) return;
+            const rawCell = footer.querySelector('.behavior-subject-average-raw[data-subject-id="' + data.subjectId + '"]');
+            const finalCell = footer.querySelector('.behavior-subject-average-final[data-subject-id="' + data.subjectId + '"]');
+            if (rawCell) {
+                rawCell.textContent = data.subjectRawAverage != null ? data.subjectRawAverage : "–";
+            }
+            if (finalCell) {
+                finalCell.textContent = data.subjectFinalGrade != null ? data.subjectFinalGrade : "–";
+            }
+        }
+
+        root.addEventListener(
+            "focusin",
+            function (ev) {
+                const input = ev.target;
+                if (input.classList && input.classList.contains("grade-input")) {
+                    input.dataset.valueOnFocus = input.value;
+                    setState(input, null);
+                }
+            },
+            true
+        );
+
+        root.addEventListener(
+            "focusout",
+            function (ev) {
+                const input = ev.target;
+                if (input.classList && input.classList.contains("grade-input")) {
+                    saveCell(input);
+                }
+            },
+            true
+        );
+
+        root.addEventListener("keydown", function (ev) {
+            const input = ev.target;
+            if (!input.classList || !input.classList.contains("grade-input")) {
+                return;
+            }
+            const row = parseInt(input.dataset.row, 10);
+            const col = parseInt(input.dataset.col, 10);
+
+            if (ev.key === "Tab") {
+                ev.preventDefault();
+                const dir = ev.shiftKey ? -1 : 1;
+                let nextCol = col + dir;
+                let nextRow = row;
+                if (nextCol < 0) {
+                    nextCol = maxCol();
+                    nextRow = row - 1;
+                } else if (nextCol > maxCol()) {
+                    nextCol = 0;
+                    nextRow = row + 1;
+                }
+                if (nextRow < 0 || nextRow > maxRow()) {
+                    return;
+                }
+                focusCell(cellAt(nextRow, nextCol));
+            } else if (ev.key === "Enter") {
+                ev.preventDefault();
+                const dir = ev.shiftKey ? -1 : 1;
+                const nextRow = row + dir;
+                if (nextRow < 0 || nextRow > maxRow()) {
+                    return;
+                }
+                focusCell(cellAt(nextRow, col));
+            } else if (ev.key === "ArrowDown") {
+                ev.preventDefault();
+                focusCell(cellAt(row + 1, col));
+            } else if (ev.key === "ArrowUp") {
+                ev.preventDefault();
+                focusCell(cellAt(row - 1, col));
+            } else if (ev.key === "ArrowRight" && caretAtEnd(input)) {
+                focusCell(cellAt(row, col + 1));
+            } else if (ev.key === "ArrowLeft" && caretAtStart(input)) {
+                focusCell(cellAt(row, col - 1));
+            } else if (ev.key === "Escape") {
+                input.value = input.dataset.valueOnFocus || "";
+            }
+        });
+
+        function caretAtEnd(input) {
+            return input.selectionStart === input.value.length;
+        }
+
+        function caretAtStart(input) {
+            return input.selectionStart === 0;
+        }
+    }
+
+    function scan() {
+        document.querySelectorAll(".behavior-grid-root").forEach(initBehaviorGrid);
+    }
+
+    document.addEventListener("DOMContentLoaded", scan);
+    document.body.addEventListener("htmx:afterSettle", scan);
+})();
+
+/**
  * Inline rename (click pencil -> edit form -> htmx-submit): a ".rename-wrap" holds a
  * ".rename-view" (display + pencil) and a ".rename-form" (input + save/cancel), toggled
  * purely via the "editing" class - no server round-trip needed just to enter/leave edit

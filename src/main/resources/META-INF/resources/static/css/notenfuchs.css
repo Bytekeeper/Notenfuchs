@@ -472,3 +472,14 @@ tr.bands-row td {
 .derived-grade:empty {
     display: none;
 }
+
+/* ---------------- Verhaltensnoten grid ---------------- */
+
+td.average-cell.borderline {
+    background: #fff3cd;
+    color: #8f6a00;
+}
+
+td.average-cell.borderline .behavior-average-raw {
+    color: #8f6a00;
+}
