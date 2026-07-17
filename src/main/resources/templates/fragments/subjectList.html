@@ -12,6 +12,10 @@
                         </span>
                         <form class="rename-form" hx-patch="/classes/{schoolClass.id}/subjects/{s.id}/rename" hx-target="#subject-list-fragment" hx-swap="outerHTML">
                             <input type="text" name="name" value="{s.name}" required>
+                            <select name="roundingMode" data-original="{s.roundingMode.name}">
+                                <option value="COMMERCIAL" {#if s.roundingMode.name == 'COMMERCIAL'}selected{/if}>Kaufmännisch</option>
+                                <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
+                            </select>
                             <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
                             <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
                         </form>

@@ -448,12 +448,16 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public TemplateInstance renameSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId,
-                                           @FormParam("name") String name) {
+                                           @FormParam("name") String name,
+                                           @FormParam("roundingMode") String roundingMode) {
         String currentSubject = currentUser.effectiveSubject();
         SchoolClass schoolClass = guard.requireOwnedClass(id, currentSubject);
         Subject subject = guard.requireOwnedSubject(subjectId, currentSubject);
         if (name != null && !name.isBlank()) {
             subject.name = name;
+        }
+        if (roundingMode != null && !roundingMode.isBlank()) {
+            subject.roundingMode = RoundingMode.valueOf(roundingMode);
         }
         List<Subject> subjects = subjectsWithGradeScale(id);
         return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);

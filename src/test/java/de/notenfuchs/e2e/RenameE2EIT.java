@@ -138,6 +138,32 @@ class RenameE2EIT {
     }
 
     @Test
+    void subjectRoundingModeCanBeChangedFromTheClassDetailPage() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "Rename-Klasse-Rundung-" + unique;
+        String subjectName = "Rename-Fach-Rundung-" + unique;
+
+        createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        // createSubject always picks COMMERCIAL, so switching to IN_FAVOR_OF_STUDENT below is a real change.
+        createSubject(subjectName);
+
+        Locator item = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
+        Locator wrap = item.locator(".rename-wrap");
+        wrap.locator(".rename-toggle").click();
+        wrap.locator(".rename-form select[name='roundingMode']").selectOption("IN_FAVOR_OF_STUDENT");
+        wrap.locator(".rename-save").click();
+
+        java.util.regex.Pattern favorOfStudent = java.util.regex.Pattern.compile(".*Zugunsten des Schülers.*");
+        Locator itemAfterSave = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
+        assertThat(itemAfterSave.locator(".subject-meta")).hasText(favorOfStudent);
+
+        page.reload();
+        Locator itemAfterReload = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
+        assertThat(itemAfterReload.locator(".subject-meta")).hasText(favorOfStudent);
+    }
+
+    @Test
     void categoryCanBeRenamedFromTheSubjectDetailPage() {
         String unique = Long.toString(System.nanoTime());
         String className = "Rename-Klasse-Kat-" + unique;
