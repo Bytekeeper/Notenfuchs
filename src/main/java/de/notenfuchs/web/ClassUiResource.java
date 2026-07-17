@@ -97,7 +97,7 @@ public class ClassUiResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
-        return withUser(listTemplate.data("classes", guard.listOwnedClasses(currentUser.effectiveSubject())));
+        return currentUser.withUser(listTemplate.data("classes", guard.listOwnedClasses(currentUser.effectiveSubject())));
     }
 
     @GET
@@ -109,7 +109,7 @@ public class ClassUiResource {
         List<Subject> subjects = Subject.list("schoolClass.id", id);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<GradeScale> gradeScales = GradeScale.listAll();
-        return withUser(detailTemplate
+        return currentUser.withUser(detailTemplate
                 .data("schoolClass", schoolClass)
                 .data("predecessorClass", classWithPredecessorFetched(id).predecessorClass)
                 .data("subjects", subjects)
@@ -334,7 +334,7 @@ public class ClassUiResource {
         byte[] csv = csvRosterService.format(names);
 
         String plainFilename = "klasse-" + schoolClass.name + "-schueler.csv";
-        String asciiFilename = "klasse-" + sanitizeFilename(schoolClass.name) + "-schueler.csv";
+        String asciiFilename = "klasse-" + DownloadFilenames.sanitize(schoolClass.name) + "-schueler.csv";
         String utf8Filename = URLEncoder.encode(plainFilename, StandardCharsets.UTF_8).replace("+", "%20");
         return Response.ok(csv)
                 .header("Content-Disposition", "attachment; filename=\"" + asciiFilename
@@ -379,7 +379,7 @@ public class ClassUiResource {
             }
         }
 
-        return withUser(rosterImportPreviewTemplate
+        return currentUser.withUser(rosterImportPreviewTemplate
                 .data("schoolClass", schoolClass)
                 .data("rows", rows)
                 .data("newCount", newCount)
@@ -508,22 +508,6 @@ public class ClassUiResource {
      */
     private List<Subject> subjectsWithGradeScale(Long schoolClassId) {
         return Subject.find("from Subject s join fetch s.gradeScale where s.schoolClass.id = ?1", schoolClassId).list();
-    }
-
-    private TemplateInstance withUser(TemplateInstance instance) {
-        return instance
-                .data("currentUserAuthenticated", currentUser.isAuthenticated())
-                .data("currentUserDisplayName", currentUser.displayName().orElse(""))
-                .data("localAuthActive", currentUser.localAuthActive());
-    }
-
-    /** Strips German umlauts/eszett and any other non-ASCII-safe character for the plain filename attribute. */
-    private static String sanitizeFilename(String raw) {
-        String transliterated = raw
-                .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-                .replace("Ä", "Ae").replace("Ö", "Oe").replace("Ü", "Ue")
-                .replace("ß", "ss");
-        return transliterated.replaceAll("[^a-zA-Z0-9._-]+", "_");
     }
 
     /** One row of the roster import preview - see {@code ClassPage/rosterImportPreview.html}. */

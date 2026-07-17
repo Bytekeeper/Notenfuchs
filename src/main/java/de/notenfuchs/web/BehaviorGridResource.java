@@ -27,7 +27,9 @@ import jakarta.ws.rs.core.Response;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Verhaltensnoten: a class-wide grid (students as rows, every Fach of the class as columns) for
@@ -71,7 +73,7 @@ public class BehaviorGridResource {
     public TemplateInstance grid(@PathParam("id") Long id) {
         SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
         GridData data = loadGridData(schoolClass);
-        return withUser(gridTemplate
+        return currentUser.withUser(gridTemplate
                 .data("schoolClass", schoolClass)
                 .data("subjects", data.subjects())
                 .data("rows", data.rows())
@@ -85,6 +87,12 @@ public class BehaviorGridResource {
         List<Subject> subjects = Subject.list("schoolClass.id = ?1 order by name", schoolClass.id);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", schoolClass.id);
 
+        List<BehaviorGrade> classGrades = BehaviorGrade.list("subject.schoolClass.id", schoolClass.id);
+        Map<GradeKey, BehaviorGrade> grades = new HashMap<>();
+        for (BehaviorGrade grade : classGrades) {
+            grades.put(new GradeKey(grade.subject.id, grade.student.id), grade);
+        }
+
         List<List<BigDecimal>> columnValues = new ArrayList<>();
         for (int i = 0; i < subjects.size(); i++) {
             columnValues.add(new ArrayList<>());
@@ -97,8 +105,7 @@ public class BehaviorGridResource {
             List<BigDecimal> studentValues = new ArrayList<>();
             int colIndex = 0;
             for (Subject subject : subjects) {
-                BehaviorGrade grade = BehaviorGrade.find("student.id = ?1 and subject.id = ?2",
-                        student.id, subject.id).firstResult();
+                BehaviorGrade grade = grades.get(new GradeKey(subject.id, student.id));
                 String displayValue = grade != null ? plain(grade.value) : null;
                 if (grade != null) {
                     studentValues.add(grade.value);
@@ -109,7 +116,7 @@ public class BehaviorGridResource {
             }
             BigDecimal rowAverage = behaviorGradeService.average(studentValues);
             boolean borderline = behaviorGradeService.isBorderline(rowAverage);
-            rows.add(new RowView(rowIndex, new StudentView(student.id, effectiveName(student)),
+            rows.add(new RowView(rowIndex, new StudentView(student.id, student.effectiveName()),
                     cells, rowAverage, borderline));
             rowIndex++;
         }
@@ -215,18 +222,11 @@ public class BehaviorGridResource {
         return value.stripTrailingZeros().toPlainString();
     }
 
-    private static String effectiveName(Student student) {
-        return student.displayName != null && !student.displayName.isBlank() ? student.displayName : student.name;
-    }
-
-    private TemplateInstance withUser(TemplateInstance instance) {
-        return instance
-                .data("currentUserAuthenticated", currentUser.isAuthenticated())
-                .data("currentUserDisplayName", currentUser.displayName().orElse(""))
-                .data("localAuthActive", currentUser.localAuthActive());
-    }
-
     // ---- View models for the Qute template ----
+
+    /** Lookup key indexing a class's Verhaltensnoten by (subject, student). */
+    private record GradeKey(Long subjectId, Long studentId) {
+    }
 
     private record GridData(List<Subject> subjects, List<RowView> rows,
                              List<SubjectFooter> subjectFooters, int maxCol, int maxRow, boolean gridEmpty) {

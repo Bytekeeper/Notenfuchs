@@ -82,17 +82,13 @@ public class ClassAveragesResource {
                         categoryDataList, subject.gradeScale, subject.roundingMode);
 
                 result.add(new StudentSubjectAverageResponse(
-                        student.id, effectiveName(student),
+                        student.id, student.effectiveName(),
                         subject.id, subject.name,
                         average.rawAverage(), average.finalGrade()));
             }
         }
 
         return result;
-    }
-
-    private static String effectiveName(Student student) {
-        return student.displayName != null && !student.displayName.isBlank() ? student.displayName : student.name;
     }
 
     /**

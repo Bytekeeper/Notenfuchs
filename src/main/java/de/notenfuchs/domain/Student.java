@@ -29,4 +29,9 @@ public class Student extends PanacheEntity {
      */
     @Column(name = "display_name")
     public String displayName;
+
+    /** The name to actually show in UI/exports - {@link #displayName} if set, otherwise {@link #name}. */
+    public String effectiveName() {
+        return displayName != null && !displayName.isBlank() ? displayName : name;
+    }
 }

@@ -29,6 +29,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -62,7 +63,7 @@ public class SubjectUiResource {
     public TemplateInstance detail(@PathParam("id") Long id) {
         Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
         CategoryListData data = categoryListData(id);
-        return withUser(detailTemplate
+        return currentUser.withUser(detailTemplate
                 .data("subject", subject)
                 .data("categories", data.categories())
                 .data("weightSum", data.weightSum())
@@ -345,10 +346,10 @@ public class SubjectUiResource {
      */
     private List<CategoryView> categoryViews(Long subjectId) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subjectId);
-        List<CategoryView> result = new java.util.ArrayList<>();
+        List<CategoryView> result = new ArrayList<>();
         for (GradeCategory category : categories) {
             List<Assessment> assessments = Assessment.list("category.id", category.id);
-            List<AssessmentView> assessmentViews = new java.util.ArrayList<>();
+            List<AssessmentView> assessmentViews = new ArrayList<>();
             for (Assessment assessment : assessments) {
                 List<PointsGradeBand> bands = assessment.pointsBased
                         ? PointsGradeBand.list("assessment.id = ?1 order by minPoints desc", assessment.id)
@@ -378,10 +379,4 @@ public class SubjectUiResource {
                                   boolean pointsBased, List<PointsGradeBand> bands, RoundingMode roundingMode) {
     }
 
-    private TemplateInstance withUser(TemplateInstance instance) {
-        return instance
-                .data("currentUserAuthenticated", currentUser.isAuthenticated())
-                .data("currentUserDisplayName", currentUser.displayName().orElse(""))
-                .data("localAuthActive", currentUser.localAuthActive());
-    }
 }

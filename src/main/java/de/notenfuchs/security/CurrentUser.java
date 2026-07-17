@@ -2,6 +2,7 @@ package de.notenfuchs.security;
 
 import io.quarkus.oidc.IdToken;
 import io.quarkus.oidc.UserInfo;
+import io.quarkus.qute.TemplateInstance;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -131,6 +132,19 @@ public class CurrentUser {
             return Optional.of(fromToken);
         }
         return subject();
+    }
+
+    /**
+     * Decorates a Qute {@link TemplateInstance} with the template globals every
+     * server-rendered page needs (nav auth state, display name, which logout route to
+     * use) - every {@code *UiResource}/{@code *GridResource} needs exactly this triplet,
+     * so it lives here once instead of as a copy-pasted private method in each.
+     */
+    public TemplateInstance withUser(TemplateInstance instance) {
+        return instance
+                .data("currentUserAuthenticated", isAuthenticated())
+                .data("currentUserDisplayName", displayName().orElse(""))
+                .data("localAuthActive", localAuthActive());
     }
 
     private String safeUserInfoString(String propertyName) {
