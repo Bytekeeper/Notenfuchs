@@ -295,6 +295,70 @@ roles and no sharing between teachers - just single-tenant isolation per OIDC id
   falls back to a fixed `"dev-user"` subject, so ownership still works locally and in
   tests without a real login.
 
+## Deploying a free demo instance
+
+For letting people try Notenfuchs before committing to self-hosting it for real: a
+publicly reachable instance running on free-tier hosting, redeployed from latest
+`master` and reset to a fixed demo dataset every night. Two pieces, wired together by
+files already in this repo:
+
+- **[Render](https://render.com)** runs the app itself, built from
+  `src/main/docker/Dockerfile.render` (a multi-stage Dockerfile that runs the Maven
+  build from source - unlike `Dockerfile.jvm`, which expects `./mvnw package` to have
+  already run) via `render.yaml` (Render "Blueprint" - Render auto-detects this file).
+- **[Neon](https://neon.tech)** provides the free Postgres - Render's own free tier has
+  no persistent free Postgres option.
+
+### One-time setup
+
+1. Create a free Neon project and note its connection details (host, database, user,
+   password).
+2. In Render, create a new **Blueprint** pointed at this repo - it picks up
+   `render.yaml` automatically.
+3. In the Render service's environment settings, set:
+
+   | Variable | Value |
+   |---|---|
+   | `DB_URL` | `jdbc:postgresql://<neon-host>/<db>?sslmode=require` |
+   | `DB_USER` | Your Neon role name |
+   | `DB_PASSWORD` | Your Neon role password |
+   | `NOTENFUCHS_PASSWORD` | A throwaway password, safe to publish next to the demo link - this instance only ever holds demo data that gets wiped nightly (see below). |
+
+4. Create a **Deploy Hook** in the Render service's settings and copy its URL.
+5. Note the service id (`srv-...`, in the service's URL) and create a Render API key
+   (account settings).
+6. Add four secrets to this GitHub repo (Settings → Secrets and variables → Actions):
+   `RENDER_DEPLOY_HOOK_URL`, `RENDER_API_KEY`, `RENDER_SERVICE_ID`, and
+   `DEMO_DATABASE_URL` (the Neon connection string, direct/unpooled,
+   `postgresql://user:password@host/db?sslmode=require`).
+
+### What happens nightly
+
+`.github/workflows/demo-nightly-redeploy.yml` runs on a cron schedule (03:00 UTC) and:
+
+1. Triggers the Render deploy hook, which redeploys the latest `master` commit.
+2. Polls the Render API until that deploy reports `live` (rather than a fixed sleep -
+   free-tier builds can take a few minutes).
+3. Runs `demo/seed-reset.sql` directly against the Neon database, wiping every
+   teacher-owned table (`grade_scale` - shared reference data - is left untouched) and
+   reloading one fixed demo class (`Demo-Klasse 8b`, owned by the fixed local-auth user
+   `lehrer` - see "Default: local built-in auth" above) with a handful of students and
+   grades.
+
+Trigger it manually from the Actions tab (`workflow_dispatch`) to redeploy/reset on
+demand instead of waiting for the nightly run.
+
+### Limitations
+
+- Render's free web services spin down after about 15 minutes idle; the first request
+  after that wakes it back up (30-60s cold start). Fine for a "kick the tires" demo, not
+  for anything latency-sensitive.
+- Free-tier terms on both platforms change over time - check Render's and Neon's
+  current limits before relying on this long-term.
+- This is a throwaway demo, not a template for a real deployment: the published
+  `NOTENFUCHS_PASSWORD` and nightly wipe are both intentional here and wrong for an
+  instance holding real student data.
+
 ## REST API
 
 All endpoints are under `/api` and scoped to the logged-in teacher (see "Per-teacher

@@ -1,0 +1,66 @@
+name: Nightly demo redeploy
+
+# Redeploys the free public demo instance from latest master and resets its
+# data to a fixed demo dataset every night, so the demo always shows current
+# code on a clean slate regardless of what visitors typed into it during the
+# day. See the README's "Deploying a free demo instance" section for the
+# one-time Render/Neon setup this depends on.
+#
+# Repo secrets required (see README for where each value comes from):
+#   RENDER_DEPLOY_HOOK_URL - the Render service's deploy hook URL
+#   RENDER_API_KEY         - Render API key, used only to poll deploy status
+#   RENDER_SERVICE_ID      - the Render service id (srv-...)
+#   DEMO_DATABASE_URL      - Neon connection string, e.g.
+#                            postgresql://user:pass@host/db?sslmode=require
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  redeploy-and-reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
+      - name: Trigger Render deploy
+        id: trigger
+        run: |
+          response=$(curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}")
+          deploy_id=$(echo "$response" | jq -r '.deploy.id // empty')
+          if [ -z "$deploy_id" ]; then
+            echo "Could not read deploy id from deploy hook response: $response" >&2
+            exit 1
+          fi
+          echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for deploy to go live
+        run: |
+          deploy_id="${{ steps.trigger.outputs.deploy_id }}"
+          for _ in $(seq 1 60); do
+            status=$(curl -fsS \
+              -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+              "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys/$deploy_id" \
+              | jq -r '.status')
+            echo "deploy status: $status"
+            case "$status" in
+              live)
+                exit 0
+                ;;
+              build_failed|update_failed|canceled|deactivated)
+                echo "Render deploy failed with status: $status" >&2
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for the Render deploy to go live" >&2
+          exit 1
+
+      - name: Reset demo data
+        run: psql "${{ secrets.DEMO_DATABASE_URL }}" -v ON_ERROR_STOP=1 -f demo/seed-reset.sql

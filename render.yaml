@@ -1,0 +1,33 @@
+# Render Blueprint for a free public demo/test instance of Notenfuchs. Pair
+# this with a free external Postgres (e.g. https://neon.tech) - Render's own
+# free tier has no persistent free Postgres offering. See the README's
+# "Deploying a free demo instance" section for the full one-time setup
+# (Neon project, this Blueprint, the deploy hook, and the nightly GitHub
+# Actions workflow that redeploys + resets demo data).
+#
+# healthCheckPath is /login rather than an actual health endpoint - this app
+# doesn't depend on quarkus-smallrye-health, and /login is public (no auth
+# required) and cheap to render, so it doubles as a liveness check.
+services:
+  - type: web
+    name: notenfuchs-demo
+    runtime: docker
+    dockerfilePath: ./src/main/docker/Dockerfile.render
+    dockerContext: .
+    plan: free
+    healthCheckPath: /login
+    envVars:
+      # Neon connection details - set these manually in the Render dashboard
+      # after creating the Neon project (sync: false = not stored in this
+      # file, entered once via the UI instead).
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      # The demo login's fixed-username password (username "lehrer", see
+      # LocalAuthConfigSource) - pick something you're fine publishing next
+      # to the demo link, this instance only ever holds throwaway demo data.
+      - key: NOTENFUCHS_PASSWORD
+        sync: false

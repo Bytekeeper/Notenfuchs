@@ -37,5 +37,47 @@ services:
     ports:
       - "8080:8080"
 
+  # One-shot: seeds a fixed example class ("Demo-Klasse 8b", see
+  # demo/seed-reset.sql) the first time this stack boots against a fresh
+  # Postgres volume, so a new self-hoster (or a fresh local dev setup) has
+  # something to look at without typing anything in first. Detected via
+  # "school_class has zero rows" rather than volume age - that's what a
+  # fresh install actually looks like, and needs no extra state tracking.
+  # Waits for the app container's Flyway migration to create the schema
+  # (this container can start as soon as postgres is healthy, well before
+  # that). Skipped once any class exists, including if the demo class itself
+  # is later deleted and replaced by a real one - a stack that's ever had
+  # data in it is never touched again.
+  #
+  # Seeded rows are owned by "lehrer", the fixed local-auth username (see
+  # LocalAuthConfigSource) - if you're using the docker-compose.oidc.yml
+  # overlay instead of local auth, this seeds a class nobody can log in to
+  # see. Harmless, but delete the school_class row manually if that bothers
+  # you.
+  seed-demo:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: notenfuchs
+    volumes:
+      - ./demo/seed-reset.sql:/seed-reset.sql:ro
+    entrypoint:
+      - sh
+      - -c
+      - |
+        until psql -h postgres -U notenfuchs -d notenfuchs -tAc "SELECT to_regclass('public.school_class')" 2>/dev/null | grep -q school_class; do
+          echo "seed-demo: waiting for schema migration..."
+          sleep 2
+        done
+        count=$$(psql -h postgres -U notenfuchs -d notenfuchs -tAc "SELECT count(*) FROM school_class")
+        if [ "$$count" = "0" ]; then
+          echo "seed-demo: fresh database, loading demo class"
+          psql -h postgres -U notenfuchs -d notenfuchs -f /seed-reset.sql
+        else
+          echo "seed-demo: existing data found, skipping"
+        fi
+
 volumes:
   notenfuchs-postgres-data:
