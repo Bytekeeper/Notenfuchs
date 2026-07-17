@@ -61,13 +61,12 @@ class LoginE2EIT {
         page.navigate(baseUrl());
 
         assertThat(page).hasURL(Pattern.compile(".*/login.*"));
-        assertThat(page.locator("input[name='j_username']")).isVisible();
         assertThat(page.locator("input[name='j_password']")).isVisible();
     }
 
     @Test
     void correctPasswordReachesTheClassList() {
-        login(LocalAuthTestProfile.USERNAME, LocalAuthTestProfile.PASSWORD);
+        login(LocalAuthTestProfile.PASSWORD);
 
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Klassen"))).isVisible();
         assertThat(page.locator(".user-info")).containsText("Angemeldet als " + LocalAuthTestProfile.USERNAME);
@@ -75,7 +74,7 @@ class LoginE2EIT {
 
     @Test
     void wrongPasswordShowsErrorAndStaysOnLogin() {
-        login(LocalAuthTestProfile.USERNAME, "not-the-password");
+        login("not-the-password");
 
         assertThat(page).hasURL(Pattern.compile(".*/login.*error.*"));
         assertThat(page.getByText("Falscher Benutzername oder falsches Passwort.")).isVisible();
@@ -83,7 +82,7 @@ class LoginE2EIT {
 
     @Test
     void logoutEndsTheSessionAndFurtherNavigationRedirectsToLogin() {
-        login(LocalAuthTestProfile.USERNAME, LocalAuthTestProfile.PASSWORD);
+        login(LocalAuthTestProfile.PASSWORD);
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Klassen"))).isVisible();
 
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Logout")).click();
@@ -92,9 +91,8 @@ class LoginE2EIT {
         assertThat(page).hasURL(Pattern.compile(".*/login.*"));
     }
 
-    private void login(String username, String password) {
+    private void login(String password) {
         page.navigate(baseUrl() + "login");
-        page.locator("input[name='j_username']").fill(username);
         page.locator("input[name='j_password']").fill(password);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anmelden")).click();
     }
