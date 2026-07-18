@@ -90,11 +90,12 @@
                                                         {#for band in a.bands}
                                                         <tr>
                                                             <td colspan="2">
-                                                                <form class="inline-form band-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands/{band.id}" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                                                <form class="inline-form band-form"
+                                                                      data-save-url="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands/{band.id}"
+                                                                      data-last-saved="{band.minPoints}|{band.gradeValue}">
                                                                     <input type="number" name="minPoints" step="0.01" min="0" value="{band.minPoints}">
                                                                     <span>Pkt. →</span>
                                                                     <input type="number" name="gradeValue" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" value="{band.gradeValue}">
-                                                                    <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
                                                                 </form>
                                                             </td>
                                                             <td>

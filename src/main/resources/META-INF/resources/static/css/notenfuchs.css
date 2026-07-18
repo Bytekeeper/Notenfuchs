@@ -544,6 +544,17 @@ tr.bands-row td {
 
 .points-config .band-form input[type="number"] {
     width: 4.5rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.points-config .band-form input.state-saved {
+    background: var(--color-success-bg);
+    border-color: var(--color-success);
+}
+
+.points-config .band-form input.state-error {
+    background: var(--color-error-bg);
+    border-color: var(--color-error);
 }
 
 .points-cell {

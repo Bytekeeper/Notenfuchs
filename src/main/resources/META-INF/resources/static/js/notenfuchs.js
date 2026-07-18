@@ -602,6 +602,80 @@
 })();
 
 /**
+ * Notenschlüssel band rows (categoryList.html's "Notenschlüssel für ..." table): unlike every
+ * other editable field in this app, minPoints/gradeValue have no Ändern toggle - they're
+ * always-live inputs, the same shape as a grade-grid cell, so they save the same way: on
+ * blur/tab-away rather than a separate Speichern click. A band is two fields persisted
+ * together in one PATCH, so blur of either field submits the row's current values, not just
+ * whichever one changed. There's no hx-patch on the form (autosave replaces it entirely), so
+ * Enter - the browser's default submit trigger for a single-line input - is intercepted to
+ * save immediately instead of navigating anywhere.
+ */
+(function () {
+    "use strict";
+
+    function setState(form, state) {
+        form.querySelectorAll("input").forEach(function (input) {
+            input.classList.remove("state-saved", "state-error");
+            if (state) {
+                input.classList.add("state-" + state);
+            }
+        });
+    }
+
+    function clearSavedFlashSoon(form) {
+        setTimeout(function () {
+            setState(form, null);
+        }, 1200);
+    }
+
+    function saveBandForm(form) {
+        const minPointsInput = form.querySelector("input[name='minPoints']");
+        const gradeValueInput = form.querySelector("input[name='gradeValue']");
+        const key = minPointsInput.value + "|" + gradeValueInput.value;
+        if (key === form.dataset.lastSaved) {
+            return;
+        }
+
+        const body = new URLSearchParams();
+        body.set("minPoints", minPointsInput.value);
+        body.set("gradeValue", gradeValueInput.value);
+
+        fetch(form.dataset.saveUrl, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: body.toString()
+        })
+            .then(function (resp) {
+                if (!resp.ok) {
+                    throw new Error("HTTP " + resp.status);
+                }
+                form.dataset.lastSaved = key;
+                setState(form, "saved");
+                clearSavedFlashSoon(form);
+            })
+            .catch(function () {
+                setState(form, "error");
+            });
+    }
+
+    document.addEventListener("focusout", function (ev) {
+        const form = ev.target.closest(".band-form");
+        if (form) {
+            saveBandForm(form);
+        }
+    });
+
+    document.addEventListener("submit", function (ev) {
+        const form = ev.target.closest(".band-form");
+        if (form) {
+            ev.preventDefault();
+            saveBandForm(form);
+        }
+    });
+})();
+
+/**
  * CSV file picker (ClassPage/detail.html's Schülerliste import): the native <input
  * type="file"> is transparent and stretched over a styled ".btn secondary" label so it lines
  * up with the "Vorschau anzeigen" submit button - see the ".file-field" CSS. The filename

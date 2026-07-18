@@ -235,11 +235,13 @@ class GradeGridE2EIT {
         page.locator(".breadcrumbs a").nth(2).click();
 
         Locator bandForm = page.locator(".band-form").nth(0);
-        bandForm.locator("input[name='gradeValue']").fill("2");
-        bandForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
-        // The just-saved value renders back within the same request/transaction exactly as
-        // submitted (scale 0), not yet round-tripped through the DB's NUMERIC(4,2) column.
-        assertThat(bandForm.locator("input[name='gradeValue']")).hasValue("2");
+        Locator gradeValueInput = bandForm.locator("input[name='gradeValue']");
+        gradeValueInput.fill("2");
+        gradeValueInput.evaluate("el => el.blur()");
+        // No Speichern button - a band autosaves on blur like a grade-grid cell (see
+        // notenfuchs.js). Wait for the save-confirmation flash before navigating away, since
+        // the PATCH now fires in the background rather than a synchronous button click.
+        assertThat(gradeValueInput).hasClass(java.util.regex.Pattern.compile(".*\\bstate-saved\\b.*"));
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
