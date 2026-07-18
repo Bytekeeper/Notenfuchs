@@ -66,7 +66,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
         // Set the Halbjahr cutoff via the rename-wrap form on the class detail page.
-        page.locator(".settings-disclosure summary").click();
+        openSettingsDisclosure(page);
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
@@ -174,7 +174,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        page.locator(".settings-disclosure summary").click();
+        openSettingsDisclosure(page);
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
@@ -221,6 +221,18 @@ class GradeGridHalfYearE2EIT {
         page.reload();
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='3']")).hasValue("2");
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='5']")).hasValue("4");
+    }
+
+    /**
+     * Ensures the class detail page's "Klasseneinstellungen" {@code <details>} is open -
+     * force-sets the DOM property rather than clicking {@code summary} (a toggle), since
+     * {@code ClassPage/detail.html} auto-opens it whenever {@code halfYearCutoff} is set or
+     * {@code halfYearGradeDisplay != WHOLE} (e.g. every newly created class, which now defaults
+     * to {@code HALF} - see {@code SchoolClass#halfYearGradeDisplay}), so a click here could just
+     * as easily close it as open it depending on that state.
+     */
+    private static void openSettingsDisclosure(Page page) {
+        page.locator(".settings-disclosure").evaluate("el => el.open = true");
     }
 
     /**
@@ -278,15 +290,18 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        page.locator(".settings-disclosure summary").click();
+        openSettingsDisclosure(page);
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
         cutoffWrap.locator(".rename-save").click();
         assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
 
-        // Switch to "Halbe Noten" - the tendency input stays enabled, since it's meaningful for
-        // both modes (unlike the earlier, since-reverted design where HALF disabled it).
+        // Switch to "Halbe Noten" with no tendency threshold - the tendency input stays enabled,
+        // since it's meaningful for both modes (unlike the earlier, since-reverted design where
+        // HALF disabled it). New classes default to a 0.10 threshold (see
+        // SchoolClass#halfYearTendencyThreshold), so it must be cleared explicitly here to
+        // actually exercise the no-threshold case the assertions below depend on.
         Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap.locator(".rename-toggle").click();
         Locator modeSelect = displayWrap.locator("select[name='halfYearGradeDisplay']");
@@ -294,6 +309,7 @@ class GradeGridHalfYearE2EIT {
         assertThat(tendencyInput).isEnabled();
         modeSelect.selectOption("HALF");
         assertThat(tendencyInput).isEnabled();
+        tendencyInput.fill("");
         displayWrap.locator(".rename-save").click();
         assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten");
 
@@ -399,7 +415,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        page.locator(".settings-disclosure summary").click();
+        openSettingsDisclosure(page);
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
