@@ -8,7 +8,17 @@ services:
     volumes:
       - notenfuchs-postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      # Published only so `./mvnw quarkus:dev` (README "For development"),
+      # running on the host rather than in a container, can reach it at
+      # localhost:5432 - the `app` container itself always reaches postgres
+      # over the internal Docker network (jdbc:postgresql://postgres:5432/...),
+      # never through this published port. Bound to localhost only by
+      # default (POSTGRES_HOST_BIND in .env) since the credentials above are
+      # fixed, published defaults, not a secret - anyone who could reach this
+      # port could otherwise connect directly and bypass every app-level
+      # permission check entirely. Override only if you have a real need to
+      # reach this database from a different machine.
+      - "${POSTGRES_HOST_BIND:-127.0.0.1}:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notenfuchs -d notenfuchs"]
       interval: 5s
