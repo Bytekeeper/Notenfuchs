@@ -12,10 +12,10 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 /**
- * One anchor point of a points-based {@link Assessment}'s Notenschlüssel: {@link #minPoints}
- * raw points maps exactly to {@link #gradeValue}, and points falling between two anchors
- * interpolate linearly between them. Bands are freely configurable per assessment - no
- * Bundesland-specific scheme is imposed. See
+ * One anchor point of a points-based {@link Assessment}'s Notenschlüssel: {@link #points}
+ * raw points maps exactly to {@link #gradeValue}, and points falling between, below, or above
+ * two anchors interpolate/extrapolate linearly. Bands are freely configurable per assessment -
+ * no Bundesland-specific scheme is imposed. See
  * {@link de.notenfuchs.service.PointsConversionService} for how a points value is resolved
  * against these bands.
  */
@@ -29,8 +29,8 @@ public class PointsGradeBand extends PanacheEntity {
     public Assessment assessment;
 
     @NotNull
-    @Column(name = "min_points", nullable = false, precision = 6, scale = 2)
-    public BigDecimal minPoints;
+    @Column(name = "points", nullable = false, precision = 6, scale = 2)
+    public BigDecimal points;
 
     @NotNull
     @Column(name = "grade_value", nullable = false, precision = 4, scale = 2)

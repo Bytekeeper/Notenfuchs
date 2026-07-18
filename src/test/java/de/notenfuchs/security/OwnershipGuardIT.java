@@ -140,7 +140,7 @@ class OwnershipGuardIT {
         assessment.persist();
         PointsGradeBand band = new PointsGradeBand();
         band.assessment = assessment;
-        band.minPoints = new BigDecimal("50");
+        band.points = new BigDecimal("50");
         band.gradeValue = new BigDecimal("4");
         band.persist();
 

@@ -30,11 +30,15 @@ public class PointsConversionService {
 
     /**
      * Converts achieved points into a grade value by linearly interpolating between the two
-     * bands whose {@code minPoints} bracket the achieved points - so the grade moves smoothly
-     * with points instead of jumping at each threshold. Points at or above the highest band's
-     * threshold clamp to that band's grade (no extrapolation for bonus points); points below
-     * the lowest band's threshold fall back to the worst grade on the scale (e.g. an
-     * incomplete Notenschlüssel with no low-points floor band).
+     * bands whose {@code points} bracket the achieved points - so the grade moves smoothly
+     * with points instead of jumping at each threshold. Points outside every band's range
+     * continue the linear trend of the two outermost bands on that side (so a 2-band
+     * Notenschlüssel is a single straight line across the whole points axis) and are clamped
+     * only at the underlying {@code GradeScale}'s absolute min/max - never before that, so
+     * bonus points can still climb all the way to the best grade and a very weak result can
+     * still fall all the way to the worst one. A single-band Notenschlüssel can't define a
+     * slope, so it falls back to that band's grade at/above its threshold and the scale's
+     * worst grade below it.
      *
      * <p>The result is rounded to one decimal place per the given {@code roundingMode} - the
      * same per-Assessment choice as {@code Subject#roundingMode} offers for the whole-grade
@@ -68,38 +72,54 @@ public class PointsConversionService {
         }
 
         List<PointsGradeBandData> sorted = new ArrayList<>(bands);
-        sorted.sort(Comparator.comparing(PointsGradeBandData::minPoints));
+        sorted.sort(Comparator.comparing(PointsGradeBandData::points));
 
-        PointsGradeBandData lowest = sorted.get(0);
-        if (points.compareTo(lowest.minPoints()) < 0) {
-            return scale.lowerIsBetter ? scale.max : scale.min;
+        if (sorted.size() == 1) {
+            PointsGradeBandData only = sorted.get(0);
+            BigDecimal raw = points.compareTo(only.points()) >= 0
+                    ? only.gradeValue()
+                    : (scale.lowerIsBetter ? scale.max : scale.min);
+            return clampToScale(raw, scale);
         }
 
-        PointsGradeBandData highest = sorted.get(sorted.size() - 1);
-        if (points.compareTo(highest.minPoints()) >= 0) {
-            return highest.gradeValue();
-        }
-
-        for (int i = 0; i < sorted.size() - 1; i++) {
-            PointsGradeBandData lower = sorted.get(i);
-            PointsGradeBandData upper = sorted.get(i + 1);
-            if (points.compareTo(upper.minPoints()) < 0) {
-                return interpolate(points, lower, upper);
+        PointsGradeBandData lower;
+        PointsGradeBandData upper;
+        if (points.compareTo(sorted.get(0).points()) < 0) {
+            lower = sorted.get(0);
+            upper = sorted.get(1);
+        } else if (points.compareTo(sorted.get(sorted.size() - 1).points()) >= 0) {
+            lower = sorted.get(sorted.size() - 2);
+            upper = sorted.get(sorted.size() - 1);
+        } else {
+            int i = 0;
+            while (points.compareTo(sorted.get(i + 1).points()) >= 0) {
+                i++;
             }
+            lower = sorted.get(i);
+            upper = sorted.get(i + 1);
         }
-        // Unreachable: points is already known to be in [lowest, highest), and every value in
-        // that range falls into exactly one consecutive [lower, upper) segment above.
-        return highest.gradeValue();
+        return clampToScale(interpolate(points, lower, upper), scale);
+    }
+
+    /** Clamps a derived grade to the scale's absolute bounds (min is always <= max, regardless of {@code lowerIsBetter}). */
+    private BigDecimal clampToScale(BigDecimal grade, GradeScale scale) {
+        if (grade.compareTo(scale.min) < 0) {
+            return scale.min;
+        }
+        if (grade.compareTo(scale.max) > 0) {
+            return scale.max;
+        }
+        return grade;
     }
 
     /** Linearly interpolates the grade for {@code points} between two adjacent bands. */
     private BigDecimal interpolate(BigDecimal points, PointsGradeBandData lower, PointsGradeBandData upper) {
-        BigDecimal pointsSpan = upper.minPoints().subtract(lower.minPoints());
+        BigDecimal pointsSpan = upper.points().subtract(lower.points());
         if (pointsSpan.compareTo(BigDecimal.ZERO) == 0) {
             // Two bands defined at the same points threshold - nothing sensible to interpolate.
             return lower.gradeValue();
         }
-        BigDecimal fraction = points.subtract(lower.minPoints()).divide(pointsSpan, CALC_CONTEXT);
+        BigDecimal fraction = points.subtract(lower.points()).divide(pointsSpan, CALC_CONTEXT);
         BigDecimal gradeSpan = upper.gradeValue().subtract(lower.gradeValue());
         return lower.gradeValue().add(fraction.multiply(gradeSpan, CALC_CONTEXT), CALC_CONTEXT);
     }

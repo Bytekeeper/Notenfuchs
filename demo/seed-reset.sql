@@ -110,13 +110,13 @@ JOIN new_students ON new_students.name = g.student_name;
 -- points-based Assessment (60 -> best grade, 20 -> worst grade on the
 -- subject's own GradeScale) - left unedited, so the example matches what a
 -- teacher sees the first time they flip an Assessment to "Punktebasiert".
-INSERT INTO points_grade_band (id, assessment_id, min_points, grade_value)
-SELECT nextval('points_grade_band_seq'), assessment.id, b.min_points, b.grade_value
+INSERT INTO points_grade_band (id, assessment_id, points, grade_value)
+SELECT nextval('points_grade_band_seq'), assessment.id, b.points, b.grade_value
 FROM assessment
 JOIN grade_category ON grade_category.id = assessment.category_id
 JOIN subject ON subject.id = grade_category.subject_id
 JOIN school_class ON school_class.id = subject.school_class_id
-JOIN (VALUES (60.00, 1.0), (20.00, 6.0)) AS b(min_points, grade_value) ON true
+JOIN (VALUES (60.00, 1.0), (20.00, 6.0)) AS b(points, grade_value) ON true
 WHERE assessment.name = 'Klassenarbeit 2 (Punkte)'
   AND school_class.name = 'Demo-Klasse 8b';
 

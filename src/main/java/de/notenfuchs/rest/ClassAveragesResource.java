@@ -104,7 +104,7 @@ public class ClassAveragesResource {
             }
             List<PointsGradeBand> bands = PointsGradeBand.list("assessment.id", assessment.id);
             List<PointsGradeBandData> bandData = bands.stream()
-                    .map(b -> new PointsGradeBandData(b.minPoints, b.gradeValue)).toList();
+                    .map(b -> new PointsGradeBandData(b.points, b.gradeValue)).toList();
             return pointsConversionService.convert(grade.points, bandData, scale, assessment.roundingMode);
         }
         return grade.value;

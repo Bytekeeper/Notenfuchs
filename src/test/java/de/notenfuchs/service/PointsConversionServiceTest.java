@@ -105,26 +105,68 @@ class PointsConversionServiceTest {
     }
 
     @Test
-    void pointsBelowLowestAnchor_fallsBackToWorstGradeOnScale_lowerIsBetter() {
+    void pointsBelowLowestAnchor_extrapolatesThenClampsToScale_lowerIsBetter() {
+        // With the default anchors (60->1, 20->6) already sitting at the scale's own
+        // extremes, extrapolating below 20 immediately clamps back to the worst grade (6) -
+        // same observable result as the old "fall back to worst grade" behavior, but now via
+        // extrapolate-then-clamp rather than an unconditional snap.
         BigDecimal grade = service.convert(new BigDecimal("5"), twoAnchorKey(), deScale(), RoundingMode.IN_FAVOR_OF_STUDENT);
         assertEquals(0, new BigDecimal("6").compareTo(grade));
     }
 
     @Test
-    void pointsBelowLowestAnchor_fallsBackToWorstGradeOnScale_higherIsBetter() {
+    void pointsBelowLowestAnchor_continuesTheLineBeforeClamping() {
+        // Anchors NOT at the scale's extremes (40 -> 3.5, well short of worst grade 6): points
+        // below 40 must continue that line's slope, not jump straight to 6.
         List<PointsGradeBandData> bands = List.of(
-                new PointsGradeBandData(new BigDecimal("10"), new BigDecimal("15")),
-                new PointsGradeBandData(new BigDecimal("50"), new BigDecimal("5")));
-        // On a higher-is-better scale the worst grade is the numerically lowest value (min).
-        BigDecimal grade = service.convert(new BigDecimal("2"), bands, pointsScaleHigherIsBetter(), RoundingMode.IN_FAVOR_OF_STUDENT);
-        assertEquals(0, new BigDecimal("0").compareTo(grade));
+                new PointsGradeBandData(new BigDecimal("40"), new BigDecimal("3.5")),
+                new PointsGradeBandData(new BigDecimal("60"), new BigDecimal("1")));
+        // Slope is -2.5 grade per 20 points -> at 33 points (7 below 40): 3.5 + 7*0.125 = 4.375,
+        // rounded down (in favor of the student) to one decimal -> 4.3.
+        BigDecimal grade = service.convert(new BigDecimal("33"), bands, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT);
+        assertEquals(0, new BigDecimal("4.3").compareTo(grade), "expected grade 4.3 but was " + grade);
     }
 
     @Test
-    void pointsAboveHighestAnchor_clampsToTopAnchorsGrade_noExtrapolation() {
-        // 105 is well past the top (60) anchor - clamps to grade 1, doesn't extrapolate below it.
+    void pointsBelowLowestAnchor_higherIsBetterScale_clampsInTheDirectionTheLineActuallyPoints() {
+        // A deliberately inverted key (more points -> lower grade value) to prove the clamp
+        // follows the line's actual slope rather than always assuming "below lowest = worst":
+        // extending the (10,15)-(50,5) line below 10 points climbs toward 17, which clamps to
+        // the scale's max (15) - the *best* grade on this higher-is-better scale, not the worst.
+        List<PointsGradeBandData> bands = List.of(
+                new PointsGradeBandData(new BigDecimal("10"), new BigDecimal("15")),
+                new PointsGradeBandData(new BigDecimal("50"), new BigDecimal("5")));
+        BigDecimal grade = service.convert(new BigDecimal("2"), bands, pointsScaleHigherIsBetter(), RoundingMode.IN_FAVOR_OF_STUDENT);
+        assertEquals(0, new BigDecimal("15").compareTo(grade), "expected grade 15 but was " + grade);
+    }
+
+    @Test
+    void pointsAboveHighestAnchor_extrapolatesThenClampsToScale() {
+        // With the default anchors (60->1, 20->6) already sitting at the scale's own extremes,
+        // extrapolating above 60 immediately clamps back to the best grade (1).
         BigDecimal grade = service.convert(new BigDecimal("105"), twoAnchorKey(), deScale(), RoundingMode.IN_FAVOR_OF_STUDENT);
         assertEquals(0, new BigDecimal("1").compareTo(grade));
+    }
+
+    @Test
+    void pointsAboveHighestAnchor_continuesTheLineBeforeClamping() {
+        // Anchors NOT at the scale's extremes: bonus points above 60 must keep climbing toward
+        // grade 1 rather than freezing at whatever the top anchor's own grade happens to be.
+        List<PointsGradeBandData> bands = List.of(
+                new PointsGradeBandData(new BigDecimal("40"), new BigDecimal("3.5")),
+                new PointsGradeBandData(new BigDecimal("60"), new BigDecimal("2")));
+        // Slope is -1.5 grade per 20 points -> at 68 points (8 above 60): 2 - 8*0.075 = 1.4.
+        BigDecimal grade = service.convert(new BigDecimal("68"), bands, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT);
+        assertEquals(0, new BigDecimal("1.4").compareTo(grade), "expected grade 1.4 but was " + grade);
+    }
+
+    @Test
+    void onlyOneBand_cannotDefineASlope_flatFallbackBelowFixedGradeAtOrAbove() {
+        List<PointsGradeBandData> oneBand = List.of(new PointsGradeBandData(new BigDecimal("40"), new BigDecimal("3")));
+
+        assertEquals(0, new BigDecimal("3").compareTo(service.convert(new BigDecimal("40"), oneBand, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
+        assertEquals(0, new BigDecimal("3").compareTo(service.convert(new BigDecimal("90"), oneBand, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
+        assertEquals(0, new BigDecimal("6").compareTo(service.convert(new BigDecimal("10"), oneBand, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
     }
 
     @Test
@@ -178,9 +220,9 @@ class PointsConversionServiceTest {
         List<PointsGradeBandData> bands = service.defaultBands(deScale());
 
         assertEquals(2, bands.size());
-        assertEquals(0, new BigDecimal("60").compareTo(bands.get(0).minPoints()));
+        assertEquals(0, new BigDecimal("60").compareTo(bands.get(0).points()));
         assertEquals(0, new BigDecimal("1.00").compareTo(bands.get(0).gradeValue()));
-        assertEquals(0, new BigDecimal("20").compareTo(bands.get(1).minPoints()));
+        assertEquals(0, new BigDecimal("20").compareTo(bands.get(1).points()));
         assertEquals(0, new BigDecimal("6.00").compareTo(bands.get(1).gradeValue()));
     }
 
@@ -199,7 +241,7 @@ class PointsConversionServiceTest {
         assertEquals(0, new BigDecimal("1").compareTo(service.convert(new BigDecimal("60"), bands, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
         assertEquals(0, new BigDecimal("3.5").compareTo(service.convert(new BigDecimal("40"), bands, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
         assertEquals(0, new BigDecimal("6").compareTo(service.convert(new BigDecimal("20"), bands, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
-        // Below every band -> falls back to the scale's worst grade.
+        // Below every band -> extrapolates past 6, clamped back to the scale's worst grade.
         assertEquals(0, new BigDecimal("6").compareTo(service.convert(new BigDecimal("5"), bands, deScale(), RoundingMode.IN_FAVOR_OF_STUDENT)));
     }
 }

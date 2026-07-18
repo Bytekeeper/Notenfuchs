@@ -603,7 +603,7 @@
 
 /**
  * Notenschlüssel band rows (categoryList.html's "Notenschlüssel für ..." table): unlike every
- * other editable field in this app, minPoints/gradeValue have no Ändern toggle - they're
+ * other editable field in this app, points/gradeValue have no Ändern toggle - they're
  * always-live inputs, the same shape as a grade-grid cell, so they save the same way: on
  * blur/tab-away rather than a separate Speichern click. A band is two fields persisted
  * together in one PATCH, so blur of either field submits the row's current values, not just
@@ -630,15 +630,15 @@
     }
 
     function saveBandForm(form) {
-        const minPointsInput = form.querySelector("input[name='minPoints']");
+        const pointsInput = form.querySelector("input[name='points']");
         const gradeValueInput = form.querySelector("input[name='gradeValue']");
-        const key = minPointsInput.value + "|" + gradeValueInput.value;
+        const key = pointsInput.value + "|" + gradeValueInput.value;
         if (key === form.dataset.lastSaved) {
             return;
         }
 
         const body = new URLSearchParams();
-        body.set("minPoints", minPointsInput.value);
+        body.set("points", pointsInput.value);
         body.set("gradeValue", gradeValueInput.value);
 
         fetch(form.dataset.saveUrl, {

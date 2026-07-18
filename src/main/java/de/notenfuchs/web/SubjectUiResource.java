@@ -218,14 +218,14 @@ public class SubjectUiResource {
     public TemplateInstance addBand(@PathParam("id") Long id,
                                      @PathParam("categoryId") Long categoryId,
                                      @PathParam("assessmentId") Long assessmentId,
-                                     @FormParam("minPoints") BigDecimal minPoints,
+                                     @FormParam("points") BigDecimal points,
                                      @FormParam("gradeValue") BigDecimal gradeValue) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireOwnedSubject(id, currentSubject);
         Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
         PointsGradeBand band = new PointsGradeBand();
         band.assessment = assessment;
-        band.minPoints = minPoints;
+        band.points = points;
         band.gradeValue = gradeValue;
         band.persist();
         return categoryFragment(subject);
@@ -240,13 +240,13 @@ public class SubjectUiResource {
                                         @PathParam("categoryId") Long categoryId,
                                         @PathParam("assessmentId") Long assessmentId,
                                         @PathParam("bandId") Long bandId,
-                                        @FormParam("minPoints") BigDecimal minPoints,
+                                        @FormParam("points") BigDecimal points,
                                         @FormParam("gradeValue") BigDecimal gradeValue) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireOwnedSubject(id, currentSubject);
         PointsGradeBand band = guard.requireOwnedPointsGradeBand(bandId, currentSubject);
-        if (minPoints != null) {
-            band.minPoints = minPoints;
+        if (points != null) {
+            band.points = points;
         }
         if (gradeValue != null) {
             band.gradeValue = gradeValue;
@@ -284,7 +284,7 @@ public class SubjectUiResource {
         for (PointsGradeBandData data : pointsConversionService.defaultBands(scale)) {
             PointsGradeBand band = new PointsGradeBand();
             band.assessment = assessment;
-            band.minPoints = data.minPoints();
+            band.points = data.points();
             band.gradeValue = data.gradeValue();
             band.persist();
         }
@@ -335,7 +335,7 @@ public class SubjectUiResource {
             List<AssessmentView> assessmentViews = new ArrayList<>();
             for (Assessment assessment : assessments) {
                 List<PointsGradeBand> bands = assessment.pointsBased
-                        ? PointsGradeBand.list("assessment.id = ?1 order by minPoints desc", assessment.id)
+                        ? PointsGradeBand.list("assessment.id = ?1 order by points desc", assessment.id)
                         : List.of();
                 assessmentViews.add(new AssessmentView(assessment.id, assessment.name, assessment.date,
                         assessment.factor, assessment.pointsBased, bands, assessment.roundingMode));

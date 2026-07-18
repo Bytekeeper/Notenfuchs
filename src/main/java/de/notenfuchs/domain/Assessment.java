@@ -25,8 +25,8 @@ import java.time.LocalDate;
  * live from those points + this assessment's {@link PointsGradeBand}s via
  * {@link de.notenfuchs.service.PointsConversionService} - never frozen, so editing the points
  * or the bands always recomputes the grade (see ROADMAP.md's anti-freeze design principle).
- * There's no upfront "max points" to configure - each band's {@link PointsGradeBand#minPoints}
- * is just an absolute points threshold the teacher sets to match their own test. {@link #roundingMode}
+ * There's no upfront "max points" to configure - each band's {@link PointsGradeBand#points}
+ * is just an absolute points anchor the teacher sets to match their own test. {@link #roundingMode}
  * governs how that derived grade is rounded to one decimal - only meaningful while
  * {@link #pointsBased} is true, mirroring the choice {@code Subject#roundingMode} offers for
  * the whole-grade average rounding.

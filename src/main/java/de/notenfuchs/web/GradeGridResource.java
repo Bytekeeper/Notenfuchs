@@ -559,7 +559,7 @@ public class GradeGridResource {
 
     private List<PointsGradeBandData> bandData(Assessment assessment) {
         List<PointsGradeBand> bands = PointsGradeBand.list("assessment.id", assessment.id);
-        return bands.stream().map(b -> new PointsGradeBandData(b.minPoints, b.gradeValue)).toList();
+        return bands.stream().map(b -> new PointsGradeBandData(b.points, b.gradeValue)).toList();
     }
 
     private Map<Long, List<PointsGradeBandData>> bandsByAssessment(List<Assessment> assessments) {
