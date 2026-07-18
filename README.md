@@ -77,7 +77,14 @@ cp .env.example .env
    `docker-compose.oidc.yml`). Saving generates a Client Secret - copy it into
    `.env` as `OIDC_CLIENT_SECRET`, then run `docker compose up -d app` to pick
    it up.
-6. **Hand out a sign-up link.** On the Users page, use "Create signup token"
+6. **Grant access.** A newly created OIDC client in Pocket ID starts
+   completely locked down - no user group is allowed yet, so nobody can log
+   in through it, not even after creating a passkey account in the next step.
+   On the client's page, expand **Allowed User Groups** and either click
+   **Unrestrict** (any Pocket ID user can log in - fine for a single-teacher
+   instance, or a small trusted household/staff) or create/assign a specific
+   group to limit it to just the teachers who should use Notenfuchs.
+7. **Hand out a sign-up link.** On the Users page, use "Create signup token"
    to generate a single-use link and give it to whoever should actually use
    Notenfuchs (e.g. yourself, or another teacher) so they can create their own
    passkey account directly - you never need to share the admin login.
