@@ -1,10 +1,17 @@
 # Optional overlay: adds Pocket ID as an external OIDC provider instead of the
-# default local built-in auth. Use together with the base file:
+# default local built-in auth. It overrides the `app` service's environment
+# and depends_on (extends the base file's `app`, doesn't just add new
+# services), which is exactly the merge `include:` can't do - Compose only
+# merges same-named services across multiple -f files, never across an
+# `include:`, so this has to stay an overlay. Use together with the base file:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.oidc.yml up
 #
 # (add --build instead if you're running your own local changes to the app
-# image, see the README's "Option A" section)
+# image, see the README's "Option A" section). To avoid typing both -f flags
+# every time, set COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml in
+# .env once - Compose reads that automatically, so plain `docker compose up`
+# (and down/logs/...) then merge both files with no flags needed.
 #
 # See the README's "Authentication" section (and "Setting up Pocket ID") for
 # the full walkthrough. Leave NOTENFUCHS_PASSWORD unset in .env when using this
@@ -13,8 +20,8 @@
 services:
   app:
     depends_on:
-      pocket-id-bootstrap:
-        condition: service_completed_successfully
+      pocket-id:
+        condition: service_healthy
     environment:
       # The app reaches Pocket ID over the internal docker network, but must
       # validate tokens against the issuer Pocket ID actually signs with (its
@@ -26,9 +33,12 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
 
   # Lightweight, passkey-only OIDC provider - see the README's "Setting up
-  # Pocket ID" section. Required secrets (POCKET_ID_ENCRYPTION_KEY,
-  # POCKET_ID_STATIC_API_KEY) live in .env; see .env.example for how to
-  # generate them.
+  # Pocket ID" section. The Notenfuchs OIDC client and teacher accounts are
+  # created by hand in Pocket ID's own admin UI (no bootstrap automation) -
+  # ALLOW_USER_SIGNUPS: withToken is what makes the UI's "Create signup
+  # token" action available for that. Required secret
+  # (POCKET_ID_ENCRYPTION_KEY) lives in .env; see .env.example for how to
+  # generate it.
   pocket-id:
     image: pocketid/pocket-id:v2
     restart: unless-stopped
@@ -36,7 +46,6 @@ services:
       APP_URL: http://${BASE_URL:-localhost}:1411
       INTERNAL_APP_URL: http://pocket-id:1411
       ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY}
-      STATIC_API_KEY: ${POCKET_ID_STATIC_API_KEY}
       ALLOW_USER_SIGNUPS: withToken
       UI_CONFIG_DISABLED: "true"
       TRUST_PROXY: ${TRUST_PROXY:-false}
@@ -50,23 +59,6 @@ services:
       timeout: 5s
       retries: 2
       start_period: 10s
-
-  # One-shot: registers Notenfuchs as an OIDC client in Pocket ID (skipped if
-  # already registered) and prints a fresh single-use sign-up link on every
-  # `docker compose up`. See src/main/docker/pocket-id-bootstrap.sh and the
-  # README's "Setting up Pocket ID" section.
-  pocket-id-bootstrap:
-    image: curlimages/curl
-    restart: "no"
-    depends_on:
-      pocket-id:
-        condition: service_healthy
-    environment:
-      BASE_URL: ${BASE_URL:-localhost}
-      STATIC_API_KEY: ${POCKET_ID_STATIC_API_KEY}
-    volumes:
-      - "./src/main/docker/pocket-id-bootstrap.sh:/pocket-id-bootstrap.sh:ro"
-    entrypoint: [ "sh", "/pocket-id-bootstrap.sh" ]
 
 volumes:
   notenfuchs-pocket-id-data:
