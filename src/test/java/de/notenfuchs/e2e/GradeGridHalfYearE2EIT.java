@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URL;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
@@ -150,6 +151,108 @@ class GradeGridHalfYearE2EIT {
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2");
         assertThat(page.locator(".average-final[data-scope='h2']")).hasText("4");
         assertThat(page.locator(".average-final[data-scope='jahr']")).hasText("3");
+    }
+
+    /**
+     * Regression test for a real bug report: a category with an assessment in only one half
+     * leaves the OTHER half's slot for that category empty - same placeholder-column mechanism
+     * as an entirely empty category in the classic (non-Halbjahr) grid, just triggered by date
+     * instead. That placeholder has no {@code <input>}, so pressing Tab from the cell right
+     * before it used to silently fail to move focus at all - which also meant that cell's own
+     * edit never blurred and never autosaved (see notenfuchs.js's {@code findNextCellAcrossRows}).
+     */
+    @Test
+    void tabNavigationSkipsAnEmptyHalfYearSlotAndStillSavesTheEditedCell() {
+        String unique = Long.toString(System.nanoTime());
+        String className = "E2E-HJ-Luecke-Klasse-" + unique;
+        String studentName = "E2E-HJ-Luecke-Schueler-" + unique;
+        String subjectName = "E2E-HJ-Luecke-Fach-" + unique;
+
+        page.navigate(baseUrl());
+        page.locator("#name").fill(className);
+        page.locator("#schoolYear").fill("2025/26");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+
+        page.locator(".settings-disclosure summary").click();
+        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
+        cutoffWrap.locator(".rename-toggle").click();
+        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffWrap.locator(".rename-save").click();
+
+        page.locator("#studentName").fill(studentName);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
+
+        page.locator("#subjectName").fill(subjectName);
+        page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
+        page.locator("#roundingMode").selectOption("COMMERCIAL");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        // KatA and KatC each get one assessment in both halves; KatB only gets an H1 one, so
+        // its H2 slot is the empty placeholder sitting between KatA's and KatC's real H2 cells.
+        addCategoryWithAssessments(page, "E2E-HJ-Luecke-KatA-" + unique, "A-H1", "2026-01-15", "A-H2", "2026-02-15");
+        addCategoryWithAssessments(page, "E2E-HJ-Luecke-KatB-" + unique, "B-H1", "2026-01-15", null, null);
+        addCategoryWithAssessments(page, "E2E-HJ-Luecke-KatC-" + unique, "C-H1", "2026-01-15", "C-H2", "2026-02-15");
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        // H1 block: col 0/1/2 = A-H1/B-H1/C-H1. H2 block: col 3 = A-H2, col 4 = KatB's empty H2
+        // placeholder (no input), col 5 = C-H2 - so maxCol must be 5, not 4.
+        Locator aH2Cell = page.locator("input.grade-input[data-row='0'][data-col='3']");
+        Locator cH2Cell = page.locator("input.grade-input[data-row='0'][data-col='5']");
+        assertThat(cH2Cell).hasCount(1);
+        assertThat(page.locator("table.grade-grid-root")).hasAttribute("data-max-col", "5");
+
+        aH2Cell.fill("2");
+        page.keyboard().press("Tab");
+        assertThat(cH2Cell).isFocused();
+        // Autosave fires async on blur - wait for its confirmation flash before moving on, since
+        // this is the very save the Tab-skip-the-gap fix is meant to unblock.
+        assertThat(aH2Cell).hasClass(Pattern.compile(".*\\bstate-saved\\b.*"));
+
+        cH2Cell.fill("4");
+        cH2Cell.evaluate("el => el.blur()");
+        assertThat(cH2Cell).hasClass(Pattern.compile(".*\\bstate-saved\\b.*"));
+
+        // Both edits must have actually persisted - proof that tabbing off aH2Cell (skipping
+        // over KatB's empty H2 slot) really blurred and autosaved it, not just that focus moved.
+        page.reload();
+        assertThat(page.locator("input.grade-input[data-row='0'][data-col='3']")).hasValue("2");
+        assertThat(page.locator("input.grade-input[data-row='0'][data-col='5']")).hasValue("4");
+    }
+
+    /**
+     * Adds a 0%-weighted category with up to two dated assessments (either may be null to skip
+     * it) - used to build a category present in only one Halbjahr half, so its other half
+     * renders an empty placeholder column. Assumes the subject detail page is already open.
+     */
+    private static void addCategoryWithAssessments(Page page, String categoryName,
+                                                     String firstName, String firstDate,
+                                                     String secondName, String secondDate) {
+        page.locator("#categoryName").fill(categoryName);
+        page.locator("#weightPercent").fill("0");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
+        Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr.assessment-row");
+        int expectedCount = 0;
+
+        if (firstName != null) {
+            categoryCard.locator("form.inline-form input[name='name']").fill(firstName);
+            categoryCard.locator("form.inline-form input[name='date']").fill(firstDate);
+            categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+            expectedCount++;
+            assertThat(assessmentRows).hasCount(expectedCount);
+        }
+        if (secondName != null) {
+            categoryCard.locator("form.inline-form input[name='name']").fill(secondName);
+            categoryCard.locator("form.inline-form input[name='date']").fill(secondDate);
+            categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+            expectedCount++;
+            assertThat(assessmentRows).hasCount(expectedCount);
+        }
     }
 
     /**

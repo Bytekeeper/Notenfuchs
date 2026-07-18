@@ -128,6 +128,68 @@ class GradeGridE2EIT {
     }
 
     @Test
+    void tabNavigationSkipsAnEmptyCategoryColumnAndStillSavesTheEditedCell() {
+        // Regression test for a real bug report: an empty (not-yet-populated) category between
+        // two graded ones reserves a placeholder column with no <input> (see
+        // secondCategoryWithNoAssessmentsYetDoesNotShiftAverageColumn above) - but that
+        // placeholder used to also be excluded from GradeGridResource#loadGridData's maxCol
+        // (computed from the total assessment count, ignoring placeholder columns), pushing
+        // every column after it beyond the addressable data-col range entirely. Combined with
+        // notenfuchs.js not skipping past a gap it DID reach, pressing Tab out of the cell right
+        // before the gap silently failed to move focus at all - which also meant that cell's own
+        // edit never blurred and never autosaved.
+        String unique = Long.toString(System.nanoTime());
+        setUpSubjectWithGrid(unique);
+
+        // setUpSubjectWithGrid leaves one category ("E2E-Kategorie-<unique>") with two
+        // assessments (col 0/1, both graded via cell0/cell1 in other tests). Add an empty
+        // category, then a third with its own assessment - the empty one must not make
+        // "LeistungNachLuecke" unreachable.
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("E2E-Fach-" + unique)).click();
+        page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
+        page.locator("#weightPercent").fill("0");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        // Wait for the htmx swap to land before submitting again - otherwise the second fill()
+        // races the first request's still-in-flight outerHTML swap (see CLAUDE.md's note on
+        // GradeGridHalfYearE2EIT for the same gotcha).
+        Locator secondCategoryCard = page.locator(".card")
+                .filter(new Locator.FilterOptions().setHasText("E2E-LeereKategorie-" + unique));
+        assertThat(secondCategoryCard).isVisible();
+
+        page.locator("#categoryName").fill("E2E-KategorieNachLuecke-" + unique);
+        page.locator("#weightPercent").fill("0");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+
+        Locator thirdCategoryCard = page.locator(".card")
+                .filter(new Locator.FilterOptions().setHasText("E2E-KategorieNachLuecke-" + unique));
+        thirdCategoryCard.locator("form.inline-form input[name='name']").fill("LeistungNachLuecke");
+        thirdCategoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        assertThat(thirdCategoryCard.locator("table.entity-list tbody tr.assessment-row")).hasCount(1);
+
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
+
+        // Columns: 0/1 = the first category's two assessments, 2 = the empty category's
+        // placeholder (no input), 3 = LeistungNachLuecke - so maxCol must be 3, not 2.
+        Locator cell1 = page.locator("input.grade-input[data-row='0'][data-col='1']");
+        Locator cellAfterGap = page.locator("input.grade-input[data-row='0'][data-col='3']");
+        assertThat(cellAfterGap).hasCount(1);
+        assertThat(page.locator("table.grade-grid-root")).hasAttribute("data-max-col", "3");
+
+        cell1.fill("2");
+        page.keyboard().press("Tab");
+        assertThat(cellAfterGap).isFocused();
+
+        cellAfterGap.fill("4");
+        cellAfterGap.evaluate("el => el.blur()");
+
+        // Both cells' edits must have actually persisted - proof that tabbing off cell1
+        // (skipping over the gap) really blurred and autosaved it, not just that focus moved.
+        page.reload();
+        assertThat(page.locator("input.grade-input[data-row='0'][data-col='1']")).hasValue("2");
+        assertThat(page.locator("input.grade-input[data-row='0'][data-col='3']")).hasValue("4");
+    }
+
+    @Test
     void outOfRangeGradeIsRejectedWithVisibleError() {
         setUpSubjectWithGrid(Long.toString(System.nanoTime()));
 
@@ -246,9 +308,13 @@ class GradeGridE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
         // Same stored points (65), no re-entry - the derived grade must already reflect the
-        // updated band.
+        // updated band. Bands are now 60->2 / 20->6: since points-based Notenschlüssel bands
+        // extrapolate rather than clamp (see PointsConversionService), 65 points continues the
+        // line's slope 5 points past the 60 anchor instead of just staying at that band's grade
+        // - (6-2)/(20-60) = -0.1 per point, so 2 + (-0.1 * 5) = 1.5. The subject average then
+        // rounds that same 1.5 the normal COMMERCIAL way (half up) to the whole grade 2.
         assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
-        assertThat(page.locator(".derived-grade")).hasText("2");
+        assertThat(page.locator(".derived-grade")).hasText("1.5");
         assertThat(page.locator(".average-final")).hasText("2");
     }
 

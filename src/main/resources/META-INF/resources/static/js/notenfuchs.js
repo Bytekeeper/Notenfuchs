@@ -74,6 +74,48 @@
             }
         }
 
+        // A category with no Leistungen (yet) still reserves one column so the table stays
+        // rectangular (see GradeGridResource's CategoryColumns#columnCount) - and in the
+        // Halbjahr split view, a category with assessments in only one half leaves the other
+        // half's slot empty too. Neither has a .grade-input, so cellAt() returns null there;
+        // without skipping past it, Tab/Arrow navigation would silently stop moving focus
+        // altogether, which also means the cell just edited never blurs and never autosaves.
+        function findNextCellAcrossRows(row, col, dir) {
+            let r = row;
+            let c = col;
+            const maxIterations = (maxRow() + 1) * (maxCol() + 1);
+            for (let i = 0; i < maxIterations; i++) {
+                c += dir;
+                if (c < 0) {
+                    c = maxCol();
+                    r -= 1;
+                } else if (c > maxCol()) {
+                    c = 0;
+                    r += 1;
+                }
+                if (r < 0 || r > maxRow()) {
+                    return null;
+                }
+                const cell = cellAt(r, c);
+                if (cell) {
+                    return cell;
+                }
+            }
+            return null;
+        }
+
+        function findNextCellInRow(row, col, dir) {
+            let c = col + dir;
+            while (c >= 0 && c <= maxCol()) {
+                const cell = cellAt(row, c);
+                if (cell) {
+                    return cell;
+                }
+                c += dir;
+            }
+            return null;
+        }
+
         function normalizeValue(raw) {
             // Accept German-style comma decimals: "2,3" -> "2.3"
             return raw.trim().replace(",", ".");
@@ -251,19 +293,7 @@
             if (ev.key === "Tab") {
                 ev.preventDefault();
                 const dir = ev.shiftKey ? -1 : 1;
-                let nextCol = col + dir;
-                let nextRow = row;
-                if (nextCol < 0) {
-                    nextCol = maxCol();
-                    nextRow = row - 1;
-                } else if (nextCol > maxCol()) {
-                    nextCol = 0;
-                    nextRow = row + 1;
-                }
-                if (nextRow < 0 || nextRow > maxRow()) {
-                    return;
-                }
-                focusCell(cellAt(nextRow, nextCol));
+                focusCell(findNextCellAcrossRows(row, col, dir));
             } else if (ev.key === "Enter") {
                 ev.preventDefault();
                 const dir = ev.shiftKey ? -1 : 1;
@@ -279,9 +309,9 @@
                 ev.preventDefault();
                 focusCell(cellAt(row - 1, col));
             } else if (ev.key === "ArrowRight" && caretAtEnd(input)) {
-                focusCell(cellAt(row, col + 1));
+                focusCell(findNextCellInRow(row, col, 1));
             } else if (ev.key === "ArrowLeft" && caretAtStart(input)) {
-                focusCell(cellAt(row, col - 1));
+                focusCell(findNextCellInRow(row, col, -1));
             } else if (ev.key === "Escape") {
                 input.value = input.dataset.valueOnFocus || "";
             }

@@ -186,7 +186,7 @@ public class GradeGridResource {
                     build.cellsByStudent().get(i), average.rawAverage(), average.finalGrade()));
         }
 
-        int maxCol = Math.max(0, allAssessments.size() - 1);
+        int maxCol = Math.max(0, totalColumns(categoryColumns) - 1);
         int maxRow = Math.max(0, rows.size() - 1);
         boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
 
