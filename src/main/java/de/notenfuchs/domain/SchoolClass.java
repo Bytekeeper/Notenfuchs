@@ -64,27 +64,29 @@ public class SchoolClass extends PanacheEntity {
      * How the grade grid's H1/H2 Halbjahr average columns are displayed (never "Jahr", which
      * always stays a plain whole grade regardless of this setting - no state's regulations
      * apply half-grades/tendency to a final-year Zeugnisnote, only to interim reports). Defaults
-     * to {@code WHOLE} so an unconfigured class renders exactly as before this feature existed.
+     * to {@code HALF} (paired with {@link #halfYearTendencyThreshold}'s {@code 0.10} default) for
+     * newly created classes - existing classes keep whatever was already stored for them.
      * See {@link HalfYearGradeDisplay} and {@link de.notenfuchs.service.HalfYearGradeDisplayService}.
      */
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "half_year_grade_display", nullable = false)
-    public HalfYearGradeDisplay halfYearGradeDisplay = HalfYearGradeDisplay.WHOLE;
+    public HalfYearGradeDisplay halfYearGradeDisplay = HalfYearGradeDisplay.HALF;
 
     /**
      * Width, as a raw deviation from a whole grade step (e.g. {@code 0.1} for +/-0.1), of the
      * "plain" zone around a whole grade within which no +/- tendency suffix is shown - compared
      * directly against a raw average rather than as a percentage that first needs converting to
-     * a fraction. {@code null} (the default) disables the tendency suffix entirely. Meaningful
-     * under both {@link #halfYearGradeDisplay} values: {@code HALF} reuses this exact same
-     * threshold to decide the same thing {@code WHOLE} does (is the raw average far enough from
-     * the whole grade to say something more precise?) but expresses "something more precise" as
-     * the neighboring half-grade instead of a suffix, once the raw average is close enough to it
-     * - see {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Expected range is 0-0.49
-     * (enforced by the settings form's HTML bounds, like {@code GradeCategory#weightPercent}/
+     * a fraction. {@code null} disables the tendency suffix entirely; newly created classes
+     * default to {@code 0.10}, paired with {@link #halfYearGradeDisplay}'s {@code HALF} default.
+     * Meaningful under both {@link #halfYearGradeDisplay} values: {@code HALF} reuses this exact
+     * same threshold to decide the same thing {@code WHOLE} does (is the raw average far enough
+     * from the whole grade to say something more precise?) but expresses "something more precise"
+     * as the neighboring half-grade instead of a suffix, once the raw average is close enough to
+     * it - see {@link de.notenfuchs.service.HalfYearGradeDisplayService}. Expected range is
+     * 0-0.49 (enforced by the settings form's HTML bounds, like {@code GradeCategory#weightPercent}/
      * {@code Assessment#factor} - not re-validated server-side).
      */
     @Column(name = "half_year_tendency_threshold", precision = 3, scale = 2)
-    public BigDecimal halfYearTendencyThreshold;
+    public BigDecimal halfYearTendencyThreshold = new BigDecimal("0.10");
 }

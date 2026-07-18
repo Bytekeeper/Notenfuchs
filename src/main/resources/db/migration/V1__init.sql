@@ -24,15 +24,16 @@ CREATE TABLE school_class (
     -- the cutoff count into "1. Halbjahr", those after into "2. Halbjahr"; the whole-year average
     -- is unaffected either way.
     half_year_cutoff              DATE,
-    -- How the Halbjahr split view's H1/H2 average columns are displayed: whole grades (default,
-    -- unchanged behavior) or half-grades.
-    half_year_grade_display       VARCHAR(10) NOT NULL DEFAULT 'WHOLE',
+    -- How the Halbjahr split view's H1/H2 average columns are displayed: whole grades or
+    -- half-grades. Defaults to half-grades with a 0.10 tendency threshold for newly created
+    -- classes.
+    half_year_grade_display       VARCHAR(10) NOT NULL DEFAULT 'HALF',
     -- Width, as a raw deviation from a whole grade step (e.g. 0.1 for +/-0.1), of the "plain"
     -- zone around a whole grade within which no +/- tendency suffix is shown - compared directly
     -- against a raw average rather than as a percentage that first needs converting to a fraction.
     -- NULL disables the tendency suffix entirely. Meaningful under both half_year_grade_display
     -- values (see HalfYearGradeDisplayService).
-    half_year_tendency_threshold  NUMERIC(3,2)
+    half_year_tendency_threshold  NUMERIC(3,2) DEFAULT 0.10
 );
 
 CREATE TABLE student (

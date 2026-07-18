@@ -213,7 +213,7 @@ class GradeGridHalfYearIT {
     }
 
     @Test
-    void halfYearGradeDisplay_defaultsToWhole_labelMatchesPlainFinalGrade() throws Exception {
+    void halfYearGradeDisplay_defaultsToHalfWithTendency_refinesSuffixIntoHalfGrade() throws Exception {
         String unique = Long.toString(System.nanoTime());
         GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
 
@@ -224,11 +224,17 @@ class GradeGridHalfYearIT {
         Long categoryId = createCategory(subjectId, "HJ-Anzeige-Default-Kat-" + unique, "100");
         Long assessmentId = createAssessment(subjectId, categoryId, "HJ-Anzeige-Default-X-" + unique, CUTOFF.minusDays(1));
 
-        JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "3.2");
-        // No cutoff-side config was ever changed here - a fresh class must render exactly as
-        // before this feature existed: h1DisplayLabel is just the plain finalGrade, no suffix.
-        assertEquals("3", response.get("h1DisplayLabel").asText());
-        assertEquals(response.get("h1FinalGrade").asText(), response.get("h1DisplayLabel").asText());
+        // No display-side config was ever touched here - a fresh class now defaults to HALF with
+        // a 0.10 tendency threshold (see SchoolClass#halfYearGradeDisplay /
+        // #halfYearTendencyThreshold), so 2.6 (finalGrade 3, COMMERCIAL) refines straight into
+        // the half-grade 2.5, exactly as it would under an explicit HALF+0.1 config (see
+        // halfYearGradeDisplay_halfWithTendency_refinesSuffixIntoHalfGrade below).
+        JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
+        assertEquals("2.5", response.get("h1DisplayLabel").asText());
+
+        SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
+        assertEquals(HalfYearGradeDisplay.HALF, persisted.halfYearGradeDisplay);
+        assertEquals(0, new BigDecimal("0.10").compareTo(persisted.halfYearTendencyThreshold));
     }
 
     @Test
@@ -337,7 +343,7 @@ class GradeGridHalfYearIT {
         assertEquals(404, response.statusCode());
 
         SchoolClass unchanged = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(foreignClassId));
-        assertEquals(HalfYearGradeDisplay.WHOLE, unchanged.halfYearGradeDisplay);
+        assertEquals(HalfYearGradeDisplay.HALF, unchanged.halfYearGradeDisplay);
     }
 
     @Test
