@@ -7,22 +7,24 @@
         {/if}
         {#for cat in categories}
             <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="rename-wrap">
-                        <span class="rename-view">
+                <div class="rename-wrap category-head">
+                    <div class="rename-view">
+                        <div>
                             <strong class="rename-display">{cat.name}</strong>
                             <span class="hint">({cat.weightPercent}%)</span>
-                            <button type="button" class="rename-toggle" title="Kategorie umbenennen" aria-label="Kategorie umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
-                        </span>
-                        <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
-                            <input type="text" name="name" value="{cat.name}" required>
-                            <input type="number" name="weightPercent" step="0.01" min="0" max="100" value="{cat.weightPercent}" data-original="{cat.weightPercent}" required>
-                            <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
-                            <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
-                        </form>
+                        </div>
+                        <div class="row-actions">
+                            <button type="button" class="rename-toggle">Ändern</button>
+                            <form hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">
+                                <button type="submit" class="delete-btn">Kategorie löschen</button>
+                            </form>
+                        </div>
                     </div>
-                    <form hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">
-                        <button type="submit" class="delete-btn">Kategorie löschen</button>
+                    <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                        <input type="text" name="name" value="{cat.name}" required>
+                        <input type="number" name="weightPercent" step="0.01" min="0" max="100" value="{cat.weightPercent}" data-original="{cat.weightPercent}" required>
+                        <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
+                        <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
                     </form>
                 </div>
 
@@ -35,45 +37,40 @@
                             <tr class="empty-row"><td colspan="3">Noch keine Leistungen.</td></tr>
                         {#else}
                             {#for a in cat.assessments}
-                                <tr>
+                                <tr class="assessment-row">
                                     <td>
-                                        <div class="rename-wrap">
-                                            <span class="rename-view">
-                                                <span class="rename-display">{a.name}</span>
-                                                <span class="hint">(Faktor {a.factor}{#if a.pointsBased} · punktebasiert · Rundung: {a.roundingMode}{/if})</span>
-                                                <button type="button" class="rename-toggle" title="Umbenennen" aria-label="Umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
-                                            </span>
-                                            <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
-                                                <input type="text" name="name" value="{a.name}" required>
-                                                <input type="number" name="factor" step="0.01" min="0.01" value="{a.factor}" data-original="{a.factor}" required>
-                                                <label class="points-toggle-label"><input type="checkbox" name="pointsBased" value="true" {#if a.pointsBased}checked{/if} data-original="{a.pointsBased}"> Punkte</label>
-                                                <label class="points-toggle-label">Rundung
-                                                    <select name="roundingMode" data-original="{a.roundingMode.name}">
-                                                        <option value="IN_FAVOR_OF_STUDENT" {#if a.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
-                                                        <option value="COMMERCIAL" {#if a.roundingMode.name == 'COMMERCIAL'}selected{/if}>Kaufmännisch</option>
-                                                    </select>
-                                                </label>
-                                                <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
-                                                <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
+                                        <span class="rename-display">{a.name}</span>
+                                        <span class="hint">(Faktor {a.factor}{#if a.pointsBased} · punktebasiert · Rundung: {a.roundingMode}{/if})</span>
+                                    </td>
+                                    <td>
+                                        <span class="rename-display" style="white-space: nowrap;">{a.date ?: ''}</span>
+                                    </td>
+                                    <td>
+                                        <div class="row-actions">
+                                            <button type="button" class="rename-toggle" data-rename-target="assessment-edit-{a.id}">Ändern</button>
+                                            <form hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Leistung '{a.name}' wirklich löschen? Das löscht auch alle zugehörigen Noten.">
+                                                <button type="submit" class="delete-btn">Löschen</button>
                                             </form>
                                         </div>
                                     </td>
-                                    <td>
-                                        <div class="rename-wrap">
-                                            <span class="rename-view">
-                                                <span class="rename-display">{a.date ?: ''}</span>
-                                                <button type="button" class="rename-toggle" title="Datum ändern" aria-label="Datum ändern"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
-                                            </span>
-                                            <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/date" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                </tr>
+                                <tr class="assessment-edit-row rename-wrap" id="assessment-edit-{a.id}">
+                                    <td colspan="3">
+                                        <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
+                                            <input type="text" name="name" value="{a.name}" data-original="{a.name}" required>
+                                            <input type="number" name="factor" step="0.01" min="0.01" value="{a.factor}" data-original="{a.factor}" required>
+                                            <label class="points-toggle-label"><input type="checkbox" name="pointsBased" value="true" {#if a.pointsBased}checked{/if} data-original="{a.pointsBased}"> Punkte</label>
+                                            <label class="points-toggle-label">Rundung
+                                                <select name="roundingMode" data-original="{a.roundingMode.name}">
+                                                    <option value="IN_FAVOR_OF_STUDENT" {#if a.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
+                                                    <option value="COMMERCIAL" {#if a.roundingMode.name == 'COMMERCIAL'}selected{/if}>Standard (0,5 → aufgerundet)</option>
+                                                </select>
+                                            </label>
+                                            <label class="points-toggle-label">Datum
                                                 <input type="date" name="date" value="{a.date ?: ''}" data-original="{a.date ?: ''}">
-                                                <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
-                                                <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <form hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Leistung '{a.name}' wirklich löschen? Das löscht auch alle zugehörigen Noten.">
-                                            <button type="submit" class="delete-btn">Löschen</button>
+                                            </label>
+                                            <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
+                                            <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -97,7 +94,7 @@
                                                                     <input type="number" name="minPoints" step="0.01" min="0" value="{band.minPoints}">
                                                                     <span>Pkt. →</span>
                                                                     <input type="number" name="gradeValue" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" value="{band.gradeValue}">
-                                                                    <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
+                                                                    <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
                                                                 </form>
                                                             </td>
                                                             <td>
@@ -150,7 +147,7 @@
                         <label>Rundung (bei Punkten)</label>
                         <select name="roundingMode">
                             <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
-                            <option value="COMMERCIAL">Kaufmännisch</option>
+                            <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
                         </select>
                     </div>
                     <button type="submit">Leistung hinzufügen</button>

@@ -97,7 +97,7 @@ public class ClassUiResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
-        return currentUser.withUser(listTemplate.data("classes", guard.listOwnedClasses(currentUser.effectiveSubject())));
+        return currentUser.withUser(listTemplate.data("yearGroups", groupByYear(guard.listOwnedClasses(currentUser.effectiveSubject()))));
     }
 
     @GET
@@ -195,7 +195,7 @@ public class ClassUiResource {
         entity.schoolYear = schoolYear;
         entity.ownerSubject = subject;
         entity.persist();
-        return classListFragment.data("classes", guard.listOwnedClasses(subject));
+        return classListFragment.data("yearGroups", groupByYear(guard.listOwnedClasses(subject)));
     }
 
     @DELETE
@@ -206,7 +206,7 @@ public class ClassUiResource {
         String subject = currentUser.effectiveSubject();
         SchoolClass entity = guard.requireOwnedClass(id, subject);
         entity.delete();
-        return classListFragment.data("classes", guard.listOwnedClasses(subject));
+        return classListFragment.data("yearGroups", groupByYear(guard.listOwnedClasses(subject)));
     }
 
     @PATCH
@@ -224,7 +224,7 @@ public class ClassUiResource {
         if (schoolYear != null && !schoolYear.isBlank()) {
             entity.schoolYear = schoolYear;
         }
-        return classListFragment.data("classes", guard.listOwnedClasses(subject));
+        return classListFragment.data("yearGroups", groupByYear(guard.listOwnedClasses(subject)));
     }
 
     /**
@@ -512,5 +512,30 @@ public class ClassUiResource {
 
     /** One row of the roster import preview - see {@code ClassPage/rosterImportPreview.html}. */
     public record RosterPreviewRow(String name, boolean duplicate) {
+    }
+
+    /**
+     * Buckets an already {@code schoolYear desc}-sorted class list (see
+     * {@link OwnershipGuard#listOwnedClasses}) into consecutive same-year groups, so
+     * {@code fragments/classList.html} can render a year heading per group instead of one
+     * long undifferentiated grid - a class a year adds up over a teaching career.
+     */
+    private List<YearGroup> groupByYear(List<SchoolClass> classes) {
+        List<YearGroup> groups = new ArrayList<>();
+        String currentYear = null;
+        List<SchoolClass> bucket = null;
+        for (SchoolClass schoolClass : classes) {
+            if (bucket == null || !schoolClass.schoolYear.equals(currentYear)) {
+                bucket = new ArrayList<>();
+                groups.add(new YearGroup(schoolClass.schoolYear, bucket));
+                currentYear = schoolClass.schoolYear;
+            }
+            bucket.add(schoolClass);
+        }
+        return groups;
+    }
+
+    /** One Schuljahr's worth of classes, in the class list's year-grouped display. */
+    public record YearGroup(String schoolYear, List<SchoolClass> classes) {
     }
 }

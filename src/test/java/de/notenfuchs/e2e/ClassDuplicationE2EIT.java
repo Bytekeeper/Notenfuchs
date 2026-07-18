@@ -78,8 +78,11 @@ class ClassDuplicationE2EIT {
         assertThat(categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .isVisible();
 
-        // Back to the class detail page (breadcrumb), where the duplicate action lives.
+        // Back to the class detail page (breadcrumb), where the duplicate action lives - behind
+        // the collapsed "Klasseneinstellungen" disclosure by default, since a fresh class has no
+        // Halbjahr settings to auto-open it.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        page.locator(".settings-disclosure summary").click();
 
         page.locator("#newClassName").fill(newClassName);
         page.locator("#newSchoolYear").fill(newSchoolYear);

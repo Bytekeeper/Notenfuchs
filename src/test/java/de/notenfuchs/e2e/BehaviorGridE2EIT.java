@@ -88,6 +88,9 @@ class BehaviorGridE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectB))).isVisible();
 
+        // "Verhaltensnoten erfassen" lives behind the collapsed "Klasseneinstellungen"
+        // disclosure by default (see ClassPage/detail.html) - open it first.
+        page.locator(".settings-disclosure summary").click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Verhaltensnoten erfassen")).click();
 
         Locator row0 = page.locator("table.behavior-grid-root tbody tr").nth(0); // student A

@@ -560,7 +560,16 @@
     document.addEventListener("click", function (ev) {
         const toggle = ev.target.closest(".rename-toggle");
         if (toggle) {
-            const wrap = toggle.closest(".rename-wrap");
+            // Usually the toggle lives inside the .rename-wrap it opens. In a table row
+            // (e.g. the Schüler list), the row's Ändern/Löschen sit together in a shared
+            // actions cell instead - a separate table cell, so .closest() can't reach the
+            // .rename-wrap in the name cell. data-rename-target (an element id) covers that
+            // case explicitly rather than relying on DOM proximity.
+            const wrap = toggle.closest(".rename-wrap")
+                || (toggle.dataset.renameTarget && document.getElementById(toggle.dataset.renameTarget));
+            if (!wrap) {
+                return;
+            }
             wrap.classList.add("editing");
             // Not every rename-form has a "name" input (e.g. the Datum-only form for a
             // Leistung) - fall back to whichever input is first.
@@ -589,6 +598,27 @@
             resetInput(wrap);
             wrap.classList.remove("editing");
         }
+    });
+})();
+
+/**
+ * CSV file picker (ClassPage/detail.html's Schülerliste import): the native <input
+ * type="file"> is transparent and stretched over a styled ".btn secondary" label so it lines
+ * up with the "Vorschau anzeigen" submit button - see the ".file-field" CSS. The filename
+ * text next to it is the only thing that still needs JS, since a transparent input shows no
+ * feedback about what (if anything) was picked.
+ */
+(function () {
+    "use strict";
+
+    document.addEventListener("change", function (ev) {
+        const input = ev.target.closest(".file-field input[type='file']");
+        if (!input) return;
+        const filename = input.closest(".file-field").querySelector(".filename");
+        if (!filename) return;
+        filename.textContent = input.files && input.files.length > 0
+            ? input.files[0].name
+            : "Keine Datei ausgewählt";
     });
 })();
 

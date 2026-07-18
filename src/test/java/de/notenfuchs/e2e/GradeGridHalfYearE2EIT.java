@@ -65,6 +65,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
         // Set the Halbjahr cutoff via the rename-wrap form on the class detail page.
+        page.locator(".settings-disclosure summary").click();
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
@@ -85,7 +86,10 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr:not(.empty-row)");
+        // .assessment-row is the one visible <tr> per Leistung - each also has a sibling
+        // .assessment-edit-row (its hidden combined-edit form), which a plain :not(.empty-row)
+        // count would otherwise double-count.
+        Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr.assessment-row");
 
         // Dated before the cutoff -> lands in 1. Halbjahr.
         categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
@@ -171,6 +175,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
+        page.locator(".settings-disclosure summary").click();
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
@@ -206,7 +211,7 @@ class GradeGridHalfYearE2EIT {
         categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
-        assertThat(categoryCard.locator("table.entity-list tbody tr:not(.empty-row)")).hasCount(1);
+        assertThat(categoryCard.locator("table.entity-list tbody tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
@@ -291,6 +296,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
+        page.locator(".settings-disclosure summary").click();
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");

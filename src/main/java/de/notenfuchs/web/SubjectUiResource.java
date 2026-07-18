@@ -164,13 +164,16 @@ public class SubjectUiResource {
     }
 
     /**
-     * Renames an assessment and/or updates its factor, points-based configuration and (for a
-     * points-based assessment) rounding mode in one form (the rename-wrap's edit form,
-     * extended with a "Punktebasiert" checkbox and a rounding-mode select). Flipping
-     * {@code pointsBased} either direction wipes this assessment's existing
-     * {@link Grade}s - a grade entered in one mode (direct value vs. raw points) has no
-     * meaning in the other - and switching TO points-based seeds a starting Notenschlüssel if
-     * none exists yet (see {@link #seedDefaultBands}).
+     * Updates every editable field of an assessment - name, factor, points-based
+     * configuration, (for a points-based assessment) rounding mode, and date - from one
+     * combined edit form (a single "Ändern" opens all of them together, rather than a
+     * separate toggle per field). Date is submitted as a normal field of that same form, so
+     * an empty value unambiguously means "clear the date" - the form always carries the
+     * field's current value unless the teacher edits it. Flipping {@code pointsBased} either
+     * direction wipes this assessment's existing {@link Grade}s - a grade entered in one mode
+     * (direct value vs. raw points) has no meaning in the other - and switching TO
+     * points-based seeds a starting Notenschlüssel if none exists yet (see
+     * {@link #seedDefaultBands}).
      */
     @PATCH
     @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/rename")
@@ -183,7 +186,8 @@ public class SubjectUiResource {
                                               @FormParam("name") String name,
                                               @FormParam("factor") BigDecimal factor,
                                               @FormParam("pointsBased") String pointsBasedRaw,
-                                              @FormParam("roundingMode") String roundingModeRaw) {
+                                              @FormParam("roundingMode") String roundingModeRaw,
+                                              @FormParam("date") LocalDate date) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireOwnedSubject(id, currentSubject);
         Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
@@ -202,27 +206,6 @@ public class SubjectUiResource {
         if (pointsBased && PointsGradeBand.count("assessment.id", assessment.id) == 0) {
             seedDefaultBands(assessment, subject.gradeScale);
         }
-        return categoryFragment(subject);
-    }
-
-    /**
-     * Separate from {@link #renameAssessment}: date is optional (nullable in the DB), so an
-     * absent form field there can't be told apart from "clear it" - a dedicated endpoint for
-     * a dedicated date-only form sidesteps that ambiguity, since here an empty submission
-     * unambiguously means "clear the date".
-     */
-    @PATCH
-    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/date")
-    @Produces(MediaType.TEXT_HTML)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Transactional
-    public TemplateInstance changeAssessmentDate(@PathParam("id") Long id,
-                                                  @PathParam("categoryId") Long categoryId,
-                                                  @PathParam("assessmentId") Long assessmentId,
-                                                  @FormParam("date") LocalDate date) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
         assessment.date = date;
         return categoryFragment(subject);
     }

@@ -22,7 +22,7 @@
                 <tr>
                     <th rowspan="2">Schüler</th>
                     {#for cat in categories}
-                        <th class="category-header" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
+                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
                     {/for}
                     <th rowspan="2">Ø / Note</th>
                 </tr>
@@ -54,7 +54,7 @@
                                                data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}"
                                                data-assessment-id="{cell.assessmentId}"
-                                               placeholder="Punkte"
+                                               placeholder="Pkt."
                                                value="{cell.displayValue ?: ''}">
                                         <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                         <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>

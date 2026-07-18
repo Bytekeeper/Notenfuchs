@@ -10,7 +10,9 @@
     --color-success-bg: #e8f5e9;
     --color-error: #c62828;
     --color-error-bg: #fdecea;
-    --radius: 6px;
+    --color-tonal: #f0efea;
+    --color-tonal-hover: #e9e5da;
+    --radius: 10px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -84,7 +86,6 @@ h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--color-text-muted); 
 
 .card {
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
     border-radius: var(--radius);
     padding: 1rem 1.25rem;
     margin-bottom: 1rem;
@@ -94,9 +95,6 @@ table {
     width: 100%;
     border-collapse: collapse;
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    overflow: hidden;
 }
 
 th, td {
@@ -106,12 +104,13 @@ th, td {
 }
 
 th {
-    background: #f0efea;
+    background: var(--color-tonal);
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.02em;
+    border-bottom: 2px solid var(--color-border);
 }
 
 tr:last-child td { border-bottom: none; }
@@ -158,7 +157,7 @@ input:focus, select:focus {
 
 button, .btn {
     padding: 0.45rem 0.9rem;
-    border: 1px solid var(--color-primary);
+    border: none;
     background: var(--color-primary);
     color: white;
     border-radius: var(--radius);
@@ -169,16 +168,14 @@ button, .btn {
 button:hover, .btn:hover { background: var(--color-primary-dark); text-decoration: none; }
 
 button.secondary, .btn.secondary {
-    background: var(--color-surface);
+    background: var(--color-tonal);
     color: var(--color-text);
-    border-color: var(--color-border);
 }
-button.secondary:hover { background: #f0efea; }
+button.secondary:hover, .btn.secondary:hover { background: var(--color-tonal-hover); }
 
 button.danger, .btn.danger {
     background: var(--color-error-bg);
     color: var(--color-error);
-    border-color: var(--color-error);
 }
 button.danger:hover { background: var(--color-error); color: white; }
 
@@ -187,7 +184,7 @@ button.danger:hover { background: var(--color-error); color: white; }
     font-size: 0.8rem;
     background: transparent;
     color: var(--color-error);
-    border-color: var(--color-error-bg);
+    border: none;
 }
 .delete-btn:hover { background: var(--color-error-bg); }
 
@@ -197,7 +194,11 @@ button.danger:hover { background: var(--color-error); color: white; }
     gap: 0.35rem;
 }
 
-.rename-form { display: none; }
+.rename-form {
+    display: none;
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+}
 .rename-wrap.editing .rename-view { display: none; }
 .rename-wrap.editing .rename-form { display: inline-flex; }
 
@@ -230,15 +231,17 @@ button.danger:hover { background: var(--color-error); color: white; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.15rem 0.5rem;
-    font-size: 0.8rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
     line-height: 1.4;
-    background: transparent;
-    color: var(--color-text-muted);
-    border-color: var(--color-border);
+    background: var(--color-tonal);
+    color: var(--color-text);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    white-space: nowrap;
 }
-.rename-toggle:hover, .rename-save:hover, .rename-cancel:hover { background: #f0efea; color: var(--color-text); }
-.rename-toggle svg { display: block; }
+.rename-toggle:hover, .rename-save:hover, .rename-cancel:hover { background: var(--color-tonal-hover); }
 
 .hint {
     font-size: 0.85rem;
@@ -263,13 +266,39 @@ button.danger:hover { background: var(--color-error); color: white; }
 .class-card {
     display: block;
     background: var(--color-surface);
-    border: 1px solid var(--color-border);
     border-radius: var(--radius);
     padding: 1rem;
 }
-.class-card:hover { border-color: var(--color-primary); text-decoration: none; }
+.class-card .rename-wrap, .class-card .rename-view { display: block; }
 .class-card .class-name { font-weight: 600; font-size: 1.05rem; }
+.class-card .class-name:hover { text-decoration: none; color: var(--color-primary-dark); }
 .class-card .class-year { color: var(--color-text-muted); font-size: 0.85rem; }
+
+.year-heading {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 1.5rem 0 0.6rem;
+}
+.year-heading:first-child { margin-top: 0; }
+
+.card-actions, .row-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+.card-actions { margin-top: 0.65rem; }
+/* A plain .btn (e.g. the Fach row's "Noten" link) sits at the larger default button size -
+   next to .rename-toggle in the same actions group that reads as a size mismatch even though
+   both share the same tonal fill. Match it to .rename-toggle's compact sizing here instead of
+   sizing every .btn.secondary in the app down, since standalone secondary buttons (Neues Fach
+   anlegen dialogs, Als CSV exportieren, etc.) should keep their normal size. */
+.row-actions .btn {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
+}
 
 .section-columns {
     display: grid;
@@ -282,14 +311,66 @@ button.danger:hover { background: var(--color-error); color: white; }
 }
 
 .subject-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     padding: 0.6rem 0;
     border-bottom: 1px solid var(--color-border);
 }
 .subject-list-item:last-child { border-bottom: none; }
+.subject-list-item .rename-wrap { display: block; }
+.subject-list-item .rename-view {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
 .subject-list-item .subject-meta { font-size: 0.8rem; color: var(--color-text-muted); }
+
+.category-head { display: block; }
+.category-head .rename-view {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Leistungs-Zeile: a single "Ändern" (in the row's actions cell) opens a combined edit row
+   below with every editable field (name, factor, punktebasiert, Rundung, Datum) together -
+   one save instead of two separate inline forms per row. The edit row IS the .rename-wrap
+   (no extra nesting div), so .rename-toggle/.rename-cancel's existing .closest(".rename-wrap")
+   lookups keep working unchanged; only the display toggle needs data-rename-target, since the
+   toggle button lives in a sibling row, not inside this one. */
+tr.assessment-edit-row.rename-wrap {
+    display: none;
+}
+tr.assessment-edit-row.rename-wrap.editing {
+    display: table-row;
+}
+
+.file-field {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.file-field input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    padding: 0;
+    border: none;
+}
+
+.file-field .filename {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 12rem;
+}
 
 /* ---------------- Grade grid ---------------- */
 
@@ -332,6 +413,15 @@ table.grade-grid th.assessment-header-empty {
     font-weight: 400;
     font-style: italic;
     color: var(--color-text-muted);
+}
+
+/* A colspan=1 header's own nowrap text forces its column width regardless of sibling
+   cells - both the "noch keine Leistungen" cell AND the category-header text above it need
+   the wrap+cap, or capping just one leaves the other still stretching the column. */
+table.grade-grid th.category-header-empty,
+table.grade-grid th.assessment-header-empty {
+    white-space: normal;
+    max-width: 110px;
 }
 
 table.grade-grid td.student-cell {

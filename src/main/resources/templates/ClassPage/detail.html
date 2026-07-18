@@ -7,42 +7,6 @@
     <p class="hint">Nachfolger von <a href="/classes/{predecessorClass.id}">{predecessorClass.name}</a></p>
 {/if}
 
-<section>
-    <h2>Schuljahreswechsel</h2>
-    <div class="card">
-        <p class="hint">Legt eine neue Klasse mit denselben Fächern, Kategorien und Schülern an (ohne Leistungen/Noten) - z. B. beim Übergang 8b → 9b. Diese Klasse bleibt unverändert und weiter bearbeitbar.</p>
-        <form class="inline-form" method="post" action="/classes/{schoolClass.id}/duplicate">
-            <div class="form-field">
-                <label for="newClassName">Neuer Klassenname</label>
-                <input type="text" id="newClassName" name="name" placeholder="z. B. 9b" required>
-            </div>
-            <div class="form-field">
-                <label for="newSchoolYear">Neues Schuljahr</label>
-                <input type="text" id="newSchoolYear" name="schoolYear" value="{schoolClass.schoolYear}" required>
-            </div>
-            <button type="submit">Ins neue Schuljahr übernehmen</button>
-        </form>
-    </div>
-</section>
-
-<section>
-    <h2>Halbjahr-Ansicht</h2>
-    <div class="card">
-        <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
-        {#include fragments/halfYearCutoff /}
-        <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
-        {#include fragments/halfYearGradeDisplay /}
-    </div>
-</section>
-
-<section>
-    <h2>Verhaltensnoten</h2>
-    <div class="card">
-        <p class="hint">Eine Verhaltensnote je Schüler und Fach - fließt nicht in die Fachnote ein, sondern erscheint als eigene Note auf dem Zeugnis.</p>
-        <p><a class="btn secondary" href="/classes/{schoolClass.id}/behavior-grid">Verhaltensnoten erfassen</a></p>
-    </div>
-</section>
-
 <div class="section-columns">
     <section>
         <h2>Fächer</h2>
@@ -66,7 +30,7 @@
                 <div class="form-field">
                     <label for="roundingMode">Rundung</label>
                     <select id="roundingMode" name="roundingMode" required>
-                        <option value="COMMERCIAL">Kaufmännisch</option>
+                        <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
                         <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
                     </select>
                 </div>
@@ -103,7 +67,11 @@
             <form class="inline-form" method="post" action="/classes/{schoolClass.id}/roster/import/preview" enctype="multipart/form-data">
                 <div class="form-field">
                     <label for="rosterFile">CSV importieren</label>
-                    <input type="file" id="rosterFile" name="file" accept=".csv,text/csv" required>
+                    <div class="file-field">
+                        <span class="btn secondary" aria-hidden="true">Datei wählen</span>
+                        <input type="file" id="rosterFile" name="file" accept=".csv,text/csv" required>
+                        <span class="filename">Keine Datei ausgewählt</span>
+                    </div>
                 </div>
                 <button type="submit">Vorschau anzeigen</button>
             </form>
@@ -111,5 +79,41 @@
         </div>
     </section>
 </div>
+
+<h2>Klasseneinstellungen</h2>
+<details class="settings-disclosure" {#if schoolClass.halfYearCutoff || schoolClass.halfYearGradeDisplay.name != 'WHOLE'}open{/if}>
+    <summary>Schuljahreswechsel, Halbjahr-Ansicht, Verhaltensnoten</summary>
+    <div class="settings-body">
+        <div class="card">
+            <h3 style="margin-top: 0;">Schuljahreswechsel</h3>
+            <p class="hint">Legt eine neue Klasse mit denselben Fächern, Kategorien und Schülern an (ohne Leistungen/Noten) - z. B. beim Übergang 8b → 9b. Diese Klasse bleibt unverändert und weiter bearbeitbar.</p>
+            <form class="inline-form" method="post" action="/classes/{schoolClass.id}/duplicate">
+                <div class="form-field">
+                    <label for="newClassName">Neuer Klassenname</label>
+                    <input type="text" id="newClassName" name="name" placeholder="z. B. 9b" required>
+                </div>
+                <div class="form-field">
+                    <label for="newSchoolYear">Neues Schuljahr</label>
+                    <input type="text" id="newSchoolYear" name="schoolYear" value="{schoolClass.schoolYear}" required>
+                </div>
+                <button type="submit">Ins neue Schuljahr übernehmen</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top: 0;">Halbjahr-Ansicht</h3>
+            <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
+            {#include fragments/halfYearCutoff /}
+            <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
+            {#include fragments/halfYearGradeDisplay /}
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top: 0;">Verhaltensnoten</h3>
+            <p class="hint">Eine Verhaltensnote je Schüler und Fach - fließt nicht in die Fachnote ein, sondern erscheint als eigene Note auf dem Zeugnis.</p>
+            <p><a class="btn secondary" href="/classes/{schoolClass.id}/behavior-grid">Verhaltensnoten erfassen</a></p>
+        </div>
+    </div>
+</details>
 
 {/include}

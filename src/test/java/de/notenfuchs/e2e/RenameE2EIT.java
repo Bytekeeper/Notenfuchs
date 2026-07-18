@@ -108,7 +108,11 @@ class RenameE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
         Locator row = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(studentName));
-        renameInline(row.locator(".rename-wrap"), renamedName);
+        // Unlike the other renameInline() call sites, the Schüler row's Ändern button lives in
+        // its own actions cell (next to Löschen), not inside the name cell's .rename-wrap - pass
+        // the whole row so renameInline()'s unscoped .rename-toggle/.rename-form/.rename-save
+        // lookups still resolve to the row's single (wrap-external) toggle and (wrap-internal) form.
+        renameInline(row, renamedName);
 
         Locator renamedRow = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName));
         assertThat(renamedRow).isVisible();
@@ -214,9 +218,11 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        // First .rename-wrap is name+factor (Leistung column); the second is the
-        // Datum column's own inline-edit control.
-        renameInline(row.locator(".rename-wrap").first(), renamedName);
+        // The row's single "Ändern" opens a combined edit row (name/factor/Punkte/Rundung/
+        // Datum together) - see openAssessmentEditRow.
+        Locator editRow = openAssessmentEditRow(row);
+        editRow.locator(".rename-form input[name='name']").fill(renamedName);
+        editRow.locator(".rename-save").click();
 
         Locator categoryCardAfterRename = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(categoryCardAfterRename.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName))).isVisible();
@@ -282,12 +288,9 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        // First .rename-wrap is name+factor (Leistung column); the second is the
-        // Datum column's own inline-edit control.
-        Locator wrap = row.locator(".rename-wrap").first();
-        wrap.locator(".rename-toggle").click();
-        wrap.locator(".rename-form input[name='factor']").fill("2");
-        wrap.locator(".rename-save").click();
+        Locator editRow = openAssessmentEditRow(row);
+        editRow.locator(".rename-form input[name='factor']").fill("2");
+        editRow.locator(".rename-save").click();
 
         // The factor column is NUMERIC(5,2), so a reload may render "2" as "2.00" - match
         // loosely on the DB-normalized scale rather than the exact typed value.
@@ -324,19 +327,18 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        // Second .rename-wrap is the Datum column's own inline-edit control (the first is
-        // name+factor in the Leistung column).
-        Locator wrap = row.locator(".rename-wrap").nth(1);
-        wrap.locator(".rename-toggle").click();
-        wrap.locator(".rename-form input[name='date']").fill("2026-03-20");
-        wrap.locator(".rename-save").click();
+        Locator editRow = openAssessmentEditRow(row);
+        editRow.locator(".rename-form input[name='date']").fill("2026-03-20");
+        editRow.locator(".rename-save").click();
 
+        // Second .rename-display in the row is the Datum column (the first is the Leistung
+        // name) - the combined edit form no longer lives inline in either display cell.
         Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterSave.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("2026-03-20");
+        assertThat(rowAfterSave.locator(".rename-display").nth(1)).hasText("2026-03-20");
 
         page.reload();
         Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterReload.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("2026-03-20");
+        assertThat(rowAfterReload.locator(".rename-display").nth(1)).hasText("2026-03-20");
     }
 
     @Test
@@ -362,19 +364,18 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        // Second .rename-wrap is the Datum column's own inline-edit control (the first is
-        // name+factor in the Leistung column).
-        Locator wrap = row.locator(".rename-wrap").nth(1);
-        wrap.locator(".rename-toggle").click();
-        wrap.locator(".rename-form input[name='date']").fill("");
-        wrap.locator(".rename-save").click();
+        Locator editRow = openAssessmentEditRow(row);
+        editRow.locator(".rename-form input[name='date']").fill("");
+        editRow.locator(".rename-save").click();
 
+        // Second .rename-display in the row is the Datum column (the first is the Leistung
+        // name) - the combined edit form no longer lives inline in either display cell.
         Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterSave.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("");
+        assertThat(rowAfterSave.locator(".rename-display").nth(1)).hasText("");
 
         page.reload();
         Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterReload.locator(".rename-wrap").nth(1).locator(".rename-display")).hasText("");
+        assertThat(rowAfterReload.locator(".rename-display").nth(1)).hasText("");
     }
 
     /**
@@ -385,6 +386,21 @@ class RenameE2EIT {
         wrap.locator(".rename-toggle").click();
         wrap.locator(".rename-form input[name='name']").fill(newName);
         wrap.locator(".rename-save").click();
+    }
+
+    /**
+     * A Leistung's single "Ändern" button lives in the display row's actions cell, not inside
+     * the .rename-wrap it opens - the combined edit form (name/factor/Punkte/Rundung/Datum
+     * together) is a separate sibling {@code <tr>} below, wired via data-rename-target rather
+     * than DOM nesting (a table row can't itself be nested inside another row's cell). Reads
+     * the wired target id and returns that edit row as the .rename-wrap Locator callers then
+     * drive as usual (fill fields, click .rename-save/.rename-cancel).
+     */
+    private Locator openAssessmentEditRow(Locator displayRow) {
+        Locator toggle = displayRow.locator(".rename-toggle");
+        String targetId = toggle.getAttribute("data-rename-target");
+        toggle.click();
+        return page.locator("#" + targetId);
     }
 
     private void createClass(String className) {

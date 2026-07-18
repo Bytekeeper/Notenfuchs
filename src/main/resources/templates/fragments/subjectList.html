@@ -4,28 +4,28 @@
     {#else}
         {#for s in subjects}
             <div class="subject-list-item">
-                <div>
-                    <div class="rename-wrap">
-                        <span class="rename-view">
+                <div class="rename-wrap">
+                    <div class="rename-view">
+                        <div>
                             <a href="/subjects/{s.id}">{s.name}</a>
-                            <button type="button" class="rename-toggle" title="Umbenennen" aria-label="Umbenennen"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
-                        </span>
-                        <form class="rename-form" hx-patch="/classes/{schoolClass.id}/subjects/{s.id}/rename" hx-target="#subject-list-fragment" hx-swap="outerHTML">
-                            <input type="text" name="name" value="{s.name}" required>
-                            <select name="roundingMode" data-original="{s.roundingMode.name}">
-                                <option value="COMMERCIAL" {#if s.roundingMode.name == 'COMMERCIAL'}selected{/if}>Kaufmännisch</option>
-                                <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
-                            </select>
-                            <button type="submit" class="rename-save" aria-label="Speichern">✓</button>
-                            <button type="button" class="rename-cancel" aria-label="Abbrechen">✕</button>
-                        </form>
+                            <div class="subject-meta">{s.gradeScale.name} · {s.roundingMode}</div>
+                        </div>
+                        <div class="row-actions">
+                            <a class="btn secondary" href="/subjects/{s.id}/grid">Noten</a>
+                            <button type="button" class="rename-toggle">Ändern</button>
+                            <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
+                                <button type="submit" class="delete-btn">Löschen</button>
+                            </form>
+                        </div>
                     </div>
-                    <div class="subject-meta">{s.gradeScale.name} · {s.roundingMode}</div>
-                </div>
-                <div style="display:flex; gap:0.5rem; align-items:center;">
-                    <a class="btn secondary" href="/subjects/{s.id}/grid">Noten</a>
-                    <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
-                        <button type="submit" class="delete-btn">Löschen</button>
+                    <form class="rename-form" hx-patch="/classes/{schoolClass.id}/subjects/{s.id}/rename" hx-target="#subject-list-fragment" hx-swap="outerHTML">
+                        <input type="text" name="name" value="{s.name}" required>
+                        <select name="roundingMode" data-original="{s.roundingMode.name}">
+                            <option value="COMMERCIAL" {#if s.roundingMode.name == 'COMMERCIAL'}selected{/if}>Standard (0,5 → aufgerundet)</option>
+                            <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
+                        </select>
+                        <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
+                        <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
                     </form>
                 </div>
             </div>

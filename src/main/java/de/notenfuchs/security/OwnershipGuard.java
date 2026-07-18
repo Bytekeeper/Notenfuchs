@@ -31,7 +31,7 @@ import java.util.List;
 public class OwnershipGuard {
 
     public List<SchoolClass> listOwnedClasses(String currentSubject) {
-        return SchoolClass.list("ownerSubject", currentSubject);
+        return SchoolClass.list("ownerSubject = ?1 order by schoolYear desc, name asc", currentSubject);
     }
 
     public SchoolClass requireOwnedClass(Long classId, String currentSubject) {

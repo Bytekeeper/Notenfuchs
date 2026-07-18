@@ -26,7 +26,7 @@ public enum RoundingMode {
     @Override
     public String toString() {
         return switch (this) {
-            case COMMERCIAL -> "Kaufmännisch";
+            case COMMERCIAL -> "Standard (0,5 → aufgerundet)";
             case IN_FAVOR_OF_STUDENT -> "Zugunsten des Schülers";
         };
     }

@@ -271,10 +271,15 @@ class GradeGridE2EIT {
 
         Locator row = page.locator("table.entity-list tbody tr")
                 .filter(new Locator.FilterOptions().setHasText(assessmentName)).first();
-        Locator wrap = row.locator(".rename-wrap").first();
-        wrap.locator(".rename-toggle").click();
-        wrap.locator("select[name='roundingMode']").selectOption("COMMERCIAL");
-        wrap.locator(".rename-save").click();
+        // The row's single "Ändern" (in its actions cell) opens a combined edit row below,
+        // wired via data-rename-target rather than DOM nesting - see RenameE2EIT's
+        // openAssessmentEditRow for the same pattern.
+        Locator toggle = row.locator(".rename-toggle");
+        String targetId = toggle.getAttribute("data-rename-target");
+        toggle.click();
+        Locator editRow = page.locator("#" + targetId);
+        editRow.locator("select[name='roundingMode']").selectOption("COMMERCIAL");
+        editRow.locator(".rename-save").click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
@@ -357,7 +362,10 @@ class GradeGridE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr:not(.empty-row)");
+        // .assessment-row is the one visible <tr> per Leistung - each also has a sibling
+        // .assessment-edit-row (its hidden combined-edit form), which a plain :not(.empty-row)
+        // count would otherwise double-count.
+        Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr.assessment-row");
 
         // Scoped to the "add assessment" form specifically - the category card also has an
         // inline-rename form with its own input[name='name'] (see RenameE2EIT).
