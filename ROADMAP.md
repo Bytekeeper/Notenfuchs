@@ -84,14 +84,6 @@ use). The instance *is* the tenant boundary — no in-app multi-tenancy to build
 
 ## Next
 
-### Points -> Grade
-Anscheinend wird oft folgendes pattern verwendet:
-Max Punkte = 1.0
-N Punkte = 3.5
-
-statt Min Punkte -> 6.0
-Derzeit kommen komische Sachen dabei raus, wenn man obigen eingibt.
-
 ## Later / maybe
 - "What do I need in the next Klausur to reach a 2?" Directly student-helpful,
 small, leverages the existing calculation engine.
