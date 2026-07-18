@@ -16,14 +16,25 @@ identity-provider container or setup step required.
 
 ```bash
 cp .env.example .env      # then set NOTENFUCHS_PASSWORD
+docker compose up
+```
+
+This pulls a prebuilt image from `ghcr.io/bytekeeper/notenfuchs` (published by
+CI on every push to `master`, see `.github/workflows/publish-image.yml`) - no
+local Java/Maven toolchain needed. The API is then available at
+`http://localhost:8080` (log in at `/login`), and PostgreSQL at
+`localhost:5432` (database `notenfuchs`, user/password `notenfuchs`).
+
+Working on the code and want to run your own changes instead of the published
+image? Build locally first:
+
+```bash
 ./mvnw package
 docker compose up --build
 ```
 
-The app builds a JVM-mode container image from `src/main/docker/Dockerfile.jvm`,
-so `./mvnw package` needs to be run once beforehand to produce `target/quarkus-app/`.
-The API is then available at `http://localhost:8080` (log in at `/login`), and
-PostgreSQL at `localhost:5432` (database `notenfuchs`, user/password `notenfuchs`).
+This builds a JVM-mode container image from `src/main/docker/Dockerfile.jvm`,
+which expects `./mvnw package` to already have produced `target/quarkus-app/`.
 
 To stop everything: `docker compose down` (add `-v` to also drop the database volume).
 
@@ -190,7 +201,7 @@ that the logged-in user's name/email are available via the OIDC UserInfo endpoin
 #### Setting up Pocket ID (optional overlay)
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.oidc.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.oidc.yml up
 ```
 
 starts [Pocket ID](https://pocket-id.org), a lightweight, passkey-based OIDC

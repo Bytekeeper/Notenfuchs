@@ -19,7 +19,15 @@ services:
   # below) needs nothing else - no separate IdP container, no bootstrap step. See
   # the README's "Authentication" section for the local-vs-OIDC decision, and
   # docker-compose.oidc.yml for the optional SSO overlay.
+  #
+  # Both `image` and `build` are set: plain `docker compose up` pulls the
+  # prebuilt image from GHCR (published by .github/workflows/publish-image.yml
+  # on every push to master) so nobody needs a local Java/Maven toolchain.
+  # `docker compose up --build` (or `docker compose build`) still builds
+  # locally from Dockerfile.jvm instead, for contributors running their own
+  # changes - see the README's "Option A" section.
   app:
+    image: ghcr.io/bytekeeper/notenfuchs:latest
     build:
       context: .
       dockerfile: src/main/docker/Dockerfile.jvm

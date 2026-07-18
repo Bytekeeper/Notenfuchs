@@ -1,7 +1,10 @@
 # Optional overlay: adds Pocket ID as an external OIDC provider instead of the
 # default local built-in auth. Use together with the base file:
 #
-#   docker compose -f docker-compose.yml -f docker-compose.oidc.yml up --build
+#   docker compose -f docker-compose.yml -f docker-compose.oidc.yml up
+#
+# (add --build instead if you're running your own local changes to the app
+# image, see the README's "Option A" section)
 #
 # See the README's "Authentication" section (and "Setting up Pocket ID") for
 # the full walkthrough. Leave NOTENFUCHS_PASSWORD unset in .env when using this
