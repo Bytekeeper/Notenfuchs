@@ -43,7 +43,14 @@ services:
       # instead - the app refuses to start in prod with neither configured.
       NOTENFUCHS_PASSWORD: ${NOTENFUCHS_PASSWORD:-}
     ports:
-      - "8080:8080"
+      # Open to every interface by default, matching the "just docker compose
+      # up, no proxy needed" default path (see the README's "Option A"
+      # section). If you're reverse-proxying Notenfuchs itself (see
+      # OIDC_TRUST_PROXY in docker-compose.oidc.yml and the README's "Running
+      # behind your own reverse proxy" section), set APP_HOST_BIND=127.0.0.1
+      # in .env so the container is only reachable through that proxy, not
+      # directly on this port.
+      - "${APP_HOST_BIND:-0.0.0.0}:8080:8080"
 
   # One-shot: seeds a fixed example class ("Demo-Klasse 8b", see
   # demo/seed-reset.sql) the first time this stack boots against a fresh

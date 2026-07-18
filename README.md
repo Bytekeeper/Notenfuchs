@@ -8,42 +8,155 @@ and rounded final grades automatically.
 
 ## Running Notenfuchs
 
-### Option A: full stack with Docker Compose
+Notenfuchs runs as a Docker container alongside PostgreSQL. The only thing you
+need installed is [Docker](https://docs.docker.com/get-docker/) - Docker
+Desktop on Mac/Windows, or Docker Engine + the Compose plugin on Linux. No
+Java, Maven, or other local toolchain is required to *run* it (only to work on
+its code - see "For development" below).
 
-This starts PostgreSQL and the packaged application - nothing else. Login uses
-Notenfuchs' own built-in local auth (see "Authentication" below); no separate
-identity-provider container or setup step required.
+Pick **Option A** if you're the only teacher who'll use this instance, or
+**Option B** if more than one teacher needs their own login.
+
+### Option A: single-user, local password (default, simplest)
+
+One fixed login, password set by you - nothing else to configure or sign up
+for.
 
 ```bash
-cp .env.example .env      # then set NOTENFUCHS_PASSWORD
+git clone https://github.com/bytekeeper/Notenfuchs.git
+cd Notenfuchs
+cp .env.example .env      # then open .env and set NOTENFUCHS_PASSWORD
 docker compose up
 ```
 
 This pulls a prebuilt image from `ghcr.io/bytekeeper/notenfuchs` (published by
-CI on every push to `master`, see `.github/workflows/publish-image.yml`) - no
-local Java/Maven toolchain needed. The API is then available at
-`http://localhost:8080` (log in at `/login`), and PostgreSQL at
-`localhost:5432` (database `notenfuchs`, user/password `notenfuchs`).
+CI on every push to `master`, see `.github/workflows/publish-image.yml`) and
+starts it alongside PostgreSQL - no local build needed. Once it's up, open
+`http://localhost:8080/login` and sign in with username `lehrer` and the
+password you set (see "Default: local built-in auth" under "Authentication"
+below for how this login works).
 
-Working on the code and want to run your own changes instead of the published
-image? Build locally first:
+To stop everything: `docker compose down` (add `-v` to also drop the database
+volume).
+
+### Option B: multi-user, Pocket ID SSO
+
+If more than one teacher will use this instance, each needs their own login.
+Notenfuchs delegates that to [Pocket ID](https://pocket-id.org), a
+lightweight, passkey-based OIDC provider that runs alongside it in the same
+Compose stack - no separate signup with a third-party service required, and no
+passwords to manage (Pocket ID is WebAuthn/passkey-only). Setup is a few
+manual steps in Pocket ID's own admin UI; nothing is bootstrapped
+automatically.
 
 ```bash
-./mvnw package
-docker compose up --build
+git clone https://github.com/bytekeeper/Notenfuchs.git
+cd Notenfuchs
+cp .env.example .env
 ```
 
-This builds a JVM-mode container image from `src/main/docker/Dockerfile.jvm`,
-which expects `./mvnw package` to already have produced `target/quarkus-app/`.
+1. **Point Compose at both files.** In `.env`, uncomment
+   `COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml` - every later
+   `docker compose` command then merges the base stack with the Pocket ID
+   overlay automatically, no `-f -f` flags needed. Leave `NOTENFUCHS_PASSWORD`
+   blank - local auth and OIDC are never active at the same time.
+2. **Generate the secret Pocket ID needs** and put it in `.env`:
+   `POCKET_ID_ENCRYPTION_KEY`, via `openssl rand -base64 32`.
+3. **Start the stack:** `docker compose up`.
+4. **Create the Pocket ID admin account.** This is the one step that can't be
+   automated: Pocket ID has no passwords, only WebAuthn passkeys, and
+   registering one requires an actual browser + authenticator. Visit
+   `<POCKET_ID_APP_URL>/setup` (`http://localhost:1411/setup` with the
+   default `.env`) once and follow the prompts.
+5. **Register Notenfuchs as an OIDC client.** In Pocket ID's admin UI, go to
+   OIDC Clients -> New Client, set the callback URL to
+   `<your Notenfuchs URL>/auth-callback` (`http://localhost:8080/auth-callback`
+   by default) and the logout callback URL to `<your Notenfuchs URL>/`, then
+   expand "Advanced options" and set the **Client ID** field to exactly
+   `notenfuchs` (matching the fixed `OIDC_CLIENT_ID` in
+   `docker-compose.oidc.yml`). Saving generates a Client Secret - copy it into
+   `.env` as `OIDC_CLIENT_SECRET`, then run `docker compose up -d app` to pick
+   it up.
+6. **Hand out a sign-up link.** On the Users page, use "Create signup token"
+   to generate a single-use link and give it to whoever should actually use
+   Notenfuchs (e.g. yourself, or another teacher) so they can create their own
+   passkey account directly - you never need to share the admin login.
 
-To stop everything: `docker compose down` (add `-v` to also drop the database volume).
+By default this all runs on your own machine over plain HTTP:
+`POCKET_ID_APP_URL` in `.env` defaults to `http://localhost:1411`, and
+Notenfuchs itself is reached at `http://localhost:8080`.
 
-Prefer an external SSO provider instead (e.g. for a school that already runs
-one)? See "Alternative: OIDC (external SSO)" under "Authentication" below - it
-adds an optional `docker-compose.oidc.yml` overlay rather than changing the
-default stack.
+#### Running behind your own reverse proxy
 
-### Option B: local development against Postgres
+`docker-compose.oidc.yml` assumes Pocket ID sits behind a reverse proxy by
+default - WebAuthn/passkeys need a secure (HTTPS, or plain `localhost`)
+context to work at all, so a bare, unproxied Pocket ID isn't really a
+supported setup anyway. Its published port is bound to `127.0.0.1` only
+(`POCKET_ID_HOST_BIND` in `.env`, see below), so the only way in is through
+something already running on that same machine - your reverse proxy, or your
+own browser if you're just testing locally.
+
+If you already run a reverse proxy (Caddy, nginx, Traefik, ...) that
+terminates TLS under a real domain - even one only reachable on your own
+network, e.g. `notenfuchs.internal.example.com` resolved by internal DNS, not
+the public internet - point it at this host's `8080` (Notenfuchs) and `1411`
+(Pocket ID) ports, then set in `.env`:
+
+- **`POCKET_ID_APP_URL`**: the URL your proxy makes Pocket ID reachable at,
+  e.g. `https://id.internal.example.com` - no `:1411` in it, since that's the
+  container's internal plain-HTTP address, not what a browser or the OIDC
+  issuer check should ever see.
+- **`TRUST_PROXY=true`**: so Pocket ID trusts the proxy's forwarded-for
+  headers for the client's real IP instead of seeing every request as coming
+  from the proxy's own IP. (Pocket ID also accepts a comma-separated list of
+  trusted proxy IPs/CIDRs here instead of a blanket `true`, if you'd rather
+  restrict it to your proxy's actual address.)
+- **`OIDC_TRUST_PROXY=true`** and **`APP_HOST_BIND=127.0.0.1`**: Notenfuchs
+  itself is *also* behind your proxy here, not just Pocket ID - unlike
+  `docker-compose.oidc.yml`, the base `docker-compose.yml` is shared with
+  Option A (no proxy at all), so its port stays open on every interface
+  (`0.0.0.0`) unless you opt in here. `OIDC_TRUST_PROXY=true` fixes the
+  *scheme* half of the problem: without it, the container only ever sees
+  plain HTTP from the proxy, so it would build its OIDC callback URL as
+  `http://...` instead of `https://...`, which won't match the callback URL
+  you register in Pocket ID's admin UI (step 5 above) and login will fail.
+  This doesn't read any header the proxy (or a client bypassing it) sends -
+  it's a blunt "we know we're always behind TLS" switch, not a
+  forwarded-header trust decision, so it's safe to enable independently of
+  `TRUST_PROXY` above. The *host* half needs no config on Notenfuchs' side:
+  Quarkus builds the callback URL's host from the incoming request's `Host`
+  header, which Caddy (and most reverse proxies, by default) forwards
+  through unchanged, so it already reflects whatever public domain the
+  browser actually used - there's no `NOTENFUCHS_APP_URL` to set, unlike
+  Pocket ID, which needs a statically configured `POCKET_ID_APP_URL` because
+  it also uses that value for things that aren't tied to any one request
+  (the token issuer it signs, its WebAuthn relying-party id, its
+  `/.well-known/openid-configuration` document).
+- Use your proxy's real URL (not `localhost:8080`) everywhere `<your
+  Notenfuchs URL>` appears in step 5 above, e.g.
+  `https://notenfuchs.internal.example.com/auth-callback`.
+
+If your reverse proxy runs on a *different* host than this Compose stack
+(rather than on the same machine, which is what the `127.0.0.1` default
+above assumes), override `POCKET_ID_HOST_BIND`/`APP_HOST_BIND` to an address
+your proxy can actually reach - e.g. `0.0.0.0` to accept connections on any
+interface - and make sure your firewall, not Compose, is what actually
+restricts who can reach those ports directly; `TRUST_PROXY=true` /
+`OIDC_TRUST_PROXY=true` only make sense if the *only* way in really is
+through the proxy.
+
+Pocket ID is entirely optional - the underlying OIDC wiring is
+provider-agnostic, so you can point `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
+`OIDC_CLIENT_SECRET` at Clerk, Keycloak, Authentik, or any other
+standards-compliant provider instead and skip `docker-compose.oidc.yml`
+entirely - see "Alternative: OIDC (external SSO)" under "Authentication" below
+for the required environment variables and a Clerk walkthrough.
+
+### For development: running from source
+
+Only needed if you're changing Notenfuchs' code - normal use doesn't need
+this. Requires Java 17+ (the Maven Wrapper, `./mvnw`, is committed, so no
+separate Maven install is needed).
 
 Start just the database:
 
@@ -51,8 +164,7 @@ Start just the database:
 docker compose up postgres
 ```
 
-Then run the app in Quarkus dev mode (live reload) with the Maven Wrapper - no local
-Maven installation required:
+Then run the app in Quarkus dev mode (live reload):
 
 ```bash
 ./mvnw quarkus:dev
@@ -66,6 +178,17 @@ By default this connects to `jdbc:postgresql://localhost:5432/notenfuchs` (user/
 > no datasource is configured at all. This project deliberately configures an explicit
 > PostgreSQL datasource (see `src/main/resources/application.properties`) so that Dev Mode
 > and `docker compose` use the same schema-managed database instead of an ephemeral one.
+
+Want to run the full stack (app + Postgres) with your own local changes instead of the
+published image?
+
+```bash
+./mvnw package
+docker compose up --build
+```
+
+This builds a JVM-mode container image from `src/main/docker/Dockerfile.jvm`,
+which expects `./mvnw package` to already have produced `target/quarkus-app/`.
 
 ### Running tests
 
@@ -198,49 +321,12 @@ By default the app requests the `openid profile email` scopes (`openid` is added
 automatically by Quarkus; `profile` and `email` are configured explicitly) so
 that the logged-in user's name/email are available via the OIDC UserInfo endpoint.
 
-#### Setting up Pocket ID (optional overlay)
+#### Pocket ID (bundled, self-hosted OIDC provider)
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.oidc.yml up
-```
-
-starts [Pocket ID](https://pocket-id.org), a lightweight, passkey-based OIDC
-provider, alongside Notenfuchs - no separate signup with a third-party service
-required. (Set `COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml` in
-`.env` once - see `.env.example` - and every later `docker compose` command
-picks up both files automatically, no `-f -f` needed.) Everything is set up by
-hand in Pocket ID's own admin UI, no bootstrap automation involved:
-
-1. **Generate the secret Pocket ID needs** and put it in `.env` (copied from
-   `.env.example`): `POCKET_ID_ENCRYPTION_KEY`, via `openssl rand -base64 32`.
-2. **Create the Pocket ID admin account.** This is the one step that can't be automated:
-   Pocket ID has no passwords, only WebAuthn passkeys, and registering one requires an
-   actual browser + authenticator. Visit `http://localhost:1411/setup` (or
-   `http://<BASE_URL>:1411/setup`) once and follow the prompts.
-3. **Register Notenfuchs as an OIDC client.** In Pocket ID's admin UI, go to
-   OIDC Clients → New Client, set the callback URL to
-   `http://<BASE_URL>:8080/auth-callback` and the logout callback URL to
-   `http://<BASE_URL>:8080/`, then expand "Advanced options" and set the
-   **Client ID** field to exactly `notenfuchs` (matching the fixed
-   `OIDC_CLIENT_ID` in `docker-compose.oidc.yml`). Saving generates a Client
-   Secret - copy it into `.env` as `OIDC_CLIENT_SECRET`, then run
-   `docker compose up -d app` to pick it up.
-4. **Hand out a sign-up link.** On the Users page, use "Create signup token" to
-   generate a single-use link and give it to whoever should actually use
-   Notenfuchs (e.g. yourself, or another teacher) so they can create their own
-   passkey account directly - you never need to share the admin login.
-
-By default the whole stack assumes you're running it on your own machine: `BASE_URL`
-in `.env` defaults to `localhost`, and both Notenfuchs (`:8080`) and Pocket ID (`:1411`)
-are reached over plain HTTP on that host. If you're hosting this for others, set
-`BASE_URL` to your real domain, put a reverse proxy with TLS in front of both ports,
-and set `TRUST_PROXY=true` in `.env` so Pocket ID trusts the proxy's forwarded-for
-headers.
-
-Pocket ID is entirely optional - the OIDC wiring is provider-agnostic (see above), so
-you can point `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` at Clerk,
-Keycloak, Authentik, or any other standards-compliant provider instead and skip
-`docker-compose.oidc.yml` entirely.
+See "Option B: multi-user, Pocket ID SSO" under "Running Notenfuchs" above for
+the full setup walkthrough (the `docker-compose.oidc.yml` overlay, generating
+`POCKET_ID_ENCRYPTION_KEY`, creating the admin account, registering the OIDC
+client, and issuing sign-up links).
 
 #### Setting up Clerk
 

@@ -13,10 +13,10 @@
 # .env once - Compose reads that automatically, so plain `docker compose up`
 # (and down/logs/...) then merge both files with no flags needed.
 #
-# See the README's "Authentication" section (and "Setting up Pocket ID") for
-# the full walkthrough. Leave NOTENFUCHS_PASSWORD unset in .env when using this
-# overlay - local auth and OIDC are never active at the same time; whichever
-# env var is actually set decides which mode runs.
+# See the README's "Option B: multi-user, Pocket ID SSO" section for the full
+# walkthrough. Leave NOTENFUCHS_PASSWORD unset in .env when using this overlay
+# - local auth and OIDC are never active at the same time; whichever env var
+# is actually set decides which mode runs.
 services:
   app:
     depends_on:
@@ -25,32 +25,51 @@ services:
     environment:
       # The app reaches Pocket ID over the internal docker network, but must
       # validate tokens against the issuer Pocket ID actually signs with (its
-      # public-facing APP_URL) - see the quarkus.oidc.token.issuer comment in
-      # application.properties.
+      # public-facing APP_URL, below) - see the quarkus.oidc.token.issuer
+      # comment in application.properties. Must be byte-for-byte identical to
+      # pocket-id's APP_URL below (scheme included) or token validation fails.
       OIDC_ISSUER_URL: http://pocket-id:1411
-      OIDC_TOKEN_ISSUER: http://${BASE_URL:-localhost}:1411
+      OIDC_TOKEN_ISSUER: ${POCKET_ID_APP_URL:-http://localhost:1411}
       OIDC_CLIENT_ID: notenfuchs
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      # Set to true if Notenfuchs itself also sits behind a TLS-terminating
+      # reverse proxy (not just Pocket ID) - see the quarkus.oidc.authentication
+      # .force-redirect-https-scheme comment in application.properties and the
+      # README's "Running behind your own reverse proxy" section.
+      OIDC_TRUST_PROXY: ${OIDC_TRUST_PROXY:-false}
 
-  # Lightweight, passkey-only OIDC provider - see the README's "Setting up
-  # Pocket ID" section. The Notenfuchs OIDC client and teacher accounts are
-  # created by hand in Pocket ID's own admin UI (no bootstrap automation) -
-  # ALLOW_USER_SIGNUPS: withToken is what makes the UI's "Create signup
-  # token" action available for that. Required secret
+  # Lightweight, passkey-only OIDC provider - see the README's "Option B:
+  # multi-user, Pocket ID SSO" section. The Notenfuchs OIDC client and teacher
+  # accounts are created by hand in Pocket ID's own admin UI (no bootstrap
+  # automation) - ALLOW_USER_SIGNUPS: withToken is what makes the UI's
+  # "Create signup token" action available for that. Required secret
   # (POCKET_ID_ENCRYPTION_KEY) lives in .env; see .env.example for how to
   # generate it.
   pocket-id:
     image: pocketid/pocket-id:v2
     restart: unless-stopped
     environment:
-      APP_URL: http://${BASE_URL:-localhost}:1411
+      # POCKET_ID_APP_URL is the full externally-visible URL, scheme included
+      # (e.g. https://id.example.com with no port, if a TLS-terminating
+      # reverse proxy fronts this - see the README's "Option B" section).
+      # Defaults to plain HTTP on the published port for running everything
+      # on your own machine.
+      APP_URL: ${POCKET_ID_APP_URL:-http://localhost:1411}
       INTERNAL_APP_URL: http://pocket-id:1411
       ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY}
       ALLOW_USER_SIGNUPS: withToken
       UI_CONFIG_DISABLED: "true"
       TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
-      - 1411:1411
+      # This overlay assumes Pocket ID sits behind your own reverse proxy
+      # (see the README's "Running behind your own reverse proxy" section) -
+      # WebAuthn/passkeys need a secure context, so a bare, unproxied Pocket
+      # ID isn't a supported setup anyway. Bound to localhost only by
+      # default, so the only way in is through that proxy. Override
+      # POCKET_ID_HOST_BIND (e.g. to 0.0.0.0) only if your reverse proxy runs
+      # on a different host than this Compose stack and needs to reach this
+      # port over the network instead of localhost.
+      - "${POCKET_ID_HOST_BIND:-127.0.0.1}:1411:1411"
     volumes:
       - "notenfuchs-pocket-id-data:/app/data"
     healthcheck:
