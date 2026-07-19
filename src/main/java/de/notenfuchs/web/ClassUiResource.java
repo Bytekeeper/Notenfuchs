@@ -9,6 +9,7 @@ import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.domain.SubjectTeacher;
+import de.notenfuchs.domain.Teacher;
 import de.notenfuchs.security.CurrentUser;
 import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CsvRosterService;
@@ -44,8 +45,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -96,6 +100,10 @@ public class ClassUiResource {
     @Location("fragments/halfYearGradeDisplay.html")
     Template halfYearGradeDisplayFragment;
 
+    @Inject
+    @Location("fragments/classTeachers.html")
+    Template classTeachersFragment;
+
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
@@ -117,7 +125,10 @@ public class ClassUiResource {
                 .data("subjects", subjects)
                 .data("students", students)
                 .data("gradeScales", gradeScales)
-                .data("rosterImportResult", rosterImportResult));
+                .data("rosterImportResult", rosterImportResult)
+                .data("classTeachers", classTeachersWithResolvedLabels(id))
+                .data("availableTeachers", availableTeachers(id))
+                .data("currentUserSubject", currentUser.effectiveSubject()));
     }
 
     /**
@@ -241,6 +252,107 @@ public class ClassUiResource {
             entity.schoolYear = schoolYear;
         }
         return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
+    }
+
+    /**
+     * Adds a co-owner ({@link ClassTeacher}) to the class - the current teacher picks one from
+     * the {@link Teacher} directory (see {@link #availableTeachers}), since there's no other way
+     * to identify a colleague (no email lookup, no invite links - see the class-access-UI plan).
+     * Not named {@code addTeacher}: this codebase has three different "teacher" concepts
+     * ({@link Teacher} the directory, {@link ClassTeacher} the co-ownership row, {@link
+     * SubjectTeacher} the per-subject row) and a future subject-level increment will need its own
+     * near-identical {@code addSubjectTeacher}.
+     */
+    @POST
+    @Path("/{id}/teachers")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance addClassTeacher(@PathParam("id") Long id, @FormParam("teacherSubject") String teacherSubject) {
+        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        Teacher knownTeacher = Teacher.find("subject", teacherSubject).firstResult();
+        if (knownTeacher == null) {
+            throw new BadRequestException("Unbekannte Lehrkraft");
+        }
+        if (ClassTeacher.count("schoolClass.id = ?1 and teacherSubject = ?2", id, teacherSubject) > 0) {
+            throw new BadRequestException("Diese Lehrkraft hat bereits Zugriff auf die Klasse");
+        }
+        ClassTeacher classTeacher = new ClassTeacher();
+        classTeacher.schoolClass = schoolClass;
+        classTeacher.teacherSubject = teacherSubject;
+        classTeacher.persist();
+        return classTeachersResponse(schoolClass);
+    }
+
+    /**
+     * Removes a co-owner. Guarded so a class always keeps at least one {@link ClassTeacher} row -
+     * the primary defense is {@code fragments/classTeachers.html} not rendering "Entfernen" at all
+     * next to the last remaining row; this is defense-in-depth for direct API misuse or races.
+     * Any owner (including the acting teacher themselves - co-owners are symmetric, no
+     * hierarchy) can be removed. Self-removal is special-cased: after removing themselves, the
+     * actor no longer has {@link OwnershipGuard#requireClassAccess} to this class, so re-rendering
+     * "this page's teacher list" makes no sense - an {@code HX-Redirect} sends them back to the
+     * class list instead of returning the fragment.
+     */
+    @DELETE
+    @Path("/{id}/teachers/{teacherId}")
+    @Transactional
+    public Response removeClassTeacher(@PathParam("id") Long id, @PathParam("teacherId") Long teacherId) {
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassOwner(id, subject);
+        ClassTeacher classTeacher = guard.requireClassOwnerTeacher(teacherId, subject);
+        if (!classTeacher.schoolClass.id.equals(id)) {
+            throw new NotFoundException("ClassTeacher " + teacherId + " not found");
+        }
+        if (ClassTeacher.count("schoolClass.id", id) <= 1) {
+            throw new BadRequestException("Die letzte verbleibende Lehrkraft kann nicht entfernt werden");
+        }
+        boolean removingSelf = classTeacher.teacherSubject.equals(subject);
+        classTeacher.delete();
+        if (removingSelf) {
+            return Response.ok().header("HX-Redirect", "/classes").build();
+        }
+        return Response.ok(classTeachersResponse(schoolClass)).build();
+    }
+
+    /** {@link Teacher} directory rows not yet a {@link ClassTeacher} on this class, for the add-teacher select. */
+    private List<Teacher> availableTeachers(Long schoolClassId) {
+        List<ClassTeacher> classTeachers = ClassTeacher.list("schoolClass.id", schoolClassId);
+        Set<String> alreadyTeaching = new HashSet<>(classTeachers.stream().map(ct -> ct.teacherSubject).toList());
+        List<Teacher> teachers = Teacher.listAll();
+        return teachers.stream()
+                .filter(t -> !alreadyTeaching.contains(t.subject))
+                .sorted(Comparator.comparing(Teacher::displayLabel))
+                .toList();
+    }
+
+    /**
+     * This class's {@link ClassTeacher} rows with {@link ClassTeacher#resolvedLabel} attached
+     * from the {@link Teacher} directory (batch-loaded, not one query per row) - see {@code
+     * fragments/classTeachers.html}, which falls back to the raw {@code teacherSubject} when a
+     * row has no matching {@link Teacher} (shouldn't normally happen, but the directory and
+     * class_teacher/subject_teacher are deliberately decoupled, not FK-enforced).
+     */
+    private List<ClassTeacher> classTeachersWithResolvedLabels(Long schoolClassId) {
+        List<ClassTeacher> classTeachers = ClassTeacher.list("schoolClass.id = ?1 order by id", schoolClassId);
+        List<String> subjects = classTeachers.stream().map(ct -> ct.teacherSubject).toList();
+        Map<String, Teacher> teachersBySubject = new HashMap<>();
+        List<Teacher> knownTeachers = Teacher.list("subject in ?1", subjects);
+        for (Teacher teacher : knownTeachers) {
+            teachersBySubject.put(teacher.subject, teacher);
+        }
+        for (ClassTeacher classTeacher : classTeachers) {
+            Teacher teacher = teachersBySubject.get(classTeacher.teacherSubject);
+            classTeacher.resolvedLabel = teacher != null ? teacher.displayLabel() : null;
+        }
+        return classTeachers;
+    }
+
+    private TemplateInstance classTeachersResponse(SchoolClass schoolClass) {
+        return classTeachersFragment
+                .data("schoolClass", schoolClass)
+                .data("classTeachers", classTeachersWithResolvedLabels(schoolClass.id))
+                .data("availableTeachers", availableTeachers(schoolClass.id))
+                .data("currentUserSubject", currentUser.effectiveSubject());
     }
 
     /**

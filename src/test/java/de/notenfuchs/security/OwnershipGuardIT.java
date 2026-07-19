@@ -242,6 +242,16 @@ class OwnershipGuardIT {
                 guard.requireTeachesBehaviorGrade(otherSubjectGrade.id, "otherCollaborator").id);
     }
 
+    @Test
+    @TestTransaction
+    void requireClassOwnerTeacher_foreignClassTeacher_throwsNotFound() {
+        SchoolClass b = persistClass("teacherB");
+        ClassTeacher classTeacher = ClassTeacher.find("schoolClass", b).firstResult();
+
+        assertThrows(NotFoundException.class, () -> guard.requireClassOwnerTeacher(classTeacher.id, "teacherA"));
+        assertEquals(classTeacher.id, guard.requireClassOwnerTeacher(classTeacher.id, "teacherB").id);
+    }
+
     private SchoolClass persistClass(String owner) {
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.name = "Ownership-Test-Klasse-" + owner + "-" + System.nanoTime();

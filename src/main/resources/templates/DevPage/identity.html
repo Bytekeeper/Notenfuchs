@@ -1,0 +1,48 @@
+{#include base}
+{#title}Dev-Identität wechseln – Notenfuchs{/title}
+
+<h1>Dev-Identität wechseln</h1>
+<p class="hint">Nur im Dev-Modus sichtbar. Legt fest, welches Subject <code>CurrentUser#effectiveSubject()</code>
+    liefert, solange Sie nicht wirklich eingeloggt sind - so lässt sich der Mehrere-Lehrkräfte-Ablauf lokal
+    auch aus Sicht einer zweiten Lehrkraft testen, ohne einen echten zweiten OIDC-Login.</p>
+
+<p>Aktuell: <strong>{currentSubject}</strong></p>
+
+<div class="card">
+    <h3 style="margin-top: 0;">Bekannte Lehrkräfte</h3>
+    {#if teachers.isEmpty}
+        <p class="hint">Noch keine Lehrkraft bekannt.</p>
+    {#else}
+        <table class="entity-list">
+            <tbody>
+                {#for t in teachers}
+                    <tr>
+                        <td>{t.displayLabel}{#if t.subject == currentSubject} (aktuell){/if}</td>
+                        <td>
+                            <form method="post" action="/dev/identity">
+                                <input type="hidden" name="subject" value="{t.subject}">
+                                <button type="submit" {#if t.subject == currentSubject}disabled{/if}>Wechseln</button>
+                            </form>
+                        </td>
+                    </tr>
+                {/for}
+            </tbody>
+        </table>
+    {/if}
+</div>
+
+<h3>Beliebiges Subject</h3>
+<div class="card">
+    <form class="inline-form" method="post" action="/dev/identity">
+        <div class="form-field">
+            <label for="subject">Subject</label>
+            <input type="text" id="subject" name="subject" placeholder="z. B. irgendein-name" value="{currentSubject}">
+        </div>
+        <button type="submit">Wechseln</button>
+    </form>
+    <form method="post" action="/dev/identity">
+        <button type="submit" class="delete-btn">Zurücksetzen auf Standard</button>
+    </form>
+</div>
+
+{/include}

@@ -7,6 +7,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -29,4 +30,15 @@ public class ClassTeacher extends PanacheEntity {
     @NotBlank
     @Column(name = "teacher_subject", nullable = false)
     public String teacherSubject;
+
+    /**
+     * View-time-only label ({@link Teacher#displayLabel()} for this row's {@link #teacherSubject},
+     * looked up from the {@link Teacher} directory) - not persisted, batch-attached by whichever
+     * resource method builds a list of these for rendering (see {@code
+     * ClassUiResource#classTeachersResponse}) so the template can do a plain property access
+     * instead of an N+1 query or a Map lookup. Null until attached, or if the subject has no
+     * {@link Teacher} row (falls back to displaying {@link #teacherSubject} in that case).
+     */
+    @Transient
+    public String resolvedLabel;
 }

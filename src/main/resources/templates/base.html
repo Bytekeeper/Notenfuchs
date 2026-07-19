@@ -26,6 +26,10 @@
                 {/if}
             {#else}
                 <span class="dev-mode-badge">Dev-Modus (kein Login)</span>
+                {#if devIdentitySwitchActive}
+                    <span>Als: {devEffectiveSubject}</span>
+                    <a href="/dev/identity">Identität wechseln</a>
+                {/if}
             {/if}
         </div>
     </div>

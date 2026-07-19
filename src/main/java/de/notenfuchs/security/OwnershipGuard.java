@@ -188,4 +188,14 @@ public class OwnershipGuard {
         }
         return entity;
     }
+
+    // ---- class teacher management: adding/removing co-owners, owner-only ----
+
+    public ClassTeacher requireClassOwnerTeacher(Long classTeacherId, String currentSubject) {
+        ClassTeacher entity = ClassTeacher.findById(classTeacherId);
+        if (entity == null || !isOwner(entity.schoolClass, currentSubject)) {
+            throw new NotFoundException("ClassTeacher " + classTeacherId + " not found");
+        }
+        return entity;
+    }
 }

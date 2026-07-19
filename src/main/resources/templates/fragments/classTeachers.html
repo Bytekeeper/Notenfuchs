@@ -1,0 +1,42 @@
+<div id="class-teachers-fragment">
+    <table class="entity-list">
+        <thead>
+            <tr><th>Lehrkraft</th><th></th></tr>
+        </thead>
+        <tbody>
+            {#for ct in classTeachers}
+                <tr>
+                    <td>{ct.resolvedLabel ?: ct.teacherSubject}{#if ct.teacherSubject == currentUserSubject} (Sie){/if}</td>
+                    <td>
+                        {#if classTeachers.size > 1}
+                            <div class="row-actions">
+                                <form hx-delete="/classes/{schoolClass.id}/teachers/{ct.id}" hx-target="#class-teachers-fragment" hx-swap="outerHTML" hx-confirm="Zugriff für '{ct.resolvedLabel ?: ct.teacherSubject}' wirklich entfernen?">
+                                    <button type="submit" class="delete-btn">Entfernen</button>
+                                </form>
+                            </div>
+                        {/if}
+                    </td>
+                </tr>
+            {/for}
+        </tbody>
+    </table>
+
+    <h3>Lehrkraft hinzufügen</h3>
+    <div class="card">
+        {#if availableTeachers.isEmpty}
+            <p class="hint">Keine weiteren Lehrkräfte verfügbar - sie erscheinen hier, sobald sie sich einmal angemeldet haben.</p>
+        {#else}
+            <form class="inline-form" hx-post="/classes/{schoolClass.id}/teachers" hx-target="#class-teachers-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                <div class="form-field">
+                    <label for="teacherSubject">Lehrkraft</label>
+                    <select id="teacherSubject" name="teacherSubject" required>
+                        {#for t in availableTeachers}
+                            <option value="{t.subject}">{t.displayLabel}</option>
+                        {/for}
+                    </select>
+                </div>
+                <button type="submit">Zugriff gewähren</button>
+            </form>
+        {/if}
+    </div>
+</div>

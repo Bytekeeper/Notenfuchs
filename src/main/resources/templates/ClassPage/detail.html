@@ -80,6 +80,9 @@
     </section>
 </div>
 
+<h2>Lehrkräfte</h2>
+{#include fragments/classTeachers /}
+
 <h2>Klasseneinstellungen</h2>
 <details class="settings-disclosure" {#if schoolClass.halfYearCutoff || schoolClass.halfYearGradeDisplay.name != 'WHOLE'}open{/if}>
     <summary>Schuljahreswechsel, Halbjahr-Ansicht, Verhaltensnoten</summary>

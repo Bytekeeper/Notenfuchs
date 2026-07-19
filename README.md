@@ -414,9 +414,12 @@ several full co-owners, and a subject can have several teachers - see `CLAUDE.md
 - In `%dev`/`%test`, where OIDC is disabled (see above), `CurrentUser.effectiveSubject()`
   falls back to a fixed `"dev-user"` subject, so ownership still works locally and in
   tests without a real login.
-- There is currently no UI to add, remove, or promote a teacher on a class/subject -
-  every class/subject still gets exactly the one owner/teacher its creator gets at
-  creation time.
+- A class's detail page has a "Lehrkräfte" section to add/remove co-owners, picking from
+  a directory of every teacher who's made at least one authenticated request against
+  this instance (`de.notenfuchs.domain.Teacher`, kept fresh by
+  `de.notenfuchs.security.TeacherDirectoryRecorder` - see `CLAUDE.md`'s "Class access
+  UI" section for how). A subject still only gets the one `SubjectTeacher` row its
+  creator got at creation time - there's no UI yet to share a Fach with a colleague.
 
 ## Deploying a free demo instance
 
