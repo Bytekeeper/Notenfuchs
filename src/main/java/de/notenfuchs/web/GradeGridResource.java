@@ -104,7 +104,7 @@ public class GradeGridResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance grid(@PathParam("id") Long id) {
-        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
 
         if (cutoff == null) {
@@ -144,7 +144,7 @@ public class GradeGridResource {
     @Path("/export")
     @Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public Response exportXlsx(@PathParam("id") Long id) {
-        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
 
         byte[] xlsx = cutoff == null
@@ -420,9 +420,9 @@ public class GradeGridResource {
                               @FormParam("assessmentId") Long assessmentId,
                               @FormParam("value") String rawValue) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        Student student = guard.requireOwnedStudent(studentId, currentSubject);
-        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        Student student = guard.requireClassAccessStudent(studentId, currentSubject);
+        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
 
         Grade existing = Grade.find("assessment.id = ?1 and student.id = ?2", assessmentId, studentId).firstResult();
 

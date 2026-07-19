@@ -28,23 +28,27 @@ public class StudentResource {
     public List<Student> list(@QueryParam("schoolClassId") Long schoolClassId) {
         String subject = currentUser.effectiveSubject();
         if (schoolClassId != null) {
-            guard.requireOwnedClass(schoolClassId, subject);
+            guard.requireClassAccess(schoolClassId, subject);
             return Student.list("schoolClass.id = ?1 order by name", schoolClassId);
         }
-        return Student.list("schoolClass.ownerSubject = ?1 order by name", subject);
+        return Student.list(
+                "(schoolClass.id in (select ct.schoolClass.id from ClassTeacher ct where ct.teacherSubject = ?1)"
+                        + " or schoolClass.id in (select st.subject.schoolClass.id from SubjectTeacher st where st.teacherSubject = ?1))"
+                        + " order by name",
+                subject);
     }
 
     @GET
     @Path("/{id}")
     public Student get(@PathParam("id") Long id) {
-        return guard.requireOwnedStudent(id, currentUser.effectiveSubject());
+        return guard.requireClassAccessStudent(id, currentUser.effectiveSubject());
     }
 
     @POST
     @Transactional
     public Response create(@Valid StudentRequest request) {
         Student entity = new Student();
-        entity.schoolClass = guard.requireOwnedClass(request.schoolClassId, currentUser.effectiveSubject());
+        entity.schoolClass = guard.requireClassOwner(request.schoolClassId, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.displayName = request.displayName;
         entity.persist();
@@ -56,8 +60,8 @@ public class StudentResource {
     @Transactional
     public Student update(@PathParam("id") Long id, @Valid StudentRequest request) {
         String subject = currentUser.effectiveSubject();
-        Student entity = guard.requireOwnedStudent(id, subject);
-        entity.schoolClass = guard.requireOwnedClass(request.schoolClassId, subject);
+        Student entity = guard.requireRosterManageStudent(id, subject);
+        entity.schoolClass = guard.requireClassOwner(request.schoolClassId, subject);
         entity.name = request.name;
         entity.displayName = request.displayName;
         return entity;
@@ -67,7 +71,7 @@ public class StudentResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        Student entity = guard.requireOwnedStudent(id, currentUser.effectiveSubject());
+        Student entity = guard.requireRosterManageStudent(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

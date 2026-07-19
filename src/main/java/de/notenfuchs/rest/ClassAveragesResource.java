@@ -49,10 +49,18 @@ public class ClassAveragesResource {
 
     @GET
     public List<StudentSubjectAverageResponse> averages(@PathParam("classId") Long classId) {
-        SchoolClass schoolClass = guard.requireOwnedClass(classId, currentUser.effectiveSubject());
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAccess(classId, currentSubject);
 
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", classId);
         List<Subject> subjects = Subject.list("schoolClass.id", classId);
+        // A class owner sees every subject's average (the "Klassenlehrer overview"); a
+        // collaborator who isn't an owner only sees averages for subjects they actually teach -
+        // this is the one place that needs row-level filtering rather than a blanket gate, since
+        // the same endpoint serves both breadths depending on who's asking.
+        if (!guard.isOwner(schoolClass, currentSubject)) {
+            subjects = subjects.stream().filter(s -> guard.teachesSubject(s, currentSubject)).toList();
+        }
 
         List<StudentSubjectAverageResponse> result = new ArrayList<>();
 

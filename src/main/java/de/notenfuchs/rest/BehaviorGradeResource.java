@@ -33,10 +33,10 @@ public class BehaviorGradeResource {
     public List<BehaviorGrade> list(@QueryParam("studentId") Long studentId, @QueryParam("subjectId") Long subjectId) {
         String subject = currentUser.effectiveSubject();
         if (studentId != null) {
-            guard.requireOwnedStudent(studentId, subject);
+            guard.requireClassAccessStudent(studentId, subject);
         }
         if (subjectId != null) {
-            guard.requireOwnedSubject(subjectId, subject);
+            guard.requireClassAccessSubject(subjectId, subject);
         }
         if (studentId != null && subjectId != null) {
             return BehaviorGrade.list("student.id = ?1 and subject.id = ?2", studentId, subjectId);
@@ -47,13 +47,16 @@ public class BehaviorGradeResource {
         if (subjectId != null) {
             return BehaviorGrade.list("subject.id", subjectId);
         }
-        return BehaviorGrade.list("subject.schoolClass.ownerSubject", subject);
+        return BehaviorGrade.list(
+                "subject.schoolClass.id in (select ct.schoolClass.id from ClassTeacher ct where ct.teacherSubject = ?1)"
+                        + " or subject.schoolClass.id in (select st.subject.schoolClass.id from SubjectTeacher st where st.teacherSubject = ?1)",
+                subject);
     }
 
     @GET
     @Path("/{id}")
     public BehaviorGrade get(@PathParam("id") Long id) {
-        return guard.requireOwnedBehaviorGrade(id, currentUser.effectiveSubject());
+        return guard.requireClassAccessBehaviorGrade(id, currentUser.effectiveSubject());
     }
 
     @POST
@@ -61,8 +64,8 @@ public class BehaviorGradeResource {
     public Response create(@Valid BehaviorGradeRequest request) {
         String subject = currentUser.effectiveSubject();
         BehaviorGrade entity = new BehaviorGrade();
-        entity.student = guard.requireOwnedStudent(request.studentId, subject);
-        entity.subject = guard.requireOwnedSubject(request.subjectId, subject);
+        entity.student = guard.requireClassAccessStudent(request.studentId, subject);
+        entity.subject = guard.requireTeachesSubject(request.subjectId, subject);
         entity.value = request.value;
         entity.persist();
         return Response.status(Response.Status.CREATED).entity(entity).build();
@@ -73,9 +76,9 @@ public class BehaviorGradeResource {
     @Transactional
     public BehaviorGrade update(@PathParam("id") Long id, @Valid BehaviorGradeRequest request) {
         String subject = currentUser.effectiveSubject();
-        BehaviorGrade entity = guard.requireOwnedBehaviorGrade(id, subject);
-        entity.student = guard.requireOwnedStudent(request.studentId, subject);
-        entity.subject = guard.requireOwnedSubject(request.subjectId, subject);
+        BehaviorGrade entity = guard.requireTeachesBehaviorGrade(id, subject);
+        entity.student = guard.requireClassAccessStudent(request.studentId, subject);
+        entity.subject = guard.requireTeachesSubject(request.subjectId, subject);
         entity.value = request.value;
         return entity;
     }
@@ -84,7 +87,7 @@ public class BehaviorGradeResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        BehaviorGrade entity = guard.requireOwnedBehaviorGrade(id, currentUser.effectiveSubject());
+        BehaviorGrade entity = guard.requireTeachesBehaviorGrade(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

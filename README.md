@@ -165,13 +165,14 @@ Only needed if you're changing Notenfuchs' code - normal use doesn't need
 this. Requires Java 17+ (the Maven Wrapper, `./mvnw`, is committed, so no
 separate Maven install is needed).
 
-Start just the database:
+Start just the database, detached so this terminal stays free:
 
 ```bash
-docker compose up postgres
+docker compose up -d postgres
 ```
 
-Then run the app in Quarkus dev mode (live reload):
+Then run the app in Quarkus dev mode (live reload) - this is also what
+actually creates the schema (Flyway runs on startup):
 
 ```bash
 ./mvnw quarkus:dev
@@ -185,6 +186,11 @@ By default this connects to `jdbc:postgresql://localhost:5432/notenfuchs` (user/
 > no datasource is configured at all. This project deliberately configures an explicit
 > PostgreSQL datasource (see `src/main/resources/application.properties`) so that Dev Mode
 > and `docker compose` use the same schema-managed database instead of an ephemeral one.
+
+A fresh database (no `school_class` rows yet) gets one demo class ("Demo-Klasse
+8b") seeded automatically the first time Flyway creates the schema - nothing extra
+to run. This only ever happens once per database: if you delete the demo class
+afterward, it will not come back (Flyway migrations don't re-run).
 
 Want to run the full stack (app + Postgres) with your own local changes instead of the
 published image?
@@ -216,8 +222,9 @@ Docker: both the browser (Playwright's Dev Services container) and PostgreSQL
 
 `OwnershipGuardIT` (`src/test/java/de/notenfuchs/security`) is also a Failsafe integration
 test (needs Docker for its Testcontainers Postgres, no browser involved) that seeds
-`SchoolClass` rows with different `ownerSubject` values and asserts cross-tenant isolation
-directly against `OwnershipGuard` - see "Per-teacher data ownership" above.
+`SchoolClass`/`Subject` rows with different `ClassTeacher`/`SubjectTeacher` owners and
+asserts cross-tenant isolation directly against `OwnershipGuard` - see "Per-teacher data
+ownership" above.
 
 ## The grade model
 
@@ -384,23 +391,32 @@ is the value actually used for per-teacher data ownership (see below).
 
 ### Per-teacher data ownership
 
-Authentication (above) proves *who* is logged in; ownership is a separate layer that
-makes sure each teacher only ever sees and touches their **own** classes. There are no
-roles and no sharing between teachers - just single-tenant isolation per OIDC identity.
+Authentication (above) proves *who* is logged in; access control is a separate layer on
+top that decides which classes/subjects a teacher can see and edit. A class can have
+several full co-owners, and a subject can have several teachers - see `CLAUDE.md`'s
+"Authorization" section for the full model; the summary:
 
-- `SchoolClass.ownerSubject` (the owning teacher's OIDC `sub`) is the ownership root.
-  `Student`, `Subject`, `GradeCategory`, `Assessment`, and `Grade` don't carry their own
-  owner column - they're scoped by walking up to their `SchoolClass`. `GradeScale` is
-  shared reference data, not owned by anyone.
+- `ClassTeacher` marks full co-ownership of a `SchoolClass` (roster read/write,
+  class-wide settings, seeing every subject's average) and `SubjectTeacher` marks who
+  teaches a specific `Subject` (gates all Leistung-level access - categories,
+  assessments, grades - for that one subject, true for owners and collaborators alike).
+  Plain class-wide access (roster read, subject list, Verhaltensnoten) is **derived**:
+  a teacher has it if they own the class, or teach at least one of its subjects.
+  `GradeScale` is shared reference data, not owned by anyone.
 - `de.notenfuchs.security.OwnershipGuard` is the single place this is enforced. Every
   REST/web endpoint that reads or writes an entity by id resolves it through one of its
-  `requireOwned*` methods; a foreign class/subject/student/etc. and an unknown id both
-  come back as a plain **404**, deliberately indistinguishable, so a teacher can't tell
-  "doesn't exist" apart from "isn't yours". List endpoints (e.g. `GET /api/school-classes`)
-  are filtered to the current teacher rather than returning everyone's data.
+  `require*` methods (`requireClassAccess`/`requireClassOwner`,
+  `requireClassAccessSubject`/`requireTeachesSubject`, etc.); a foreign class/subject/
+  student/etc. and an unknown id both come back as a plain **404**, deliberately
+  indistinguishable, so a teacher can't tell "doesn't exist" apart from "isn't yours".
+  List endpoints (e.g. `GET /api/school-classes`) are filtered to classes the current
+  teacher can access rather than returning everyone's data.
 - In `%dev`/`%test`, where OIDC is disabled (see above), `CurrentUser.effectiveSubject()`
   falls back to a fixed `"dev-user"` subject, so ownership still works locally and in
   tests without a real login.
+- There is currently no UI to add, remove, or promote a teacher on a class/subject -
+  every class/subject still gets exactly the one owner/teacher its creator gets at
+  creation time.
 
 ## Deploying a free demo instance
 
@@ -450,7 +466,8 @@ files already in this repo:
    teacher-owned table (`grade_scale` - shared reference data - is left untouched) and
    reloading one fixed demo class (`Demo-Klasse 8b`, owned by the fixed local-auth user
    `lehrer` - see "Default: local built-in auth" above) with a handful of students and
-   grades.
+   grades. This is separate from the one-time Flyway seed used on a fresh self-hosted
+   install (see "For development" above) - this script runs nightly, outside Flyway.
 
 Trigger it manually from the Actions tab (`workflow_dispatch`) to redeploy/reset on
 demand instead of waiting for the nightly run.

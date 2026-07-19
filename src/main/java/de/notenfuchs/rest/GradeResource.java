@@ -28,27 +28,36 @@ public class GradeResource {
     public List<Grade> list(@QueryParam("studentId") Long studentId, @QueryParam("assessmentId") Long assessmentId) {
         String subject = currentUser.effectiveSubject();
         if (studentId != null) {
-            guard.requireOwnedStudent(studentId, subject);
+            guard.requireClassAccessStudent(studentId, subject);
         }
         if (assessmentId != null) {
-            guard.requireOwnedAssessment(assessmentId, subject);
+            guard.requireTeachesAssessment(assessmentId, subject);
         }
         if (studentId != null && assessmentId != null) {
             return Grade.list("student.id = ?1 and assessment.id = ?2", studentId, assessmentId);
         }
         if (studentId != null) {
-            return Grade.list("student.id", studentId);
+            // Class access to the student isn't enough on its own here - without an assessmentId
+            // to narrow the query, this must still be filtered to subjects the caller teaches, or
+            // a collaborator with access to only one subject in the class could read another
+            // teacher's grades for the same student via a bare studentId query.
+            return Grade.list(
+                    "student.id = ?1 and assessment.category.subject.id in"
+                            + " (select st.subject.id from SubjectTeacher st where st.teacherSubject = ?2)",
+                    studentId, subject);
         }
         if (assessmentId != null) {
             return Grade.list("assessment.id", assessmentId);
         }
-        return Grade.list("assessment.category.subject.schoolClass.ownerSubject", subject);
+        return Grade.list(
+                "assessment.category.subject.id in (select st.subject.id from SubjectTeacher st where st.teacherSubject = ?1)",
+                subject);
     }
 
     @GET
     @Path("/{id}")
     public Grade get(@PathParam("id") Long id) {
-        return guard.requireOwnedGrade(id, currentUser.effectiveSubject());
+        return guard.requireTeachesGrade(id, currentUser.effectiveSubject());
     }
 
     @POST
@@ -56,8 +65,8 @@ public class GradeResource {
     public Response create(@Valid GradeRequest request) {
         String subject = currentUser.effectiveSubject();
         Grade entity = new Grade();
-        entity.assessment = guard.requireOwnedAssessment(request.assessmentId, subject);
-        entity.student = guard.requireOwnedStudent(request.studentId, subject);
+        entity.assessment = guard.requireTeachesAssessment(request.assessmentId, subject);
+        entity.student = guard.requireClassAccessStudent(request.studentId, subject);
         entity.value = request.value;
         entity.persist();
         return Response.status(Response.Status.CREATED).entity(entity).build();
@@ -68,9 +77,9 @@ public class GradeResource {
     @Transactional
     public Grade update(@PathParam("id") Long id, @Valid GradeRequest request) {
         String subject = currentUser.effectiveSubject();
-        Grade entity = guard.requireOwnedGrade(id, subject);
-        entity.assessment = guard.requireOwnedAssessment(request.assessmentId, subject);
-        entity.student = guard.requireOwnedStudent(request.studentId, subject);
+        Grade entity = guard.requireTeachesGrade(id, subject);
+        entity.assessment = guard.requireTeachesAssessment(request.assessmentId, subject);
+        entity.student = guard.requireClassAccessStudent(request.studentId, subject);
         entity.value = request.value;
         return entity;
     }
@@ -79,7 +88,7 @@ public class GradeResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        Grade entity = guard.requireOwnedGrade(id, currentUser.effectiveSubject());
+        Grade entity = guard.requireTeachesGrade(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

@@ -61,7 +61,7 @@ public class SubjectUiResource {
     @Path("/{id}")
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id) {
-        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         CategoryListData data = categoryListData(id);
         return currentUser.withUser(detailTemplate
                 .data("subject", subject)
@@ -78,7 +78,7 @@ public class SubjectUiResource {
     public TemplateInstance addCategory(@PathParam("id") Long id,
                                          @FormParam("name") String name,
                                          @FormParam("weightPercent") BigDecimal weightPercent) {
-        Subject subject = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         GradeCategory category = new GradeCategory();
         category.subject = subject;
         category.name = name;
@@ -93,8 +93,8 @@ public class SubjectUiResource {
     @Transactional
     public TemplateInstance deleteCategory(@PathParam("id") Long id, @PathParam("categoryId") Long categoryId) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
         category.delete();
         return categoryFragment(subject);
     }
@@ -108,8 +108,8 @@ public class SubjectUiResource {
                                             @FormParam("name") String name,
                                             @FormParam("weightPercent") BigDecimal weightPercent) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
         if (name != null && !name.isBlank()) {
             category.name = name;
         }
@@ -132,8 +132,8 @@ public class SubjectUiResource {
                                            @FormParam("pointsBased") String pointsBasedRaw,
                                            @FormParam("roundingMode") String roundingModeRaw) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        GradeCategory category = guard.requireOwnedCategory(categoryId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
         boolean pointsBased = isChecked(pointsBasedRaw);
         Assessment assessment = new Assessment();
         assessment.category = category;
@@ -157,8 +157,8 @@ public class SubjectUiResource {
                                               @PathParam("categoryId") Long categoryId,
                                               @PathParam("assessmentId") Long assessmentId) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
         assessment.delete();
         return categoryFragment(subject);
     }
@@ -189,8 +189,8 @@ public class SubjectUiResource {
                                               @FormParam("roundingMode") String roundingModeRaw,
                                               @FormParam("date") LocalDate date) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
         if (name != null && !name.isBlank()) {
             assessment.name = name;
         }
@@ -221,8 +221,8 @@ public class SubjectUiResource {
                                      @FormParam("points") BigDecimal points,
                                      @FormParam("gradeValue") BigDecimal gradeValue) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        Assessment assessment = guard.requireOwnedAssessment(assessmentId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
         PointsGradeBand band = new PointsGradeBand();
         band.assessment = assessment;
         band.points = points;
@@ -243,8 +243,8 @@ public class SubjectUiResource {
                                         @FormParam("points") BigDecimal points,
                                         @FormParam("gradeValue") BigDecimal gradeValue) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        PointsGradeBand band = guard.requireOwnedPointsGradeBand(bandId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        PointsGradeBand band = guard.requireTeachesPointsGradeBand(bandId, currentSubject);
         if (points != null) {
             band.points = points;
         }
@@ -263,8 +263,8 @@ public class SubjectUiResource {
                                         @PathParam("assessmentId") Long assessmentId,
                                         @PathParam("bandId") Long bandId) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireOwnedSubject(id, currentSubject);
-        PointsGradeBand band = guard.requireOwnedPointsGradeBand(bandId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        PointsGradeBand band = guard.requireTeachesPointsGradeBand(bandId, currentSubject);
         band.delete();
         return categoryFragment(subject);
     }

@@ -3,6 +3,7 @@ package de.notenfuchs.rest;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectTeacher;
 import de.notenfuchs.dto.SubjectRequest;
 import de.notenfuchs.security.CurrentUser;
 import de.notenfuchs.security.OwnershipGuard;
@@ -30,27 +31,37 @@ public class SubjectResource {
     public List<Subject> list(@QueryParam("schoolClassId") Long schoolClassId) {
         String subject = currentUser.effectiveSubject();
         if (schoolClassId != null) {
-            guard.requireOwnedClass(schoolClassId, subject);
+            guard.requireClassAccess(schoolClassId, subject);
             return Subject.list("schoolClass.id", schoolClassId);
         }
-        return Subject.list("schoolClass.ownerSubject", subject);
+        return Subject.list(
+                "schoolClass.id in (select ct.schoolClass.id from ClassTeacher ct where ct.teacherSubject = ?1)"
+                        + " or schoolClass.id in (select st.subject.schoolClass.id from SubjectTeacher st where st.teacherSubject = ?1)",
+                subject);
     }
 
     @GET
     @Path("/{id}")
     public Subject get(@PathParam("id") Long id) {
-        return guard.requireOwnedSubject(id, currentUser.effectiveSubject());
+        return guard.requireClassAccessSubject(id, currentUser.effectiveSubject());
     }
 
     @POST
     @Transactional
     public Response create(@Valid SubjectRequest request) {
+        String currentSubject = currentUser.effectiveSubject();
         Subject entity = new Subject();
-        entity.schoolClass = guard.requireOwnedClass(request.schoolClassId, currentUser.effectiveSubject());
+        entity.schoolClass = guard.requireClassAccess(request.schoolClassId, currentSubject);
         entity.name = request.name;
         entity.gradeScale = findGradeScaleOrNotFound(request.gradeScaleId);
         entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.COMMERCIAL;
         entity.persist();
+
+        SubjectTeacher teacher = new SubjectTeacher();
+        teacher.subject = entity;
+        teacher.teacherSubject = currentSubject;
+        teacher.persist();
+
         return Response.status(Response.Status.CREATED).entity(entity).build();
     }
 
@@ -59,8 +70,8 @@ public class SubjectResource {
     @Transactional
     public Subject update(@PathParam("id") Long id, @Valid SubjectRequest request) {
         String subject = currentUser.effectiveSubject();
-        Subject entity = guard.requireOwnedSubject(id, subject);
-        entity.schoolClass = guard.requireOwnedClass(request.schoolClassId, subject);
+        Subject entity = guard.requireTeachesSubject(id, subject);
+        entity.schoolClass = guard.requireClassAccess(request.schoolClassId, subject);
         entity.name = request.name;
         entity.gradeScale = findGradeScaleOrNotFound(request.gradeScaleId);
         entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.COMMERCIAL;
@@ -71,7 +82,7 @@ public class SubjectResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        Subject entity = guard.requireOwnedSubject(id, currentUser.effectiveSubject());
+        Subject entity = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

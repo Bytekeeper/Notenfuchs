@@ -2,6 +2,7 @@ package de.notenfuchs.security;
 
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.BehaviorGrade;
+import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
@@ -9,6 +10,7 @@ import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectTeacher;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -23,17 +25,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Cross-tenant isolation coverage for {@link OwnershipGuard}, the central point every REST/web
- * resource routes through instead of raw {@code findById}/{@code listAll}. Needs a real
- * Postgres (Testcontainers Dev Services, see application.properties), so this is a Failsafe IT
- * (./mvnw verify), not a plain unit test - same reasoning as the browser ITs in
- * {@code src/test/java/de/notenfuchs/e2e}.
+ * Coverage for {@link OwnershipGuard}, the central point every REST/web resource routes through
+ * instead of raw {@code findById}/{@code listAll}. Needs a real Postgres (Testcontainers Dev
+ * Services, see application.properties), so this is a Failsafe IT (./mvnw verify), not a plain
+ * unit test - same reasoning as the browser ITs in {@code src/test/java/de/notenfuchs/e2e}.
  *
- * <p>Each test seeds its own two {@code SchoolClass} rows directly with distinct
- * {@code ownerSubject} values ("teacherA" / "teacherB") rather than needing two real OIDC
- * logins, then asserts the guard's list/require methods enforce isolation between them.
- * {@code @TestTransaction} rolls each test back afterwards, so tests don't need unique names to
- * stay independent of each other or of pre-existing data.
+ * <p>Covers both axes of the multi-teacher model: {@link ClassTeacher} (full class ownership,
+ * "teacherA"/"teacherB" as distinct owners) and {@link SubjectTeacher} (per-subject teaching
+ * rights, "collaborator" as a teacher who has access to a class only via one subject in it, not
+ * as an owner). {@code @TestTransaction} rolls each test back afterwards, so tests don't need
+ * unique names to stay independent of each other or of pre-existing data.
  */
 @QuarkusTest
 class OwnershipGuardIT {
@@ -43,68 +44,124 @@ class OwnershipGuardIT {
 
     @Test
     @TestTransaction
-    void listOwnedClasses_excludesClassesOwnedByAnotherTeacher() {
+    void listAccessibleClasses_excludesClassesOwnedByAnotherTeacher() {
         SchoolClass a = persistClass("teacherA");
         SchoolClass b = persistClass("teacherB");
 
-        List<SchoolClass> ownedByA = guard.listOwnedClasses("teacherA");
+        List<SchoolClass> accessibleToA = guard.listAccessibleClasses("teacherA");
 
-        assertTrue(ownedByA.stream().anyMatch(c -> c.id.equals(a.id)));
-        assertTrue(ownedByA.stream().noneMatch(c -> c.id.equals(b.id)));
+        assertTrue(accessibleToA.stream().anyMatch(c -> c.id.equals(a.id)));
+        assertTrue(accessibleToA.stream().noneMatch(c -> c.id.equals(b.id)));
     }
 
     @Test
     @TestTransaction
-    void requireOwnedClass_ownClass_returnsIt() {
+    void listAccessibleClasses_includesClassesAccessibleOnlyViaSubjectTeaching() {
+        SchoolClass b = persistClass("teacherB");
+        Subject subject = persistSubject(b, "teacherB");
+        persistSubjectTeacher(subject, "collaborator");
+
+        List<SchoolClass> accessibleToCollaborator = guard.listAccessibleClasses("collaborator");
+
+        assertTrue(accessibleToCollaborator.stream().anyMatch(c -> c.id.equals(b.id)));
+    }
+
+    @Test
+    @TestTransaction
+    void requireClassAccess_ownClass_returnsIt() {
         SchoolClass a = persistClass("teacherA");
 
-        SchoolClass found = guard.requireOwnedClass(a.id, "teacherA");
+        SchoolClass found = guard.requireClassAccess(a.id, "teacherA");
 
         assertEquals(a.id, found.id);
     }
 
     @Test
     @TestTransaction
-    void requireOwnedClass_foreignClass_throwsNotFound() {
+    void requireClassAccess_viaSubjectTeaching_returnsItButRequireClassOwnerRejects() {
         SchoolClass b = persistClass("teacherB");
+        Subject subject = persistSubject(b, "teacherB");
+        persistSubjectTeacher(subject, "collaborator");
 
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedClass(b.id, "teacherA"));
+        SchoolClass found = guard.requireClassAccess(b.id, "collaborator");
+        assertEquals(b.id, found.id);
+
+        assertThrows(NotFoundException.class, () -> guard.requireClassOwner(b.id, "collaborator"));
     }
 
     @Test
     @TestTransaction
-    void requireOwnedClass_unknownId_throwsNotFound() {
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedClass(-1L, "teacherA"));
+    void requireClassAccess_foreignClass_throwsNotFound() {
+        SchoolClass b = persistClass("teacherB");
+
+        assertThrows(NotFoundException.class, () -> guard.requireClassAccess(b.id, "teacherA"));
     }
 
     @Test
     @TestTransaction
-    void requireOwnedSubject_belongingToForeignClass_throwsNotFound() {
-        SchoolClass b = persistClass("teacherB");
-        Subject subject = persistSubject(b);
-
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedSubject(subject.id, "teacherA"));
-        assertEquals(subject.id, guard.requireOwnedSubject(subject.id, "teacherB").id);
+    void requireClassAccess_unknownId_throwsNotFound() {
+        assertThrows(NotFoundException.class, () -> guard.requireClassAccess(-1L, "teacherA"));
     }
 
     @Test
     @TestTransaction
-    void requireOwnedStudent_belongingToForeignClass_throwsNotFound() {
+    void requireClassOwner_foreignClass_throwsNotFound() {
         SchoolClass b = persistClass("teacherB");
+
+        assertThrows(NotFoundException.class, () -> guard.requireClassOwner(b.id, "teacherA"));
+    }
+
+    @Test
+    @TestTransaction
+    void requireTeachesSubject_belongingToForeignClass_throwsNotFound() {
+        SchoolClass b = persistClass("teacherB");
+        Subject subject = persistSubject(b, "teacherB");
+
+        assertThrows(NotFoundException.class, () -> guard.requireTeachesSubject(subject.id, "teacherA"));
+        assertEquals(subject.id, guard.requireTeachesSubject(subject.id, "teacherB").id);
+    }
+
+    @Test
+    @TestTransaction
+    void requireTeachesSubject_classAccessButNotTeachingThisSubject_throwsNotFound() {
+        SchoolClass b = persistClass("teacherB");
+        Subject taughtByCollaborator = persistSubject(b, "teacherB");
+        persistSubjectTeacher(taughtByCollaborator, "collaborator");
+        Subject taughtOnlyByOwner = persistSubject(b, "teacherB");
+
+        // Has class access (teaches a different subject in the same class)...
+        assertEquals(b.id, guard.requireClassAccess(b.id, "collaborator").id);
+        // ...but not Leistung-level access to a subject they don't personally teach, even though
+        // the class owner does - this is the scenario that didn't exist before this model.
+        assertThrows(NotFoundException.class,
+                () -> guard.requireTeachesSubject(taughtOnlyByOwner.id, "collaborator"));
+        assertEquals(taughtByCollaborator.id,
+                guard.requireTeachesSubject(taughtByCollaborator.id, "collaborator").id);
+    }
+
+    @Test
+    @TestTransaction
+    void requireClassAccessStudent_and_requireRosterManageStudent_distinguishOwnerFromCollaborator() {
+        SchoolClass b = persistClass("teacherB");
+        Subject subject = persistSubject(b, "teacherB");
+        persistSubjectTeacher(subject, "collaborator");
         Student student = new Student();
         student.schoolClass = b;
-        student.name = "Fremder Schueler";
+        student.name = "Schueler";
         student.persist();
 
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedStudent(student.id, "teacherA"));
-        assertEquals(student.id, guard.requireOwnedStudent(student.id, "teacherB").id);
+        assertEquals(student.id, guard.requireClassAccessStudent(student.id, "collaborator").id);
+        assertThrows(NotFoundException.class, () -> guard.requireRosterManageStudent(student.id, "collaborator"));
+        assertEquals(student.id, guard.requireRosterManageStudent(student.id, "teacherB").id);
+
+        assertThrows(NotFoundException.class, () -> guard.requireClassAccessStudent(student.id, "teacherA"));
     }
 
     @Test
     @TestTransaction
-    void requireOwnedCategoryAndAssessment_belongingToForeignClass_throwNotFound() {
+    void requireTeachesCategoryAndAssessment_belongingToForeignClass_throwNotFound() {
         SchoolClass b = persistClass("teacherB");
-        Subject subject = persistSubject(b);
+        Subject subject = persistSubject(b, "teacherB");
         GradeCategory category = new GradeCategory();
         category.subject = subject;
         category.name = "Schriftlich";
@@ -116,17 +173,17 @@ class OwnershipGuardIT {
         assessment.factor = BigDecimal.ONE;
         assessment.persist();
 
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedCategory(category.id, "teacherA"));
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedAssessment(assessment.id, "teacherA"));
-        assertEquals(category.id, guard.requireOwnedCategory(category.id, "teacherB").id);
-        assertEquals(assessment.id, guard.requireOwnedAssessment(assessment.id, "teacherB").id);
+        assertThrows(NotFoundException.class, () -> guard.requireTeachesCategory(category.id, "teacherA"));
+        assertThrows(NotFoundException.class, () -> guard.requireTeachesAssessment(assessment.id, "teacherA"));
+        assertEquals(category.id, guard.requireTeachesCategory(category.id, "teacherB").id);
+        assertEquals(assessment.id, guard.requireTeachesAssessment(assessment.id, "teacherB").id);
     }
 
     @Test
     @TestTransaction
-    void requireOwnedPointsGradeBand_belongingToForeignClass_throwsNotFound() {
+    void requireTeachesPointsGradeBand_belongingToForeignClass_throwsNotFound() {
         SchoolClass b = persistClass("teacherB");
-        Subject subject = persistSubject(b);
+        Subject subject = persistSubject(b, "teacherB");
         GradeCategory category = new GradeCategory();
         category.subject = subject;
         category.name = "Schriftlich";
@@ -144,39 +201,62 @@ class OwnershipGuardIT {
         band.gradeValue = new BigDecimal("4");
         band.persist();
 
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedPointsGradeBand(band.id, "teacherA"));
-        assertEquals(band.id, guard.requireOwnedPointsGradeBand(band.id, "teacherB").id);
+        assertThrows(NotFoundException.class, () -> guard.requireTeachesPointsGradeBand(band.id, "teacherA"));
+        assertEquals(band.id, guard.requireTeachesPointsGradeBand(band.id, "teacherB").id);
     }
 
     @Test
     @TestTransaction
-    void requireOwnedBehaviorGrade_belongingToForeignClass_throwsNotFound() {
+    void requireClassAccessBehaviorGrade_visibleClassWide_butRequireTeachesBehaviorGradeIsSubjectScoped() {
         SchoolClass b = persistClass("teacherB");
-        Subject subject = persistSubject(b);
+        Subject subjectA = persistSubject(b, "teacherB");
+        persistSubjectTeacher(subjectA, "collaborator");
         Student student = new Student();
         student.schoolClass = b;
         student.name = "Fremder Schueler";
         student.persist();
         BehaviorGrade behaviorGrade = new BehaviorGrade();
         behaviorGrade.student = student;
-        behaviorGrade.subject = subject;
+        behaviorGrade.subject = subjectA;
         behaviorGrade.value = new BigDecimal("2");
         behaviorGrade.persist();
 
-        assertThrows(NotFoundException.class, () -> guard.requireOwnedBehaviorGrade(behaviorGrade.id, "teacherA"));
-        assertEquals(behaviorGrade.id, guard.requireOwnedBehaviorGrade(behaviorGrade.id, "teacherB").id);
+        assertThrows(NotFoundException.class, () -> guard.requireClassAccessBehaviorGrade(behaviorGrade.id, "teacherA"));
+        assertEquals(behaviorGrade.id, guard.requireClassAccessBehaviorGrade(behaviorGrade.id, "teacherB").id);
+
+        // A collaborator who teaches a *different* subject in the same class can still see this
+        // Verhaltensnote (class-wide visibility)...
+        Subject subjectB = persistSubject(b, "teacherB");
+        persistSubjectTeacher(subjectB, "otherCollaborator");
+        BehaviorGrade otherSubjectGrade = new BehaviorGrade();
+        otherSubjectGrade.student = student;
+        otherSubjectGrade.subject = subjectB;
+        otherSubjectGrade.value = new BigDecimal("3");
+        otherSubjectGrade.persist();
+        assertEquals(otherSubjectGrade.id,
+                guard.requireClassAccessBehaviorGrade(otherSubjectGrade.id, "collaborator").id);
+        // ...but can't edit it, since they don't teach subjectB.
+        assertThrows(NotFoundException.class,
+                () -> guard.requireTeachesBehaviorGrade(otherSubjectGrade.id, "collaborator"));
+        assertEquals(otherSubjectGrade.id,
+                guard.requireTeachesBehaviorGrade(otherSubjectGrade.id, "otherCollaborator").id);
     }
 
     private SchoolClass persistClass(String owner) {
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.name = "Ownership-Test-Klasse-" + owner + "-" + System.nanoTime();
         schoolClass.schoolYear = "2025/26";
-        schoolClass.ownerSubject = owner;
         schoolClass.persist();
+
+        ClassTeacher classTeacher = new ClassTeacher();
+        classTeacher.schoolClass = schoolClass;
+        classTeacher.teacherSubject = owner;
+        classTeacher.persist();
+
         return schoolClass;
     }
 
-    private Subject persistSubject(SchoolClass schoolClass) {
+    private Subject persistSubject(SchoolClass schoolClass, String teacherSubject) {
         GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
         Subject subject = new Subject();
         subject.schoolClass = schoolClass;
@@ -184,6 +264,14 @@ class OwnershipGuardIT {
         subject.gradeScale = gradeScale;
         subject.roundingMode = RoundingMode.COMMERCIAL;
         subject.persist();
+        persistSubjectTeacher(subject, teacherSubject);
         return subject;
+    }
+
+    private void persistSubjectTeacher(Subject subject, String teacherSubject) {
+        SubjectTeacher subjectTeacher = new SubjectTeacher();
+        subjectTeacher.subject = subject;
+        subjectTeacher.teacherSubject = teacherSubject;
+        subjectTeacher.persist();
     }
 }

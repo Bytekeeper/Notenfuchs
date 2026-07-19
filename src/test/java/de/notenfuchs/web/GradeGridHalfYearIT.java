@@ -3,6 +3,7 @@ package de.notenfuchs.web;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.HalfYearGradeDisplay;
@@ -333,8 +334,11 @@ class GradeGridHalfYearIT {
             SchoolClass foreign = new SchoolClass();
             foreign.name = "HJ-Anzeige-Fremd-" + unique;
             foreign.schoolYear = "2025/26";
-            foreign.ownerSubject = "teacherB-" + unique;
             foreign.persist();
+            ClassTeacher owner = new ClassTeacher();
+            owner.schoolClass = foreign;
+            owner.teacherSubject = "teacherB-" + unique;
+            owner.persist();
             return foreign.id;
         });
 
@@ -353,8 +357,11 @@ class GradeGridHalfYearIT {
             SchoolClass foreign = new SchoolClass();
             foreign.name = "HJ-Fremd-" + unique;
             foreign.schoolYear = "2025/26";
-            foreign.ownerSubject = "teacherB-" + unique;
             foreign.persist();
+            ClassTeacher owner = new ClassTeacher();
+            owner.schoolClass = foreign;
+            owner.teacherSubject = "teacherB-" + unique;
+            owner.persist();
             return foreign.id;
         });
 

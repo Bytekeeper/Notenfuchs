@@ -30,23 +30,25 @@ public class AssessmentResource {
     public List<Assessment> list(@QueryParam("categoryId") Long categoryId) {
         String subject = currentUser.effectiveSubject();
         if (categoryId != null) {
-            guard.requireOwnedCategory(categoryId, subject);
+            guard.requireTeachesCategory(categoryId, subject);
             return Assessment.list("category.id", categoryId);
         }
-        return Assessment.list("category.subject.schoolClass.ownerSubject", subject);
+        return Assessment.list(
+                "category.subject.id in (select st.subject.id from SubjectTeacher st where st.teacherSubject = ?1)",
+                subject);
     }
 
     @GET
     @Path("/{id}")
     public Assessment get(@PathParam("id") Long id) {
-        return guard.requireOwnedAssessment(id, currentUser.effectiveSubject());
+        return guard.requireTeachesAssessment(id, currentUser.effectiveSubject());
     }
 
     @POST
     @Transactional
     public Response create(@Valid AssessmentRequest request) {
         Assessment entity = new Assessment();
-        entity.category = guard.requireOwnedCategory(request.categoryId, currentUser.effectiveSubject());
+        entity.category = guard.requireTeachesCategory(request.categoryId, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.date = request.date;
         entity.factor = request.factor != null ? request.factor : BigDecimal.ONE;
@@ -61,8 +63,8 @@ public class AssessmentResource {
     @Transactional
     public Assessment update(@PathParam("id") Long id, @Valid AssessmentRequest request) {
         String subject = currentUser.effectiveSubject();
-        Assessment entity = guard.requireOwnedAssessment(id, subject);
-        entity.category = guard.requireOwnedCategory(request.categoryId, subject);
+        Assessment entity = guard.requireTeachesAssessment(id, subject);
+        entity.category = guard.requireTeachesCategory(request.categoryId, subject);
         entity.name = request.name;
         entity.date = request.date;
         entity.factor = request.factor != null ? request.factor : BigDecimal.ONE;
@@ -75,7 +77,7 @@ public class AssessmentResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        Assessment entity = guard.requireOwnedAssessment(id, currentUser.effectiveSubject());
+        Assessment entity = guard.requireTeachesAssessment(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

@@ -1,6 +1,7 @@
 package de.notenfuchs.web;
 
 import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
@@ -122,8 +123,11 @@ class ClassDuplicationIT {
             SchoolClass foreign = new SchoolClass();
             foreign.name = "Dup-Fremd-" + unique;
             foreign.schoolYear = "2025/26";
-            foreign.ownerSubject = "teacherB-" + unique;
             foreign.persist();
+            ClassTeacher owner = new ClassTeacher();
+            owner.schoolClass = foreign;
+            owner.teacherSubject = "teacherB-" + unique;
+            owner.persist();
             return foreign.id;
         });
 

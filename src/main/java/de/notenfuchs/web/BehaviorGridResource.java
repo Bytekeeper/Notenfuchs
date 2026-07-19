@@ -40,9 +40,11 @@ import java.util.Map;
  * a single always-current value the teacher updates before each report is printed, consistent
  * with this app's anti-freeze design principle (see ROADMAP.md).
  *
- * <p>Since a class has exactly one owning teacher (no sharing between teachers, see
- * OwnershipGuard), "your Fächer" is simply every Fach of the class - the grid always shows all of
- * them, not a per-Fach scoped view like {@link GradeGridResource}.
+ * <p>Unlike {@link GradeGridResource}, this is never a per-Fach scoped view: any teacher with
+ * class access (owner or a Fachlehrer teaching any one subject in the class, see
+ * {@link de.notenfuchs.security.OwnershipGuard#hasClassAccess}) sees every Fach's column, a
+ * deliberate broadening of visibility beyond "subjects you teach" for this one figure. Only
+ * *editing* a cell narrows back down: {@link #saveCell} requires teaching that specific subject.
  *
  * <p>The per-Fach column average (bottom row) reuses {@link GradeService#calculateAssessmentAverage}
  * exactly like {@link GradeGridResource}'s per-Leistung footer - a plain average within that one
@@ -71,7 +73,7 @@ public class BehaviorGridResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance grid(@PathParam("id") Long id) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
         GridData data = loadGridData(schoolClass);
         return currentUser.withUser(gridTemplate
                 .data("schoolClass", schoolClass)
@@ -146,9 +148,9 @@ public class BehaviorGridResource {
                               @FormParam("subjectId") Long subjectId,
                               @FormParam("value") String rawValue) {
         String currentSubject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentSubject);
-        Student student = guard.requireOwnedStudent(studentId, currentSubject);
-        Subject subject = guard.requireOwnedSubject(subjectId, currentSubject);
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentSubject);
+        Student student = guard.requireClassAccessStudent(studentId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(subjectId, currentSubject);
         if (!student.schoolClass.id.equals(schoolClass.id) || !subject.schoolClass.id.equals(schoolClass.id)) {
             throw new NotFoundException();
         }

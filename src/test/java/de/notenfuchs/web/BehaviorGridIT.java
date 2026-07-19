@@ -3,6 +3,7 @@ package de.notenfuchs.web;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.notenfuchs.domain.BehaviorGrade;
+import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
@@ -131,8 +132,11 @@ class BehaviorGridIT {
             SchoolClass foreign = new SchoolClass();
             foreign.name = "VN-Fremd-" + unique;
             foreign.schoolYear = "2025/26";
-            foreign.ownerSubject = "teacherB-" + unique;
             foreign.persist();
+            ClassTeacher owner = new ClassTeacher();
+            owner.schoolClass = foreign;
+            owner.teacherSubject = "teacherB-" + unique;
+            owner.persist();
             return foreign.id;
         });
 

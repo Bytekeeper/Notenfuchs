@@ -1,5 +1,6 @@
 package de.notenfuchs.web;
 
+import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.HalfYearGradeDisplay;
@@ -7,6 +8,7 @@ import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectTeacher;
 import de.notenfuchs.security.CurrentUser;
 import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.CsvRosterService;
@@ -97,7 +99,7 @@ public class ClassUiResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
-        return currentUser.withUser(listTemplate.data("yearGroups", groupByYear(guard.listOwnedClasses(currentUser.effectiveSubject()))));
+        return currentUser.withUser(listTemplate.data("yearGroups", groupByYear(guard.listAccessibleClasses(currentUser.effectiveSubject()))));
     }
 
     @GET
@@ -105,7 +107,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id,
                                     @QueryParam("rosterImportResult") String rosterImportResult) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
         List<Subject> subjects = Subject.list("schoolClass.id", id);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<GradeScale> gradeScales = GradeScale.listAll();
@@ -134,14 +136,18 @@ public class ClassUiResource {
                                @FormParam("name") String name,
                                @FormParam("schoolYear") String schoolYear) {
         String currentSubject = currentUser.effectiveSubject();
-        SchoolClass source = guard.requireOwnedClass(id, currentSubject);
+        SchoolClass source = guard.requireClassOwner(id, currentSubject);
 
         SchoolClass copy = new SchoolClass();
         copy.name = name;
         copy.schoolYear = schoolYear;
-        copy.ownerSubject = currentSubject;
         copy.predecessorClass = source;
         copy.persist();
+
+        ClassTeacher copyOwner = new ClassTeacher();
+        copyOwner.schoolClass = copy;
+        copyOwner.teacherSubject = currentSubject;
+        copyOwner.persist();
 
         List<Subject> sourceSubjects = Subject.list("schoolClass.id", id);
         for (Subject sourceSubject : sourceSubjects) {
@@ -151,6 +157,11 @@ public class ClassUiResource {
             subjectCopy.gradeScale = sourceSubject.gradeScale;
             subjectCopy.roundingMode = sourceSubject.roundingMode;
             subjectCopy.persist();
+
+            SubjectTeacher subjectCopyTeacher = new SubjectTeacher();
+            subjectCopyTeacher.subject = subjectCopy;
+            subjectCopyTeacher.teacherSubject = currentSubject;
+            subjectCopyTeacher.persist();
 
             List<GradeCategory> sourceCategories = GradeCategory.list("subject.id", sourceSubject.id);
             for (GradeCategory sourceCategory : sourceCategories) {
@@ -193,9 +204,14 @@ public class ClassUiResource {
         SchoolClass entity = new SchoolClass();
         entity.name = name;
         entity.schoolYear = schoolYear;
-        entity.ownerSubject = subject;
         entity.persist();
-        return classListFragment.data("yearGroups", groupByYear(guard.listOwnedClasses(subject)));
+
+        ClassTeacher owner = new ClassTeacher();
+        owner.schoolClass = entity;
+        owner.teacherSubject = subject;
+        owner.persist();
+
+        return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
     }
 
     @DELETE
@@ -204,9 +220,9 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance delete(@PathParam("id") Long id) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass entity = guard.requireOwnedClass(id, subject);
+        SchoolClass entity = guard.requireClassOwner(id, subject);
         entity.delete();
-        return classListFragment.data("yearGroups", groupByYear(guard.listOwnedClasses(subject)));
+        return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
     }
 
     @PATCH
@@ -217,14 +233,14 @@ public class ClassUiResource {
     public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name,
                                     @FormParam("schoolYear") String schoolYear) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass entity = guard.requireOwnedClass(id, subject);
+        SchoolClass entity = guard.requireClassOwner(id, subject);
         if (name != null && !name.isBlank()) {
             entity.name = name;
         }
         if (schoolYear != null && !schoolYear.isBlank()) {
             entity.schoolYear = schoolYear;
         }
-        return classListFragment.data("yearGroups", groupByYear(guard.listOwnedClasses(subject)));
+        return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
     }
 
     /**
@@ -239,7 +255,7 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance updateHalfYearCutoff(@PathParam("id") Long id,
                                                   @FormParam("halfYearCutoff") LocalDate halfYearCutoff) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
         schoolClass.halfYearCutoff = halfYearCutoff;
         return halfYearCutoffFragment.data("schoolClass", schoolClass);
     }
@@ -260,7 +276,7 @@ public class ClassUiResource {
     public TemplateInstance updateHalfYearGradeDisplay(@PathParam("id") Long id,
                                                          @FormParam("halfYearGradeDisplay") String halfYearGradeDisplay,
                                                          @FormParam("tendencyThreshold") BigDecimal tendencyThreshold) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
         HalfYearGradeDisplay mode = (halfYearGradeDisplay == null || halfYearGradeDisplay.isBlank())
                 ? HalfYearGradeDisplay.WHOLE
                 : HalfYearGradeDisplay.valueOf(halfYearGradeDisplay);
@@ -277,7 +293,7 @@ public class ClassUiResource {
     public TemplateInstance addStudent(@PathParam("id") Long id,
                                         @FormParam("name") String name,
                                         @FormParam("displayName") String displayName) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
         Student student = new Student();
         student.schoolClass = schoolClass;
         student.name = name;
@@ -293,8 +309,8 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance deleteStudent(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireOwnedClass(id, subject);
-        Student student = guard.requireOwnedStudent(studentId, subject);
+        SchoolClass schoolClass = guard.requireClassOwner(id, subject);
+        Student student = guard.requireRosterManageStudent(studentId, subject);
         student.delete();
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         return studentListFragment.data("schoolClass", schoolClass).data("students", students);
@@ -309,8 +325,8 @@ public class ClassUiResource {
                                            @FormParam("name") String name,
                                            @FormParam("displayName") String displayName) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireOwnedClass(id, subject);
-        Student student = guard.requireOwnedStudent(studentId, subject);
+        SchoolClass schoolClass = guard.requireClassOwner(id, subject);
+        Student student = guard.requireRosterManageStudent(studentId, subject);
         if (name != null && !name.isBlank()) {
             student.name = name;
         }
@@ -328,7 +344,7 @@ public class ClassUiResource {
     @Path("/{id}/roster/export")
     @Produces("text/csv; charset=UTF-8")
     public Response exportRoster(@PathParam("id") Long id) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<String> names = students.stream().map(s -> s.name).toList();
         byte[] csv = csvRosterService.format(names);
@@ -354,7 +370,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public TemplateInstance previewRosterImport(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
         if (file == null) {
             throw new BadRequestException("Keine Datei hochgeladen");
         }
@@ -398,7 +414,7 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public Response confirmRosterImport(@PathParam("id") Long id, @FormParam("names") List<String> submittedNames) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
         Set<String> seenNames = existingStudentNames(id);
 
         int created = 0;
@@ -449,7 +465,8 @@ public class ClassUiResource {
                                         @FormParam("name") String name,
                                         @FormParam("gradeScaleId") Long gradeScaleId,
                                         @FormParam("roundingMode") String roundingMode) {
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentSubject);
         GradeScale gradeScale = GradeScale.findById(gradeScaleId);
         if (gradeScale == null) {
             throw new NotFoundException("GradeScale " + gradeScaleId + " not found");
@@ -462,6 +479,12 @@ public class ClassUiResource {
                 ? RoundingMode.COMMERCIAL
                 : RoundingMode.valueOf(roundingMode);
         subject.persist();
+
+        SubjectTeacher teacher = new SubjectTeacher();
+        teacher.subject = subject;
+        teacher.teacherSubject = currentSubject;
+        teacher.persist();
+
         List<Subject> subjects = subjectsWithGradeScale(id);
         return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
     }
@@ -472,8 +495,11 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance deleteSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId) {
         String currentSubject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentSubject);
-        Subject subject = guard.requireOwnedSubject(subjectId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(subjectId, currentSubject);
+        if (!subject.schoolClass.id.equals(id)) {
+            throw new NotFoundException("Subject " + subjectId + " not found");
+        }
+        SchoolClass schoolClass = subject.schoolClass;
         subject.delete();
         List<Subject> subjects = subjectsWithGradeScale(id);
         return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
@@ -488,8 +514,11 @@ public class ClassUiResource {
                                            @FormParam("name") String name,
                                            @FormParam("roundingMode") String roundingMode) {
         String currentSubject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireOwnedClass(id, currentSubject);
-        Subject subject = guard.requireOwnedSubject(subjectId, currentSubject);
+        Subject subject = guard.requireTeachesSubject(subjectId, currentSubject);
+        if (!subject.schoolClass.id.equals(id)) {
+            throw new NotFoundException("Subject " + subjectId + " not found");
+        }
+        SchoolClass schoolClass = subject.schoolClass;
         if (name != null && !name.isBlank()) {
             subject.name = name;
         }
@@ -516,7 +545,7 @@ public class ClassUiResource {
 
     /**
      * Buckets an already {@code schoolYear desc}-sorted class list (see
-     * {@link OwnershipGuard#listOwnedClasses}) into consecutive same-year groups, so
+     * {@link OwnershipGuard#listAccessibleClasses}) into consecutive same-year groups, so
      * {@code fragments/classList.html} can render a year heading per group instead of one
      * long undifferentiated grid - a class a year adds up over a teaching career.
      */

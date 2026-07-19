@@ -1,5 +1,6 @@
 package de.notenfuchs.rest;
 
+import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.dto.SchoolClassRequest;
 import de.notenfuchs.security.CurrentUser;
@@ -26,13 +27,13 @@ public class SchoolClassResource {
 
     @GET
     public List<SchoolClass> list() {
-        return guard.listOwnedClasses(currentUser.effectiveSubject());
+        return guard.listAccessibleClasses(currentUser.effectiveSubject());
     }
 
     @GET
     @Path("/{id}")
     public SchoolClass get(@PathParam("id") Long id) {
-        return guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        return guard.requireClassAccess(id, currentUser.effectiveSubject());
     }
 
     @POST
@@ -41,8 +42,13 @@ public class SchoolClassResource {
         SchoolClass entity = new SchoolClass();
         entity.name = request.name;
         entity.schoolYear = request.schoolYear;
-        entity.ownerSubject = currentUser.effectiveSubject();
         entity.persist();
+
+        ClassTeacher owner = new ClassTeacher();
+        owner.schoolClass = entity;
+        owner.teacherSubject = currentUser.effectiveSubject();
+        owner.persist();
+
         return Response.status(Response.Status.CREATED).entity(entity).build();
     }
 
@@ -50,7 +56,7 @@ public class SchoolClassResource {
     @Path("/{id}")
     @Transactional
     public SchoolClass update(@PathParam("id") Long id, @Valid SchoolClassRequest request) {
-        SchoolClass entity = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass entity = guard.requireClassOwner(id, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.schoolYear = request.schoolYear;
         return entity;
@@ -60,7 +66,7 @@ public class SchoolClassResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        SchoolClass entity = guard.requireOwnedClass(id, currentUser.effectiveSubject());
+        SchoolClass entity = guard.requireClassOwner(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

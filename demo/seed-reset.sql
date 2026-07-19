@@ -4,8 +4,13 @@
 -- demo database every night after redeploying). Wipes every teacher-owned
 -- table and reloads one fixed demo class, so visitors always land on the
 -- same clean example regardless of what previous visitors typed into it
--- during the day. Also used by docker-compose.yml's seed-demo service to
--- seed a fresh local/self-host Postgres volume on first boot.
+-- during the day.
+--
+-- This is separate from V3__seed_demo_class.sql, which seeds the same
+-- example class exactly once via Flyway on a genuinely fresh install (self-
+-- hosted or local dev) - this script here runs outside Flyway entirely (via
+-- plain psql) and keeps TRUNCATE-ing and reloading on every nightly reset,
+-- so it's free to diverge from that frozen one-time migration over time.
 --
 -- grade_scale is shared reference data (seeded once by Flyway in
 -- V1__init.sql) and is deliberately left untouched here.
@@ -26,8 +31,9 @@ TRUNCATE TABLE grade, points_grade_band, assessment, grade_category, subject, st
     RESTART IDENTITY CASCADE;
 
 -- The demo instance's fixed local-auth user is "lehrer" (see
--- LocalAuthConfigSource.FIXED_USERNAME) - every demo class must be owned by
--- that subject or it won't show up after logging in.
+-- LocalAuthConfigSource.FIXED_USERNAME) - every demo class must have a
+-- class_teacher row (and every demo subject a subject_teacher row) for that
+-- subject or it won't show up after logging in (see OwnershipGuard).
 --
 -- half_year_cutoff sits between "Mitarbeit 1. Halbjahr" (day -15, so it
 -- lands in "1. Halbjahr" as its name implies) and "Klassenarbeit 2" (day
@@ -35,9 +41,13 @@ TRUNCATE TABLE grade, points_grade_band, assessment, grade_category, subject, st
 -- into the first half, so the grid's Ohne Datum/H1/H2/Jahr split view has
 -- at least one Leistung on each side of the cutoff to show off.
 WITH new_class AS (
-    INSERT INTO school_class (id, name, school_year, owner_subject, half_year_cutoff)
-    VALUES (nextval('school_class_seq'), 'Demo-Klasse 8b', '2025/26', 'lehrer', CURRENT_DATE - INTERVAL '12 days')
+    INSERT INTO school_class (id, name, school_year, half_year_cutoff)
+    VALUES (nextval('school_class_seq'), 'Demo-Klasse 8b', '2025/26', CURRENT_DATE - INTERVAL '12 days')
     RETURNING id
+),
+new_class_teacher AS (
+    INSERT INTO class_teacher (id, school_class_id, teacher_subject)
+    SELECT nextval('class_teacher_seq'), new_class.id, 'lehrer' FROM new_class
 ),
 new_students AS (
     INSERT INTO student (id, school_class_id, name)
@@ -57,6 +67,10 @@ new_subject AS (
     FROM new_class, grade_scale
     WHERE grade_scale.name = 'DE 1-6'
     RETURNING id
+),
+new_subject_teacher AS (
+    INSERT INTO subject_teacher (id, subject_id, teacher_subject)
+    SELECT nextval('subject_teacher_seq'), new_subject.id, 'lehrer' FROM new_subject
 ),
 new_categories AS (
     INSERT INTO grade_category (id, subject_id, name, weight_percent)

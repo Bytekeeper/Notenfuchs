@@ -28,23 +28,24 @@ public class GradeCategoryResource {
     public List<GradeCategory> list(@QueryParam("subjectId") Long subjectId) {
         String subject = currentUser.effectiveSubject();
         if (subjectId != null) {
-            guard.requireOwnedSubject(subjectId, subject);
+            guard.requireTeachesSubject(subjectId, subject);
             return GradeCategory.list("subject.id", subjectId);
         }
-        return GradeCategory.list("subject.schoolClass.ownerSubject", subject);
+        return GradeCategory.list(
+                "subject.id in (select st.subject.id from SubjectTeacher st where st.teacherSubject = ?1)", subject);
     }
 
     @GET
     @Path("/{id}")
     public GradeCategory get(@PathParam("id") Long id) {
-        return guard.requireOwnedCategory(id, currentUser.effectiveSubject());
+        return guard.requireTeachesCategory(id, currentUser.effectiveSubject());
     }
 
     @POST
     @Transactional
     public Response create(@Valid GradeCategoryRequest request) {
         GradeCategory entity = new GradeCategory();
-        entity.subject = guard.requireOwnedSubject(request.subjectId, currentUser.effectiveSubject());
+        entity.subject = guard.requireTeachesSubject(request.subjectId, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.weightPercent = request.weightPercent;
         entity.persist();
@@ -56,8 +57,8 @@ public class GradeCategoryResource {
     @Transactional
     public GradeCategory update(@PathParam("id") Long id, @Valid GradeCategoryRequest request) {
         String subject = currentUser.effectiveSubject();
-        GradeCategory entity = guard.requireOwnedCategory(id, subject);
-        entity.subject = guard.requireOwnedSubject(request.subjectId, subject);
+        GradeCategory entity = guard.requireTeachesCategory(id, subject);
+        entity.subject = guard.requireTeachesSubject(request.subjectId, subject);
         entity.name = request.name;
         entity.weightPercent = request.weightPercent;
         return entity;
@@ -67,7 +68,7 @@ public class GradeCategoryResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        GradeCategory entity = guard.requireOwnedCategory(id, currentUser.effectiveSubject());
+        GradeCategory entity = guard.requireTeachesCategory(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

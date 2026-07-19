@@ -22,8 +22,9 @@ import java.util.Optional;
  * {@link #isAuthenticated()} simply returns {@code false} and the other accessors
  * return empty values - callers must be null/empty-safe.
  *
- * <p><b>Per-teacher data scoping:</b> {@code SchoolClass.ownerSubject} is keyed on
- * {@link #subject()} - it is the stable, unique OIDC subject claim. {@link #effectiveSubject()}
+ * <p><b>Per-teacher data scoping:</b> {@code ClassTeacher.teacherSubject}/
+ * {@code SubjectTeacher.teacherSubject} are keyed on {@link #subject()} - it is the stable,
+ * unique OIDC subject claim. {@link #effectiveSubject()}
  * is the method call sites should actually use for ownership checks (see
  * {@link de.notenfuchs.security.OwnershipGuard}), since it also covers the %dev/%test bypass.
  */
