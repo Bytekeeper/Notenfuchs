@@ -1,63 +1,63 @@
 # Notenfuchs
 
-Notenfuchs is an open-source grade-management tool for teachers, built with
-[Quarkus](https://quarkus.io/). It lets a teacher organize school classes, students,
-subjects, weighted grade categories (e.g. "Schriftlich" / "Muendlich"), individual
-assessments, and grades - and computes weighted per-student, per-subject averages
-and rounded final grades automatically.
+Notenfuchs ist ein Open-Source-Tool zur Notenverwaltung für Lehrkräfte, entwickelt mit
+[Quarkus](https://quarkus.io/). Es erlaubt Lehrkräften, Klassen, Schüler, Fächer,
+gewichtete Notenkategorien (z. B. "Schriftlich" / "Mündlich"), einzelne Leistungen und
+Noten zu verwalten - und berechnet automatisch gewichtete Durchschnitte pro Schüler und
+Fach sowie gerundete Endnoten.
 
 ## Screenshots
 
-| Class overview | Grade-entry grid |
+| Klassenübersicht | Noteneingabe-Raster |
 |---|---|
-| ![Class list](screenshots/class-list.png) | ![Grade-entry grid](screenshots/grade-grid.png) |
+| ![Klassenliste](screenshots/class-list.png) | ![Noteneingabe-Raster](screenshots/grade-grid.png) |
 
-![Class detail: subjects and roster](screenshots/class-detail.png)
+![Klassendetail: Fächer und Schülerliste](screenshots/class-detail.png)
 
-(All names shown are made-up placeholder data, not real students.)
+(Alle gezeigten Namen sind frei erfunden und keine echten Schüler.)
 
-## Running Notenfuchs
+## Notenfuchs betreiben
 
-Notenfuchs runs as a Docker container alongside PostgreSQL. The only thing you
-need installed is [Docker](https://docs.docker.com/get-docker/) - Docker
-Desktop on Mac/Windows, or Docker Engine + the Compose plugin on Linux. No
-Java, Maven, or other local toolchain is required to *run* it (only to work on
-its code - see "For development" below).
+Notenfuchs läuft als Docker-Container zusammen mit PostgreSQL. Das Einzige, was
+installiert sein muss, ist [Docker](https://docs.docker.com/get-docker/) - Docker
+Desktop unter Mac/Windows oder Docker Engine + das Compose-Plugin unter Linux. Es wird
+keine lokale Java-, Maven- oder sonstige Toolchain benötigt, um es *auszuführen* (nur um
+am Code zu arbeiten - siehe "Für die Entwicklung" weiter unten).
 
-Pick **Option A** if you're the only teacher who'll use this instance, or
-**Option B** if more than one teacher needs their own login.
+Wähle **Option A**, wenn du die einzige Lehrkraft bist, die diese Instanz nutzt, oder
+**Option B**, wenn mehrere Lehrkräfte jeweils einen eigenen Login benötigen.
 
-### Option A: single-user, local password (default, simplest)
+### Option A: Einzelnutzer, lokales Passwort (Standard, am einfachsten)
 
-One fixed login, password set by you - nothing else to configure or sign up
-for.
+Ein fest eingerichteter Login mit einem von dir gewählten Passwort - sonst muss nichts
+konfiguriert oder registriert werden.
 
 ```bash
 git clone https://github.com/bytekeeper/Notenfuchs.git
 cd Notenfuchs
-cp .env.example .env      # then open .env and set NOTENFUCHS_PASSWORD
+cp .env.example .env      # dann .env öffnen und NOTENFUCHS_PASSWORD setzen
 docker compose up
 ```
 
-This pulls a prebuilt image from `ghcr.io/bytekeeper/notenfuchs` (published by
-CI on every push to `master`, see `.github/workflows/publish-image.yml`) and
-starts it alongside PostgreSQL - no local build needed. Once it's up, open
-`http://localhost:8080/login` and sign in with username `lehrer` and the
-password you set (see "Default: local built-in auth" under "Authentication"
-below for how this login works).
+Das lädt ein vorgefertigtes Image von `ghcr.io/bytekeeper/notenfuchs` (von CI bei jedem
+Push auf `master` veröffentlicht, siehe `.github/workflows/publish-image.yml`) und
+startet es zusammen mit PostgreSQL - kein lokaler Build nötig. Sobald es läuft, öffne
+`http://localhost:8080/login` und melde dich mit dem Benutzernamen `lehrer` und dem
+gesetzten Passwort an (siehe "Standard: lokale integrierte Anmeldung" unter
+"Authentifizierung" weiter unten, wie dieser Login funktioniert).
 
-To stop everything: `docker compose down` (add `-v` to also drop the database
-volume).
+Um alles zu stoppen: `docker compose down` (mit `-v` wird zusätzlich das
+Datenbank-Volume gelöscht).
 
-### Option B: multi-user, Pocket ID SSO
+### Option B: Mehrbenutzer, Pocket ID SSO
 
-If more than one teacher will use this instance, each needs their own login.
-Notenfuchs delegates that to [Pocket ID](https://pocket-id.org), a
-lightweight, passkey-based OIDC provider that runs alongside it in the same
-Compose stack - no separate signup with a third-party service required, and no
-passwords to manage (Pocket ID is WebAuthn/passkey-only). Setup is a few
-manual steps in Pocket ID's own admin UI; nothing is bootstrapped
-automatically.
+Wenn mehrere Lehrkräfte diese Instanz nutzen, braucht jede einen eigenen Login.
+Notenfuchs delegiert dies an [Pocket ID](https://pocket-id.org), einen schlanken,
+Passkey-basierten OIDC-Provider, der im selben Compose-Stack mitläuft - keine separate
+Registrierung bei einem Drittanbieter nötig, und keine Passwörter zu verwalten (Pocket
+ID nutzt ausschließlich WebAuthn/Passkeys). Die Einrichtung erfolgt über ein paar
+manuelle Schritte in Pocket IDs eigener Admin-Oberfläche; nichts wird automatisch
+vorkonfiguriert.
 
 ```bash
 git clone https://github.com/bytekeeper/Notenfuchs.git
@@ -65,540 +65,596 @@ cd Notenfuchs
 cp .env.example .env
 ```
 
-1. **Point Compose at both files.** In `.env`, uncomment
-   `COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml` - every later
-   `docker compose` command then merges the base stack with the Pocket ID
-   overlay automatically, no `-f -f` flags needed. Leave `NOTENFUCHS_PASSWORD`
-   blank - local auth and OIDC are never active at the same time.
-2. **Generate the secret Pocket ID needs** and put it in `.env`:
-   `POCKET_ID_ENCRYPTION_KEY`, via `openssl rand -base64 32`.
-3. **Start the stack:** `docker compose up`.
-4. **Create the Pocket ID admin account.** This is the one step that can't be
-   automated: Pocket ID has no passwords, only WebAuthn passkeys, and
-   registering one requires an actual browser + authenticator. Visit
-   `<POCKET_ID_APP_URL>/setup` (`http://localhost:1411/setup` with the
-   default `.env`) once and follow the prompts.
-5. **Register Notenfuchs as an OIDC client.** In Pocket ID's admin UI, go to
-   OIDC Clients -> New Client, set the callback URL to
-   `<your Notenfuchs URL>/auth-callback` (`http://localhost:8080/auth-callback`
-   by default) and the logout callback URL to `<your Notenfuchs URL>/`, then
-   expand "Advanced options" and set the **Client ID** field to exactly
-   `notenfuchs` (matching the fixed `OIDC_CLIENT_ID` in
-   `docker-compose.oidc.yml`). Saving generates a Client Secret - copy it into
-   `.env` as `OIDC_CLIENT_SECRET`, then run `docker compose up -d app` to pick
-   it up.
-6. **Grant access.** A newly created OIDC client in Pocket ID starts
-   completely locked down - no user group is allowed yet, so nobody can log
-   in through it, not even after creating a passkey account in the next step.
-   On the client's page, expand **Allowed User Groups** and either click
-   **Unrestrict** (any Pocket ID user can log in - fine for a single-teacher
-   instance, or a small trusted household/staff) or create/assign a specific
-   group to limit it to just the teachers who should use Notenfuchs.
-7. **Hand out a sign-up link.** On the Users page, use "Create signup token"
-   to generate a single-use link and give it to whoever should actually use
-   Notenfuchs (e.g. yourself, or another teacher) so they can create their own
-   passkey account directly - you never need to share the admin login.
+1. **Compose auf beide Dateien verweisen lassen.** In `.env` die Zeile
+   `COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml` einkommentieren - jeder
+   spätere `docker compose`-Befehl kombiniert dann automatisch den Basis-Stack mit dem
+   Pocket-ID-Overlay, ohne `-f -f`-Flags. `NOTENFUCHS_PASSWORD` leer lassen - lokale
+   Anmeldung und OIDC sind nie gleichzeitig aktiv.
+2. **Das Secret erzeugen, das Pocket ID braucht** und in `.env` eintragen:
+   `POCKET_ID_ENCRYPTION_KEY`, per `openssl rand -base64 32`.
+3. **Den Stack starten:** `docker compose up`.
+4. **Das Pocket-ID-Admin-Konto anlegen.** Das ist der eine Schritt, der sich nicht
+   automatisieren lässt: Pocket ID hat keine Passwörter, nur WebAuthn-Passkeys, und
+   deren Registrierung erfordert einen echten Browser + Authenticator. Rufe einmalig
+   `<POCKET_ID_APP_URL>/setup` auf (`http://localhost:1411/setup` bei der
+   Standard-`.env`) und folge den Anweisungen.
+5. **Notenfuchs als OIDC-Client registrieren.** Gehe in Pocket IDs Admin-UI zu OIDC
+   Clients -> New Client, setze die Callback-URL auf
+   `<deine Notenfuchs-URL>/auth-callback` (standardmäßig
+   `http://localhost:8080/auth-callback`) und die Logout-Callback-URL auf
+   `<deine Notenfuchs-URL>/`, klappe dann "Advanced options" auf und setze das Feld
+   **Client ID** exakt auf `notenfuchs` (passend zur fest codierten `OIDC_CLIENT_ID` in
+   `docker-compose.oidc.yml`). Beim Speichern wird ein Client Secret erzeugt - kopiere
+   es als `OIDC_CLIENT_SECRET` in die `.env` und führe dann `docker compose up -d app`
+   aus, damit es übernommen wird.
+6. **Zugriff gewähren.** Ein neu erstellter OIDC-Client in Pocket ID ist zunächst
+   vollständig gesperrt - noch keine Benutzergruppe ist zugelassen, sodass sich niemand
+   darüber anmelden kann, selbst nicht nach dem Anlegen eines Passkey-Kontos im
+   nächsten Schritt. Klappe auf der Client-Seite **Allowed User Groups** auf und
+   klicke entweder auf **Unrestrict** (jeder Pocket-ID-Nutzer kann sich anmelden - für
+   eine Einzellehrkraft-Instanz oder einen kleinen, vertrauenswürdigen
+   Haushalt/Kollegium in Ordnung) oder lege eine Gruppe an/weise eine zu, um den
+   Zugriff auf genau die Lehrkräfte zu beschränken, die Notenfuchs nutzen sollen.
+7. **Einen Registrierungslink verschicken.** Erzeuge auf der Users-Seite über
+   "Create signup token" einen Einmal-Link und gib ihn an die Person weiter, die
+   Notenfuchs tatsächlich nutzen soll (z. B. dich selbst oder eine Kollegin/einen
+   Kollegen), damit sie direkt ein eigenes Passkey-Konto anlegen kann - der
+   Admin-Login muss nie geteilt werden.
 
-By default this all runs on your own machine over plain HTTP:
-`POCKET_ID_APP_URL` in `.env` defaults to `http://localhost:1411`, and
-Notenfuchs itself is reached at `http://localhost:8080`.
+Standardmäßig läuft das alles auf dem eigenen Rechner über reines HTTP:
+`POCKET_ID_APP_URL` in `.env` ist standardmäßig `http://localhost:1411`, und Notenfuchs
+selbst ist unter `http://localhost:8080` erreichbar.
 
-#### Running behind your own reverse proxy
+#### Hinter einem eigenen Reverse Proxy betreiben
 
-`docker-compose.oidc.yml` assumes Pocket ID sits behind a reverse proxy by
-default - WebAuthn/passkeys need a secure (HTTPS, or plain `localhost`)
-context to work at all, so a bare, unproxied Pocket ID isn't really a
-supported setup anyway. Its published port is bound to `127.0.0.1` only
-(`POCKET_ID_HOST_BIND` in `.env`, see below), so the only way in is through
-something already running on that same machine - your reverse proxy, or your
-own browser if you're just testing locally.
+`docker-compose.oidc.yml` geht standardmäßig davon aus, dass Pocket ID hinter einem
+Reverse Proxy läuft - WebAuthn/Passkeys benötigen ohnehin einen sicheren Kontext
+(HTTPS oder reines `localhost`), sodass ein nacktes, nicht proxiertes Pocket ID
+sowieso kein wirklich unterstütztes Setup ist. Sein veröffentlichter Port ist nur an
+`127.0.0.1` gebunden (`POCKET_ID_HOST_BIND` in `.env`, siehe unten), sodass der
+einzige Zugang über etwas führt, das bereits auf derselben Maschine läuft - dein
+Reverse Proxy, oder dein eigener Browser, wenn du nur lokal testest.
 
-If you already run a reverse proxy (Caddy, nginx, Traefik, ...) that
-terminates TLS under a real domain - even one only reachable on your own
-network, e.g. `notenfuchs.internal.example.com` resolved by internal DNS, not
-the public internet - point it at this host's `8080` (Notenfuchs) and `1411`
-(Pocket ID) ports, then set in `.env`:
+Falls du bereits einen Reverse Proxy betreibst (Caddy, nginx, Traefik, ...), der TLS
+unter einer echten Domain terminiert - auch eine, die nur im eigenen Netzwerk
+erreichbar ist, z. B. `notenfuchs.internal.example.com`, aufgelöst durch internes DNS
+statt durch das öffentliche Internet - richte ihn auf die Ports `8080` (Notenfuchs)
+und `1411` (Pocket ID) dieses Hosts aus und setze in `.env`:
 
-- **`POCKET_ID_APP_URL`**: the URL your proxy makes Pocket ID reachable at,
-  e.g. `https://id.internal.example.com` - no `:1411` in it, since that's the
-  container's internal plain-HTTP address, not what a browser or the OIDC
-  issuer check should ever see.
-- **`TRUST_PROXY=true`**: so Pocket ID trusts the proxy's forwarded-for
-  headers for the client's real IP instead of seeing every request as coming
-  from the proxy's own IP. (Pocket ID also accepts a comma-separated list of
-  trusted proxy IPs/CIDRs here instead of a blanket `true`, if you'd rather
-  restrict it to your proxy's actual address.)
-- **`OIDC_TRUST_PROXY=true`** and **`APP_HOST_BIND=127.0.0.1`**: Notenfuchs
-  itself is *also* behind your proxy here, not just Pocket ID - unlike
-  `docker-compose.oidc.yml`, the base `docker-compose.yml` is shared with
-  Option A (no proxy at all), so its port stays open on every interface
-  (`0.0.0.0`) unless you opt in here. `OIDC_TRUST_PROXY=true` fixes the
-  *scheme* half of the problem: without it, the container only ever sees
-  plain HTTP from the proxy, so it would build its OIDC callback URL as
-  `http://...` instead of `https://...`, which won't match the callback URL
-  you register in Pocket ID's admin UI (step 5 above) and login will fail.
-  This doesn't read any header the proxy (or a client bypassing it) sends -
-  it's a blunt "we know we're always behind TLS" switch, not a
-  forwarded-header trust decision, so it's safe to enable independently of
-  `TRUST_PROXY` above. The *host* half needs no config on Notenfuchs' side:
-  Quarkus builds the callback URL's host from the incoming request's `Host`
-  header, which Caddy (and most reverse proxies, by default) forwards
-  through unchanged, so it already reflects whatever public domain the
-  browser actually used - there's no `NOTENFUCHS_APP_URL` to set, unlike
-  Pocket ID, which needs a statically configured `POCKET_ID_APP_URL` because
-  it also uses that value for things that aren't tied to any one request
-  (the token issuer it signs, its WebAuthn relying-party id, its
-  `/.well-known/openid-configuration` document).
-- Use your proxy's real URL (not `localhost:8080`) everywhere `<your
-  Notenfuchs URL>` appears in step 5 above, e.g.
+- **`POCKET_ID_APP_URL`**: die URL, unter der dein Proxy Pocket ID erreichbar macht,
+  z. B. `https://id.internal.example.com` - ohne `:1411`, da das die interne reine
+  HTTP-Adresse des Containers ist, nicht das, was ein Browser oder die
+  OIDC-Issuer-Prüfung je sehen sollte.
+- **`TRUST_PROXY=true`**: damit Pocket ID den Forwarded-For-Headern des Proxys für die
+  echte IP des Clients vertraut, statt jede Anfrage als von der IP des Proxys selbst
+  kommend zu sehen. (Pocket ID akzeptiert hier alternativ auch eine kommagetrennte
+  Liste vertrauenswürdiger Proxy-IPs/CIDRs, statt eines pauschalen `true`, falls du es
+  auf die tatsächliche Adresse deines Proxys beschränken möchtest.)
+- **`OIDC_TRUST_PROXY=true`** und **`APP_HOST_BIND=127.0.0.1`**: Hier steht auch
+  Notenfuchs selbst hinter deinem Proxy, nicht nur Pocket ID - anders als
+  `docker-compose.oidc.yml` wird die Basis-`docker-compose.yml` mit Option A geteilt
+  (gar kein Proxy), sodass ihr Port ohne dieses Opt-in auf jedem Interface offen
+  bleibt (`0.0.0.0`). `OIDC_TRUST_PROXY=true` behebt die *Schema*-Hälfte des
+  Problems: ohne diese Einstellung sieht der Container vom Proxy nur reines HTTP und
+  würde seine OIDC-Callback-URL als `http://...` statt `https://...` bauen, was nicht
+  zu der in Pocket IDs Admin-UI registrierten Callback-URL passt (Schritt 5 oben) und
+  den Login fehlschlagen lässt. Dabei wird kein vom Proxy (oder einem ihn umgehenden
+  Client) gesendeter Header ausgewertet - es ist ein pauschaler "wir wissen, dass wir
+  immer hinter TLS stehen"-Schalter, kein Forwarded-Header-Vertrauensentscheid, daher
+  unabhängig vom obigen `TRUST_PROXY` sicher aktivierbar. Die *Host*-Hälfte braucht
+  auf Notenfuchs' Seite keine Konfiguration: Quarkus baut den Host der Callback-URL
+  aus dem `Host`-Header der eingehenden Anfrage, den Caddy (und die meisten Reverse
+  Proxys standardmäßig) unverändert weiterreicht, sodass er bereits die vom Browser
+  tatsächlich verwendete öffentliche Domain widerspiegelt - es gibt kein
+  `NOTENFUCHS_APP_URL` zu setzen, anders als bei Pocket ID, das eine statisch
+  konfigurierte `POCKET_ID_APP_URL` braucht, weil es diesen Wert auch für Dinge
+  nutzt, die an keine einzelne Anfrage gebunden sind (den Token-Issuer, den es
+  signiert, seine WebAuthn-Relying-Party-ID, sein
+  `/.well-known/openid-configuration`-Dokument).
+- Verwende überall dort, wo `<deine Notenfuchs-URL>` in Schritt 5 oben steht, die echte
+  URL deines Proxys (nicht `localhost:8080`), z. B.
   `https://notenfuchs.internal.example.com/auth-callback`.
 
-If your reverse proxy runs on a *different* host than this Compose stack
-(rather than on the same machine, which is what the `127.0.0.1` default
-above assumes), override `POCKET_ID_HOST_BIND`/`APP_HOST_BIND` to an address
-your proxy can actually reach - e.g. `0.0.0.0` to accept connections on any
-interface - and make sure your firewall, not Compose, is what actually
-restricts who can reach those ports directly; `TRUST_PROXY=true` /
-`OIDC_TRUST_PROXY=true` only make sense if the *only* way in really is
-through the proxy.
+Falls dein Reverse Proxy auf einem *anderen* Host läuft als dieser Compose-Stack
+(statt auf derselben Maschine, wovon der `127.0.0.1`-Standard oben ausgeht),
+überschreibe `POCKET_ID_HOST_BIND`/`APP_HOST_BIND` mit einer Adresse, die dein Proxy
+tatsächlich erreichen kann - z. B. `0.0.0.0`, um Verbindungen auf jedem Interface
+anzunehmen - und stelle sicher, dass deine Firewall (nicht Compose) tatsächlich
+einschränkt, wer diese Ports direkt erreichen kann; `TRUST_PROXY=true` /
+`OIDC_TRUST_PROXY=true` ergeben nur Sinn, wenn der *einzige* Weg hinein wirklich über
+den Proxy führt.
 
-Pocket ID is entirely optional - the underlying OIDC wiring is
-provider-agnostic, so you can point `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
-`OIDC_CLIENT_SECRET` at Clerk, Keycloak, Authentik, or any other
-standards-compliant provider instead and skip `docker-compose.oidc.yml`
-entirely - see "Alternative: OIDC (external SSO)" under "Authentication" below
-for the required environment variables and a Clerk walkthrough.
+Pocket ID ist vollständig optional - die zugrunde liegende OIDC-Anbindung ist
+provider-unabhängig, sodass du stattdessen `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
+`OIDC_CLIENT_SECRET` auf Clerk, Keycloak, Authentik oder einen anderen
+standardkonformen Provider richten und `docker-compose.oidc.yml` komplett weglassen
+kannst - siehe "Alternative: OIDC (externes SSO)" unter "Authentifizierung" weiter
+unten für die benötigten Umgebungsvariablen und eine Clerk-Anleitung.
 
-### For development: running from source
+### Für die Entwicklung: aus dem Quellcode ausführen
 
-Only needed if you're changing Notenfuchs' code - normal use doesn't need
-this. Requires Java 17+ (the Maven Wrapper, `./mvnw`, is committed, so no
-separate Maven install is needed).
+Nur nötig, wenn du am Code von Notenfuchs arbeitest - für die normale Nutzung nicht
+erforderlich. Erfordert Java 17+ (der Maven Wrapper, `./mvnw`, ist im Repo enthalten,
+eine separate Maven-Installation ist also nicht nötig).
 
-Start just the database, detached so this terminal stays free:
+Nur die Datenbank starten, entkoppelt, damit dieses Terminal frei bleibt:
 
 ```bash
 docker compose up -d postgres
 ```
 
-Then run the app in Quarkus dev mode (live reload) - this is also what
-actually creates the schema (Flyway runs on startup):
+Dann die App im Quarkus-Dev-Modus starten (Live-Reload) - das erzeugt auch tatsächlich
+das Schema (Flyway läuft beim Start):
 
 ```bash
 ./mvnw quarkus:dev
 ```
 
-By default this connects to `jdbc:postgresql://localhost:5432/notenfuchs` (user/password
-`notenfuchs`), matching the `postgres` service above. Override any of `DB_URL`, `DB_USER`,
-`DB_PASSWORD` as environment variables if you point at a different database.
+Standardmäßig verbindet sich das mit `jdbc:postgresql://localhost:5432/notenfuchs`
+(Benutzer/Passwort `notenfuchs`), passend zum obigen `postgres`-Service. Überschreibe
+`DB_URL`, `DB_USER`, `DB_PASSWORD` als Umgebungsvariablen, wenn du eine andere
+Datenbank ansprichst.
 
-> Note: Quarkus can normally auto-provision a throwaway database via **Dev Services** when
-> no datasource is configured at all. This project deliberately configures an explicit
-> PostgreSQL datasource (see `src/main/resources/application.properties`) so that Dev Mode
-> and `docker compose` use the same schema-managed database instead of an ephemeral one.
+> Hinweis: Quarkus kann normalerweise über **Dev Services** automatisch eine
+> Wegwerf-Datenbank bereitstellen, wenn gar keine Datenquelle konfiguriert ist.
+> Dieses Projekt konfiguriert bewusst eine explizite PostgreSQL-Datenquelle (siehe
+> `src/main/resources/application.properties`), damit Dev-Modus und `docker compose`
+> dieselbe schema-verwaltete Datenbank nutzen statt einer flüchtigen.
 
-A fresh database (no `school_class` rows yet) gets one demo class ("Demo-Klasse
-8b") seeded automatically the first time Flyway creates the schema - nothing extra
-to run. This only ever happens once per database: if you delete the demo class
-afterward, it will not come back (Flyway migrations don't re-run).
+Eine frische Datenbank (noch keine `school_class`-Zeilen) bekommt beim ersten Anlegen
+des Schemas durch Flyway automatisch eine Demo-Klasse ("Demo-Klasse 8b") eingespielt -
+nichts Zusätzliches nötig. Das passiert nur einmal pro Datenbank: Wenn du die
+Demo-Klasse danach löschst, kommt sie nicht zurück (Flyway-Migrationen laufen nicht
+erneut).
 
-Want to run the full stack (app + Postgres) with your own local changes instead of the
-published image?
+Möchtest du den kompletten Stack (App + Postgres) mit deinen eigenen lokalen
+Änderungen statt dem veröffentlichten Image starten?
 
 ```bash
 ./mvnw package
 docker compose up --build
 ```
 
-This builds a JVM-mode container image from `src/main/docker/Dockerfile.jvm`,
-which expects `./mvnw package` to already have produced `target/quarkus-app/`.
+Das baut ein JVM-Modus-Container-Image aus `src/main/docker/Dockerfile.jvm`, das
+erwartet, dass `./mvnw package` bereits `target/quarkus-app/` erzeugt hat.
 
-### Running tests
+### Tests ausführen
 
 ```bash
-./mvnw test      # unit tests
-./mvnw verify    # also runs the browser end-to-end tests (needs Docker)
+./mvnw test      # Unit-Tests
+./mvnw verify    # führt zusätzlich die Browser-End-to-End-Tests aus (benötigt Docker)
 ```
 
-`GradeServiceTest` is a plain JUnit 5 unit test (no `@QuarkusTest`, no database) that
-verifies the grade-calculation logic directly.
+`GradeServiceTest` ist ein reiner JUnit-5-Unit-Test (kein `@QuarkusTest`, keine
+Datenbank), der die Notenberechnungslogik direkt prüft.
 
-`GradeGridE2EIT` (`src/test/java/de/notenfuchs/e2e`) drives the real grade-entry grid
-through a browser with [Playwright](https://playwright.dev/), via the
-[quarkus-playwright](https://docs.quarkiverse.io/quarkus-playwright/dev/) extension. It
-runs as a Failsafe integration test (`./mvnw verify`, not `./mvnw test`), since it needs
-Docker: both the browser (Playwright's Dev Services container) and PostgreSQL
-(Testcontainers Dev Services) run in containers, no local browser install required.
+`GradeGridE2EIT` (`src/test/java/de/notenfuchs/e2e`) steuert das echte
+Noteneingabe-Raster über einen Browser mit [Playwright](https://playwright.dev/),
+über die Erweiterung
+[quarkus-playwright](https://docs.quarkiverse.io/quarkus-playwright/dev/). Er läuft
+als Failsafe-Integrationstest (`./mvnw verify`, nicht `./mvnw test`), da er Docker
+benötigt: sowohl der Browser (Playwrights Dev-Services-Container) als auch PostgreSQL
+(Testcontainers Dev Services) laufen in Containern, keine lokale
+Browser-Installation nötig.
 
-`OwnershipGuardIT` (`src/test/java/de/notenfuchs/security`) is also a Failsafe integration
-test (needs Docker for its Testcontainers Postgres, no browser involved) that seeds
-`SchoolClass`/`Subject` rows with different `ClassTeacher`/`SubjectTeacher` owners and
-asserts cross-tenant isolation directly against `OwnershipGuard` - see "Per-teacher data
-ownership" above.
+`OwnershipGuardIT` (`src/test/java/de/notenfuchs/security`) ist ebenfalls ein
+Failsafe-Integrationstest (benötigt Docker für sein Testcontainers-Postgres, kein
+Browser beteiligt), der `SchoolClass`/`Subject`-Zeilen mit unterschiedlichen
+`ClassTeacher`/`SubjectTeacher`-Eigentümern anlegt und die Mandantentrennung direkt
+gegen `OwnershipGuard` prüft - siehe "Datenzugriff pro Lehrkraft" oben.
 
-### Regenerating the README screenshots
+### Screenshots im README neu erzeugen
 
-The images under "Screenshots" above are generated, not hand-taken, by
-`ReadmeScreenshotIT` (`src/test/java/de/notenfuchs/e2e`) - it drives the real UI through a
-browser exactly like the other Playwright ITs, then writes lossless, metadata-stripped PNGs
-into `screenshots/`. It's excluded from the default `./mvnw verify` run (see `pom.xml`)
-since it's a manual, on-demand step, not a regression test - run it explicitly whenever the
-UI changes enough to make the current screenshots stale:
+Die Bilder unter "Screenshots" oben sind nicht von Hand aufgenommen, sondern werden
+von `ReadmeScreenshotIT` (`src/test/java/de/notenfuchs/e2e`) generiert - es steuert
+die echte Oberfläche über einen Browser genau wie die anderen Playwright-ITs und
+schreibt dann verlustfreie, metadatenbereinigte PNGs nach `screenshots/`. Er ist vom
+Standardlauf `./mvnw verify` ausgeschlossen (siehe `pom.xml`), da es sich um einen
+manuellen, bei Bedarf auszuführenden Schritt handelt, nicht um einen Regressionstest -
+führe ihn explizit aus, wann immer sich die Oberfläche so weit ändert, dass die
+aktuellen Screenshots veraltet sind:
 
 ```bash
 ./mvnw verify -Dit.test=ReadmeScreenshotIT
 ```
 
-Then check `git diff --stat screenshots/` and commit only if something actually changed -
-re-running it with no visible UI change reproduces byte-identical files, regardless of which
-day you run it on.
+Prüfe danach `git diff --stat screenshots/` und committe nur, wenn sich tatsächlich
+etwas geändert hat - ein erneuter Lauf ohne sichtbare UI-Änderung erzeugt
+byteidentische Dateien, unabhängig davon, an welchem Tag er läuft.
 
-## The grade model
+## Das Notenmodell
 
-- **GradeScale**: defines a grading scale (`min`, `max`, and `lowerIsBetter`). The
-  German school scale ("DE 1-6", 1 = best, 6 = worst) is seeded by the initial Flyway
-  migration.
-- **Subject**: belongs to a `SchoolClass`, references a `GradeScale`, and has a
-  `roundingMode` (`COMMERCIAL` or `IN_FAVOR_OF_STUDENT`).
-- **GradeCategory**: a weighted category within a subject (e.g. "Schriftlich" 50%,
-  "Muendlich" 50%), identified by `weightPercent`.
-- **Assessment**: a single graded event within a category (e.g. one test), with a
-  `factor` (default 1.0) controlling how strongly it counts within its category.
-- **Grade**: one student's numeric result (`NUMERIC(4,2)`) for one assessment.
+- **GradeScale**: definiert eine Notenskala (`min`, `max` und `lowerIsBetter`). Die
+  deutsche Schulnotenskala ("DE 1-6", 1 = beste, 6 = schlechteste Note) wird durch die
+  initiale Flyway-Migration eingespielt.
+- **Subject**: gehört zu einer `SchoolClass`, referenziert eine `GradeScale` und hat
+  einen `roundingMode` (`COMMERCIAL` oder `IN_FAVOR_OF_STUDENT`).
+- **GradeCategory**: eine gewichtete Kategorie innerhalb eines Fachs (z. B.
+  "Schriftlich" 50 %, "Mündlich" 50 %), identifiziert über `weightPercent`.
+- **Assessment**: eine einzelne bewertete Leistung innerhalb einer Kategorie (z. B.
+  eine Klassenarbeit), mit einem `factor` (Standard 1.0), der steuert, wie stark sie
+  innerhalb ihrer Kategorie zählt.
+- **Grade**: das numerische Ergebnis (`NUMERIC(4,2)`) eines Schülers für eine
+  Leistung.
 
-### How averages are computed
+### Wie Durchschnitte berechnet werden
 
-For a given student and subject:
+Für einen gegebenen Schüler und ein Fach:
 
-1. **Category average** = the weighted mean of the student's grades in that category,
-   each grade weighted by its assessment's `factor`:
-   `sum(value_i * factor_i) / sum(factor_i)`.
-2. **Subject average** = the weighted combination of category averages using each
-   category's `weightPercent`, normalized only over the categories that actually have
-   at least one grade for that student. An empty category (no grades yet) is excluded
-   entirely rather than dragging the average down - e.g. if "Muendlich" (50%) has no
-   grades yet, the subject average is simply the "Schriftlich" average, not diluted by
-   an implicit zero.
-3. The **raw average** is exposed rounded to 2 decimal places for display (internal
-   computation uses higher precision, `MathContext.DECIMAL64`, throughout).
-4. The **final grade** is the raw average rounded to a whole number per the subject's
-   `roundingMode`:
-   - `COMMERCIAL`: standard numeric half-up rounding (e.g. 2.50 -> 3), independent of
-     which direction is "better" on the scale.
-   - `IN_FAVOR_OF_STUDENT`: identical, except an exact half (x.50) rounds toward
-     whichever whole number is better for the student, based on the scale's
-     `lowerIsBetter` flag (e.g. on the DE 1-6 scale, 2.50 -> 2, the better grade).
+1. **Kategoriedurchschnitt** = der gewichtete Mittelwert der Noten des Schülers in
+   dieser Kategorie, jede Note gewichtet mit dem `factor` ihrer Leistung:
+   `summe(wert_i * faktor_i) / summe(faktor_i)`.
+2. **Fachdurchschnitt** = die gewichtete Kombination der Kategoriedurchschnitte
+   anhand des `weightPercent` jeder Kategorie, normalisiert nur über die Kategorien,
+   in denen für diesen Schüler tatsächlich mindestens eine Note vorliegt. Eine leere
+   Kategorie (noch keine Noten) wird vollständig ausgeschlossen, statt den
+   Durchschnitt nach unten zu ziehen - wenn z. B. "Mündlich" (50 %) noch keine Noten
+   hat, ist der Fachdurchschnitt einfach der "Schriftlich"-Durchschnitt, nicht
+   verwässert durch eine implizite Null.
+3. Der **Rohdurchschnitt** wird für die Anzeige auf 2 Nachkommastellen gerundet
+   ausgegeben (die interne Berechnung nutzt durchgehend höhere Präzision,
+   `MathContext.DECIMAL64`).
+4. Die **Endnote** ist der Rohdurchschnitt, gerundet auf eine ganze Zahl gemäß dem
+   `roundingMode` des Fachs:
+   - `COMMERCIAL`: kaufmännische Rundung ab 0,5 aufwärts (z. B. 2,50 -> 3), unabhängig
+     davon, welche Richtung auf der Skala "besser" ist.
+   - `IN_FAVOR_OF_STUDENT`: identisch, außer dass ein exakter halber Wert (x,50) zu
+     der ganzen Zahl hin gerundet wird, die für den Schüler besser ist, basierend auf
+     dem `lowerIsBetter`-Flag der Skala (z. B. auf der DE-1-6-Skala: 2,50 -> 2, die
+     bessere Note).
 
-This logic lives in `GradeService` (`src/main/java/de/notenfuchs/service/GradeService.java`)
-as a pure, dependency-free POJO service operating on plain DTOs (`CategoryData`,
-`GradeData`) - it never touches the database and never hardcodes any specific scale
-(such as 1-6), so it is fully unit-testable and scale-agnostic.
+Diese Logik befindet sich in `GradeService`
+(`src/main/java/de/notenfuchs/service/GradeService.java`) als reiner,
+abhängigkeitsfreier POJO-Service, der auf einfachen DTOs (`CategoryData`,
+`GradeData`) arbeitet - er greift nie auf die Datenbank zu und codiert nie eine
+bestimmte Skala (etwa 1-6) fest, ist also vollständig unit-testbar und
+skalen-unabhängig.
 
-## Why grade values are `NUMERIC`, not an enum
+## Warum Notenwerte `NUMERIC` sind, kein Enum
 
-Grade values are stored as a plain `NUMERIC(4,2)` (`BigDecimal` in Java), not as an
-enum tied to the German 1-6 scale. The scale itself - its bounds and whether lower or
-higher values are "better" - lives entirely in the `GradeScale` entity/table. This
-means a future grading scale (for example a 0-15 "Punkte" scale, common in German
-*Oberstufe* / IB-style grading) can be added later with a simple `INSERT INTO
-grade_scale ...` and does **not** require any schema migration or code change to the
-`grade` table - only a new `GradeScale` row and a `Subject` referencing it.
+Notenwerte werden als einfaches `NUMERIC(4,2)` (`BigDecimal` in Java) gespeichert,
+nicht als Enum, das an die deutsche 1-6-Skala gebunden ist. Die Skala selbst - ihre
+Grenzen und ob niedrigere oder höhere Werte "besser" sind - liegt vollständig in der
+`GradeScale`-Entität/Tabelle. Das bedeutet, eine künftige Notenskala (zum Beispiel
+eine 0-15-"Punkte"-Skala, wie sie in der deutschen *Oberstufe*/beim IB-Modell üblich
+ist) kann später mit einem einfachen `INSERT INTO grade_scale ...` hinzugefügt werden
+und erfordert **keine** Schema-Migration oder Codeänderung an der `grade`-Tabelle -
+nur eine neue `GradeScale`-Zeile und ein `Subject`, das darauf verweist.
 
-## Authentication
+## Authentifizierung
 
-Notenfuchs needs exactly one of two things configured to run: a local password
-(the default, turbo-fast path - nothing else to set up) or an OIDC issuer (for
-schools that already run central SSO). Whichever is actually configured wins -
-the two are never active at the same time (see `de.notenfuchs.security.LocalAuthConfigSource`).
-In production, if **neither** is configured, the app refuses to start rather
-than serve grade data unauthenticated (see "Fail-fast in production" below).
+Notenfuchs benötigt genau eine von zwei Konfigurationen, um zu laufen: ein lokales
+Passwort (der Standard, superschnelle Weg - nichts sonst einzurichten) oder einen
+OIDC-Issuer (für Schulen, die bereits zentrales SSO betreiben). Was tatsächlich
+konfiguriert ist, gewinnt - beide sind nie gleichzeitig aktiv (siehe
+`de.notenfuchs.security.LocalAuthConfigSource`). In Produktion verweigert die App den
+Start, falls **keines** von beidem konfiguriert ist, statt Notendaten
+unauthentifiziert auszuliefern (siehe "Fail-fast in Produktion" weiter unten).
 
-### Default: local built-in auth
+### Standard: lokale integrierte Anmeldung
 
-Set `NOTENFUCHS_PASSWORD` (in `.env`, or as a real env var) and nothing else -
-`docker compose up` (see "Option A" above) is then immediately usable at
-`http://localhost:8080/login`. This uses Quarkus' own embedded security realm
-(`quarkus-elytron-security-properties-file`) plus built-in FORM authentication
-- no database table, no registration flow, no password-reset UI, no hashing.
+Setze `NOTENFUCHS_PASSWORD` (in `.env`, oder als echte Umgebungsvariable) und sonst
+nichts - `docker compose up` (siehe "Option A" oben) ist dann sofort unter
+`http://localhost:8080/login` nutzbar. Dies verwendet Quarkus' eigenen eingebetteten
+Security-Realm (`quarkus-elytron-security-properties-file`) plus die eingebaute
+FORM-Authentifizierung - keine Datenbanktabelle, kein Registrierungsablauf, keine
+Passwort-Reset-UI, kein Hashing.
 
-- **Username** is the fixed value `lehrer` (single-teacher/self-host use case
-  - see ROADMAP.md's design principles). To use a different username, change
-  the literal in `de.notenfuchs.security.LocalAuthConfigSource` and rebuild.
-- **Password** is whatever `NOTENFUCHS_PASSWORD` is set to, stored in plain
-  text in the embedded realm config - the same trust level as `DB_PASSWORD`.
-  There's no hashing/rotation tooling; treat the env var itself as the secret.
-- Logging in happens at `/login`; logging out uses the "Logout" link in the
-  nav (`/local-logout`), which clears the session cookie.
+- **Benutzername** ist der feste Wert `lehrer` (Anwendungsfall
+  Einzellehrkraft/Self-Hosting - siehe die Designprinzipien in ROADMAP.md). Um einen
+  anderen Benutzernamen zu verwenden, ändere das Literal in
+  `de.notenfuchs.security.LocalAuthConfigSource` und baue neu.
+- **Passwort** ist, was auch immer `NOTENFUCHS_PASSWORD` gesetzt ist, im Klartext in
+  der eingebetteten Realm-Konfiguration gespeichert - dasselbe Vertrauensniveau wie
+  `DB_PASSWORD`. Es gibt kein Hashing/Rotations-Tooling; behandle die
+  Umgebungsvariable selbst als das Geheimnis.
+- Die Anmeldung erfolgt unter `/login`; das Abmelden nutzt den "Logout"-Link in der
+  Navigation (`/local-logout`), der das Session-Cookie löscht.
 
-### Alternative: OIDC (external SSO)
+### Alternative: OIDC (externes SSO)
 
-Leave `NOTENFUCHS_PASSWORD` unset to use this mode instead. Notenfuchs then
-secures the whole application (all UI pages and all `/api/*` endpoints) with
-[OIDC](https://openid.net/developers/how-connect-works/) using the
-`quarkus-oidc` extension in **web-app mode**: a standard authorization-code flow
-with a server-side session cookie, suitable for the server-rendered HTML (Qute +
-HTMX) frontend - not a token-based SPA setup. It is provider-agnostic and works
-with any standards-compliant OIDC provider (Clerk, Keycloak, Authentik, Auth0, ...).
+Lasse `NOTENFUCHS_PASSWORD` ungesetzt, um stattdessen diesen Modus zu verwenden.
+Notenfuchs sichert dann die gesamte Anwendung (alle UI-Seiten und alle
+`/api/*`-Endpunkte) mit [OIDC](https://openid.net/developers/how-connect-works/) über
+die `quarkus-oidc`-Erweiterung im **Web-App-Modus**: ein standardmäßiger
+Authorization-Code-Flow mit einem serverseitigen Session-Cookie, passend für das
+serverseitig gerenderte HTML-Frontend (Qute + HTMX) - kein Token-basiertes
+SPA-Setup. Er ist provider-unabhängig und funktioniert mit jedem standardkonformen
+OIDC-Provider (Clerk, Keycloak, Authentik, Auth0, ...).
 
-#### Required environment variables (production)
+#### Benötigte Umgebungsvariablen (Produktion)
 
-| Variable | Description |
+| Variable | Beschreibung |
 |---|---|
-| `OIDC_ISSUER_URL` | Your provider's issuer/discovery URL, e.g. `https://your-app.clerk.accounts.dev` (Clerk) or `https://idp.example.com/realms/notenfuchs` (Keycloak). Quarkus fetches `<issuer>/.well-known/openid-configuration` from this. |
-| `OIDC_CLIENT_ID` | The OIDC client ID registered with your provider. |
-| `OIDC_CLIENT_SECRET` | The confidential client secret for that client. |
+| `OIDC_ISSUER_URL` | Die Issuer-/Discovery-URL deines Providers, z. B. `https://your-app.clerk.accounts.dev` (Clerk) oder `https://idp.example.com/realms/notenfuchs` (Keycloak). Quarkus ruft davon `<issuer>/.well-known/openid-configuration` ab. |
+| `OIDC_CLIENT_ID` | Die bei deinem Provider registrierte OIDC-Client-ID. |
+| `OIDC_CLIENT_SECRET` | Das vertrauliche Client-Secret für diesen Client. |
 
-These map to `quarkus.oidc.auth-server-url`, `quarkus.oidc.client-id`, and
-`quarkus.oidc.credentials.secret` in `application.properties`, which otherwise
-fall back to non-functional local-dev placeholder values.
+Diese werden auf `quarkus.oidc.auth-server-url`, `quarkus.oidc.client-id` und
+`quarkus.oidc.credentials.secret` in `application.properties` abgebildet, die sonst
+auf nicht funktionsfähige lokale Dev-Platzhalterwerte zurückfallen.
 
-Register the following redirect URI with your provider (adjust the host to your
-deployment): `https://your-domain.example/auth-callback`. This is controlled by
-`quarkus.oidc.authentication.redirect-path` and defaults to `/auth-callback`.
-Logout is available at `/logout` (RP-initiated logout, `quarkus.oidc.logout.*`),
-which redirects back to `/` afterwards.
+Registriere die folgende Redirect-URI bei deinem Provider (Host an dein Deployment
+anpassen): `https://your-domain.example/auth-callback`. Dies wird von
+`quarkus.oidc.authentication.redirect-path` gesteuert und ist standardmäßig
+`/auth-callback`. Logout ist unter `/logout` verfügbar (RP-initiiertes Logout,
+`quarkus.oidc.logout.*`), das danach zurück auf `/` leitet.
 
-By default the app requests the `openid profile email` scopes (`openid` is added
-automatically by Quarkus; `profile` and `email` are configured explicitly) so
-that the logged-in user's name/email are available via the OIDC UserInfo endpoint.
+Standardmäßig fordert die App die Scopes `openid profile email` an (`openid` wird
+automatisch von Quarkus hinzugefügt; `profile` und `email` sind explizit
+konfiguriert), damit Name/E-Mail des angemeldeten Nutzers über den
+OIDC-UserInfo-Endpunkt verfügbar sind.
 
-#### Pocket ID (bundled, self-hosted OIDC provider)
+#### Pocket ID (mitgelieferter, selbst gehosteter OIDC-Provider)
 
-See "Option B: multi-user, Pocket ID SSO" under "Running Notenfuchs" above for
-the full setup walkthrough (the `docker-compose.oidc.yml` overlay, generating
-`POCKET_ID_ENCRYPTION_KEY`, creating the admin account, registering the OIDC
-client, and issuing sign-up links).
+Siehe "Option B: Mehrbenutzer, Pocket ID SSO" unter "Notenfuchs betreiben" oben für
+die vollständige Einrichtung (das `docker-compose.oidc.yml`-Overlay, das Erzeugen
+von `POCKET_ID_ENCRYPTION_KEY`, das Anlegen des Admin-Kontos, das Registrieren des
+OIDC-Clients und das Ausstellen von Registrierungslinks).
 
-#### Setting up Clerk
+#### Clerk einrichten
 
-1. In the Clerk dashboard, create (or reuse) an application and add an **OAuth
-   application** under "OAuth Applications" (Clerk's OIDC/OAuth client feature) -
-   this gives you a client ID and client secret and exposes a standard OIDC
-   discovery document.
-2. Copy the issuer URL shown there (typically `https://<your-instance>.clerk.accounts.dev`,
-   or your custom domain) into `OIDC_ISSUER_URL`.
-3. Copy the client ID and client secret into `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET`.
-4. Add your deployment's callback URL as an allowed redirect URI in the Clerk
-   OAuth application settings: `https://your-domain.example/auth-callback`.
-5. Double-check before going live: confirm Clerk's discovery document
-   (`<issuer>/.well-known/openid-configuration`) is reachable and that the OAuth
-   application is a **confidential** client (i.e. it actually has a client secret) -
-   Clerk primarily markets itself as an auth provider with its own SDKs, and the
-   generic OIDC/OAuth application support is a secondary feature, so verify the
-   exact discovery URL and scope support (`profile`, `email`) against Clerk's
-   current OAuth documentation for your account rather than assuming Keycloak-like
-   defaults.
+1. Lege im Clerk-Dashboard eine Anwendung an (oder nutze eine bestehende) und füge
+   unter "OAuth Applications" eine **OAuth-Anwendung** hinzu (Clerks OIDC/OAuth-Client-
+   Funktion) - das liefert eine Client-ID und ein Client-Secret und stellt ein
+   standardmäßiges OIDC-Discovery-Dokument bereit.
+2. Kopiere die dort angezeigte Issuer-URL (typischerweise
+   `https://<deine-instanz>.clerk.accounts.dev`, oder deine eigene Domain) in
+   `OIDC_ISSUER_URL`.
+3. Kopiere Client-ID und Client-Secret in `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET`.
+4. Füge die Callback-URL deines Deployments als erlaubte Redirect-URI in den
+   Clerk-OAuth-Anwendungseinstellungen hinzu: `https://your-domain.example/auth-callback`.
+5. Vor dem Live-Gang gegenprüfen: bestätige, dass Clerks Discovery-Dokument
+   (`<issuer>/.well-known/openid-configuration`) erreichbar ist und dass die
+   OAuth-Anwendung ein **vertraulicher** (confidential) Client ist (d. h.
+   tatsächlich ein Client-Secret hat) - Clerk vermarktet sich primär als
+   Auth-Provider mit eigenen SDKs, die generische OIDC/OAuth-Anwendungsunterstützung
+   ist eher ein Nebenfeature, prüfe daher die genaue Discovery-URL und
+   Scope-Unterstützung (`profile`, `email`) gegen Clerks aktuelle
+   OAuth-Dokumentation für dein Konto, statt Keycloak-ähnliche Standardwerte
+   anzunehmen.
 
-### Fail-fast in production
+### Fail-fast in Produktion
 
-`de.notenfuchs.security.AuthConfigurationCheck` observes `StartupEvent` and, in
-the default/production profile only, throws (aborting startup) if neither
-`NOTENFUCHS_PASSWORD` nor `OIDC_ISSUER_URL` is set - so a misconfigured
-deployment fails loudly at boot instead of silently serving every teacher's
-grade data unauthenticated.
+`de.notenfuchs.security.AuthConfigurationCheck` beobachtet `StartupEvent` und wirft
+nur im Standard-/Produktionsprofil eine Exception (die den Start abbricht), falls
+weder `NOTENFUCHS_PASSWORD` noch `OIDC_ISSUER_URL` gesetzt ist - sodass ein
+fehlkonfiguriertes Deployment beim Start laut scheitert, statt still die Notendaten
+aller Lehrkräfte unauthentifiziert auszuliefern.
 
-### `%dev` / test bypass
+### `%dev`-/Test-Bypass
 
-`quarkus.oidc.tenant-enabled` is set to `false` for the `dev` and `test` profiles
-(`%dev.quarkus.oidc.tenant-enabled=false`, `%test.quarkus.oidc.tenant-enabled=false`;
-note this is `tenant-enabled`, not the build-time `enabled` switch - the latter would
-remove the OIDC extension's CDI beans entirely, breaking `CurrentUser`'s unconditional
-`@Inject` fields), and the blanket `authenticated` HTTP permission policy is relaxed to
-`permit` for those same profiles. This means `./mvnw quarkus:dev` and `./mvnw test` both
-run without a live identity provider (or a locally-configured password) and without
-login - exactly like before authentication was added. This bypass is **not** active in
-the default/production profile; do not rely on it outside local development.
+`quarkus.oidc.tenant-enabled` ist für die Profile `dev` und `test` auf `false`
+gesetzt (`%dev.quarkus.oidc.tenant-enabled=false`,
+`%test.quarkus.oidc.tenant-enabled=false`; zu beachten: das ist `tenant-enabled`,
+nicht der buildzeitige `enabled`-Schalter - letzterer würde die CDI-Beans der
+OIDC-Erweiterung komplett entfernen und damit `CurrentUser`s bedingungslose
+`@Inject`-Felder brechen), und die pauschale `authenticated`-HTTP-Berechtigungs-
+richtlinie wird für dieselben Profile auf `permit` gelockert. Das bedeutet, sowohl
+`./mvnw quarkus:dev` als auch `./mvnw test` laufen ohne einen echten
+Identity-Provider (oder ein lokal konfiguriertes Passwort) und ohne Login - genau
+wie vor Einführung der Authentifizierung. Dieser Bypass ist im
+Standard-/Produktionsprofil **nicht** aktiv; verlass dich außerhalb der lokalen
+Entwicklung nicht darauf.
 
-### User identity in code
+### Nutzeridentität im Code
 
-`de.notenfuchs.security.CurrentUser` (request-scoped bean) exposes the logged-in
-user's OIDC subject, email, and display name for use in REST resources or Qute
-templates - see the Javadoc on that class for details. `CurrentUser.effectiveSubject()`
-is the value actually used for per-teacher data ownership (see below).
+`de.notenfuchs.security.CurrentUser` (Request-scoped Bean) stellt das
+OIDC-Subject, die E-Mail und den Anzeigenamen des angemeldeten Nutzers für die
+Verwendung in REST-Resources oder Qute-Templates bereit - siehe den Javadoc dieser
+Klasse für Details. `CurrentUser.effectiveSubject()` ist der Wert, der tatsächlich
+für die Zuordnung der Daten pro Lehrkraft verwendet wird (siehe unten).
 
-### Per-teacher data ownership
+### Datenzugriff pro Lehrkraft
 
-Authentication (above) proves *who* is logged in; access control is a separate layer on
-top that decides which classes/subjects a teacher can see and edit, with three tiers
-across two entities - see `CLAUDE.md`'s "Authorization" section for the full model; the
-summary:
+Authentifizierung (oben) beweist, *wer* angemeldet ist; die Zugriffskontrolle ist
+eine separate Schicht darüber, die entscheidet, welche Klassen/Fächer eine Lehrkraft
+sehen und bearbeiten kann, mit drei Stufen über zwei Entitäten - siehe den Abschnitt
+"Authorization" in `CLAUDE.md` für das vollständige Modell; die Kurzfassung:
 
-- `ClassTeacher` attaches a teacher to a `SchoolClass` at one of two roles: `ADMIN`
-  (roster read/write, class-wide settings, managing admins and the Fachlehrer tier
-  itself, deleting any Subject, and a read-only class-wide grade overview) or
-  `FACHLEHRER` (class-level: can add a new Subject and delete/manage Subjects it
-  personally teaches, but not administer the class). `SubjectTeacher` marks who teaches
-  a specific `Subject` (gates all Leistung-level access - categories, assessments,
-  grades, renaming it - for that one subject, regardless of `ClassTeacher` role, and
-  with no admin override: sharing a Fach with a colleague stays exclusively
-  self-service by whoever currently teaches it). Plain class-wide access (roster read,
-  subject list, Verhaltensnoten) is **derived**: a teacher has it if they hold a
-  `ClassTeacher` row of either role, or teach at least one of the class's subjects.
-  `GradeScale` is shared reference data, not owned by anyone.
-- `de.notenfuchs.security.OwnershipGuard` is the single place this is enforced. Every
-  REST/web endpoint that reads or writes an entity by id resolves it through one of its
-  `require*` methods (`requireClassAccess`/`requireClassTeacher`/`requireClassAdmin`,
-  `requireClassAccessSubject`/`requireTeachesSubject`/`requireCanDeleteSubject`, etc.);
-  a foreign class/subject/student/etc. and an unknown id both come back as a plain
-  **404**, deliberately indistinguishable, so a teacher can't tell "doesn't exist"
-  apart from "isn't yours". List endpoints (e.g. `GET /api/school-classes`) are
-  filtered to classes the current teacher can access rather than returning everyone's
-  data.
-- In `%dev`/`%test`, where OIDC is disabled (see above), `CurrentUser.effectiveSubject()`
-  falls back to a fixed `"dev-user"` subject, so ownership still works locally and in
-  tests without a real login.
-- A class's detail page has a "Lehrkräfte" section (admin-only) to add/remove
-  `ClassTeacher` rows of either role, picking from a directory of every teacher who's
-  made at least one authenticated request against this instance
-  (`de.notenfuchs.domain.Teacher`, kept fresh by
-  `de.notenfuchs.security.TeacherDirectoryRecorder` - see `CLAUDE.md`'s "Class & subject
-  access UI" section for how), plus a "Notenübersicht" link (admin-only) showing every
-  student's final grade in every Subject, read-only. A subject's detail page has an
-  analogous "Lehrkräfte" section for sharing a Fach with a colleague - self-service,
-  gated only by teaching that subject, with no admin override, unlike the class-level
-  section above.
+- `ClassTeacher` ordnet eine Lehrkraft einer `SchoolClass` mit einer von zwei Rollen
+  zu: `ADMIN` (Schülerliste lesen/schreiben, klassenweite Einstellungen, Verwaltung
+  der Admins und der Fachlehrer-Stufe selbst, Löschen jedes Fachs, sowie eine
+  schreibgeschützte klassenweite Notenübersicht) oder `FACHLEHRER` (klassenweit:
+  kann ein neues Fach anlegen und Fächer löschen/verwalten, die sie/er selbst
+  unterrichtet, aber die Klasse nicht administrieren). `SubjectTeacher` markiert,
+  wer ein bestimmtes `Subject` unterrichtet (schaltet den gesamten
+  Leistungs-Zugriff frei - Kategorien, Leistungen, Noten, Umbenennen - für genau
+  dieses Fach, unabhängig von der `ClassTeacher`-Rolle, und ohne Admin-Override:
+  das Teilen eines Fachs mit einer Kollegin/einem Kollegen bleibt ausschließlich
+  Selbstbedienung durch, wer es aktuell unterrichtet). Einfacher klassenweiter
+  Zugriff (Schülerliste lesen, Fächerliste, Verhaltensnoten) ist **abgeleitet**:
+  eine Lehrkraft hat ihn, wenn sie eine `ClassTeacher`-Zeile mit einer der beiden
+  Rollen hat, oder mindestens eines der Fächer der Klasse unterrichtet.
+  `GradeScale` ist gemeinsame Referenzdaten, die niemandem gehören.
+- `de.notenfuchs.security.OwnershipGuard` ist die einzige Stelle, an der dies
+  durchgesetzt wird. Jeder REST-/Web-Endpunkt, der eine Entität per ID liest oder
+  schreibt, löst sie über eine ihrer `require*`-Methoden auf
+  (`requireClassAccess`/`requireClassTeacher`/`requireClassAdmin`,
+  `requireClassAccessSubject`/`requireTeachesSubject`/`requireCanDeleteSubject`
+  usw.); eine fremde Klasse/ein fremdes Fach/ein fremder Schüler usw. und eine
+  unbekannte ID liefern beide schlicht **404**, bewusst nicht unterscheidbar,
+  damit eine Lehrkraft "existiert nicht" nicht von "gehört dir nicht"
+  unterscheiden kann. Listen-Endpunkte (z. B. `GET /api/school-classes`) sind auf
+  die Klassen gefiltert, auf die die aktuelle Lehrkraft Zugriff hat, statt die
+  Daten aller zurückzugeben.
+- In `%dev`/`%test`, wo OIDC deaktiviert ist (siehe oben), fällt
+  `CurrentUser.effectiveSubject()` auf ein festes `"dev-user"`-Subject zurück,
+  sodass die Zugriffskontrolle auch lokal und in Tests ohne echten Login
+  funktioniert.
+- Die Detailseite einer Klasse hat einen Abschnitt "Lehrkräfte" (nur für Admins)
+  zum Hinzufügen/Entfernen von `ClassTeacher`-Zeilen beider Rollen, mit Auswahl aus
+  einem Verzeichnis aller Lehrkräfte, die mindestens eine authentifizierte Anfrage
+  an diese Instanz gestellt haben (`de.notenfuchs.domain.Teacher`, aktuell
+  gehalten von `de.notenfuchs.security.TeacherDirectoryRecorder` - siehe den
+  Abschnitt "Class & subject access UI" in `CLAUDE.md` für Details), sowie einen
+  Link "Notenübersicht" (nur für Admins), der die Endnote jedes Schülers in jedem
+  Fach schreibgeschützt anzeigt. Die Detailseite eines Fachs hat einen analogen
+  Abschnitt "Lehrkräfte", um ein Fach mit einer Kollegin/einem Kollegen zu teilen -
+  Selbstbedienung, nur daran gebunden, dass man das Fach unterrichtet, ohne
+  Admin-Override, anders als der klassenweite Abschnitt oben.
 
-## Deploying a free demo instance
+## Eine kostenlose Demo-Instanz bereitstellen
 
-For letting people try Notenfuchs before committing to self-hosting it for real: a
-publicly reachable instance running on free-tier hosting, redeployed from latest
-`master` and reset to a fixed demo dataset every night. Two pieces, wired together by
-files already in this repo:
+Damit Interessierte Notenfuchs ausprobieren können, bevor sie sich für den echten
+Self-Hosting-Betrieb entscheiden: eine öffentlich erreichbare Instanz auf
+Free-Tier-Hosting, die jede Nacht aus dem aktuellen `master` neu deployed und auf
+einen festen Demo-Datensatz zurückgesetzt wird. Zwei Bausteine, verbunden über
+bereits im Repo vorhandene Dateien:
 
-- **[Render](https://render.com)** runs the app itself, built from
-  `src/main/docker/Dockerfile.render` (a multi-stage Dockerfile that runs the Maven
-  build from source - unlike `Dockerfile.jvm`, which expects `./mvnw package` to have
-  already run) via `render.yaml` (Render "Blueprint" - Render auto-detects this file).
-- **[Neon](https://neon.tech)** provides the free Postgres - Render's own free tier has
-  no persistent free Postgres option.
+- **[Render](https://render.com)** betreibt die App selbst, gebaut aus
+  `src/main/docker/Dockerfile.render` (ein mehrstufiges Dockerfile, das den
+  Maven-Build aus dem Quellcode ausführt - anders als `Dockerfile.jvm`, das
+  erwartet, dass `./mvnw package` bereits gelaufen ist) über `render.yaml`
+  (Render-"Blueprint" - Render erkennt diese Datei automatisch).
+- **[Neon](https://neon.tech)** stellt das kostenlose Postgres bereit - Renders
+  eigener Free-Tier hat keine dauerhafte kostenlose Postgres-Option.
 
-### One-time setup
+### Einmalige Einrichtung
 
-1. Create a free Neon project and note its connection details (host, database, user,
-   password).
-2. In Render, create a new **Blueprint** pointed at this repo - it picks up
-   `render.yaml` automatically.
-3. In the Render service's environment settings, set:
+1. Ein kostenloses Neon-Projekt anlegen und dessen Verbindungsdaten notieren (Host,
+   Datenbank, Nutzer, Passwort).
+2. In Render ein neues **Blueprint** anlegen, das auf dieses Repo zeigt - es
+   übernimmt `render.yaml` automatisch.
+3. In den Umgebungseinstellungen des Render-Service Folgendes setzen:
 
-   | Variable | Value |
+   | Variable | Wert |
    |---|---|
    | `DB_URL` | `jdbc:postgresql://<neon-host>/<db>?sslmode=require` |
-   | `DB_USER` | Your Neon role name |
-   | `DB_PASSWORD` | Your Neon role password |
-   | `NOTENFUCHS_PASSWORD` | A throwaway password, safe to publish next to the demo link - this instance only ever holds demo data that gets wiped nightly (see below). |
+   | `DB_USER` | Dein Neon-Rollenname |
+   | `DB_PASSWORD` | Dein Neon-Rollenpasswort |
+   | `NOTENFUCHS_PASSWORD` | Ein Wegwerf-Passwort, das gefahrlos neben dem Demo-Link veröffentlicht werden kann - diese Instanz enthält ohnehin nur Demodaten, die nachts gelöscht werden (siehe unten). |
 
-4. Create a **Deploy Hook** in the Render service's settings and copy its URL.
-5. Note the service id (`srv-...`, in the service's URL) and create a Render API key
-   (account settings).
-6. Add four secrets to this GitHub repo (Settings → Secrets and variables → Actions):
-   `RENDER_DEPLOY_HOOK_URL`, `RENDER_API_KEY`, `RENDER_SERVICE_ID`, and
-   `DEMO_DATABASE_URL` (the Neon connection string, direct/unpooled,
+4. Einen **Deploy Hook** in den Einstellungen des Render-Service anlegen und dessen
+   URL kopieren.
+5. Die Service-ID (`srv-...`, in der URL des Service) notieren und einen
+   Render-API-Key erzeugen (Kontoeinstellungen).
+6. Vier Secrets in diesem GitHub-Repo hinzufügen (Settings → Secrets and variables
+   → Actions): `RENDER_DEPLOY_HOOK_URL`, `RENDER_API_KEY`, `RENDER_SERVICE_ID` und
+   `DEMO_DATABASE_URL` (der Neon-Verbindungsstring, direkt/ungepoolt,
    `postgresql://user:password@host/db?sslmode=require`).
 
-### What happens nightly
+### Was jede Nacht passiert
 
-`.github/workflows/demo-nightly-redeploy.yml` runs on a cron schedule (03:00 UTC) and:
+`.github/workflows/demo-nightly-redeploy.yml` läuft nach einem Cron-Zeitplan
+(03:00 UTC) und:
 
-1. Triggers the Render deploy hook, which redeploys the latest `master` commit.
-2. Polls the Render API until that deploy reports `live` (rather than a fixed sleep -
-   free-tier builds can take a few minutes).
-3. Runs `demo/seed-reset.sql` directly against the Neon database, wiping every
-   teacher-owned table (`grade_scale` - shared reference data - is left untouched) and
-   reloading one fixed demo class (`Demo-Klasse 8b`, owned by the fixed local-auth user
-   `lehrer` - see "Default: local built-in auth" above) with a handful of students and
-   grades. This is separate from the one-time Flyway seed used on a fresh self-hosted
-   install (see "For development" above) - this script runs nightly, outside Flyway.
+1. Löst den Render-Deploy-Hook aus, der den aktuellen `master`-Commit neu deployed.
+2. Fragt die Render-API ab, bis das Deployment `live` meldet (statt eines festen
+   Sleep - Free-Tier-Builds können einige Minuten dauern).
+3. Führt `demo/seed-reset.sql` direkt gegen die Neon-Datenbank aus, löscht dabei
+   jede lehrkraft-eigene Tabelle (`grade_scale` - gemeinsame Referenzdaten - bleibt
+   unberührt) und lädt eine feste Demo-Klasse (`Demo-Klasse 8b`, im Besitz des
+   festen lokalen Auth-Nutzers `lehrer` - siehe "Standard: lokale integrierte
+   Anmeldung" oben) mit ein paar Schülern und Noten neu ein. Das ist getrennt von
+   der einmaligen Flyway-Seed-Einspielung bei einer frischen
+   Self-Hosting-Installation (siehe "Für die Entwicklung" oben) - dieses Skript
+   läuft nächtlich, außerhalb von Flyway.
 
-Trigger it manually from the Actions tab (`workflow_dispatch`) to redeploy/reset on
-demand instead of waiting for the nightly run.
+Manuell über den Actions-Tab auslösen (`workflow_dispatch`), um bei Bedarf neu zu
+deployen/zurückzusetzen, statt auf den nächtlichen Lauf zu warten.
 
-### Limitations
+### Einschränkungen
 
-- Render's free web services spin down after about 15 minutes idle; the first request
-  after that wakes it back up (30-60s cold start). Fine for a "kick the tires" demo, not
-  for anything latency-sensitive.
-- Free-tier terms on both platforms change over time - check Render's and Neon's
-  current limits before relying on this long-term.
-- This is a throwaway demo, not a template for a real deployment: the published
-  `NOTENFUCHS_PASSWORD` and nightly wipe are both intentional here and wrong for an
-  instance holding real student data.
+- Renders kostenlose Web-Services fahren nach ca. 15 Minuten Inaktivität herunter;
+  die erste Anfrage danach weckt sie wieder auf (30-60 s Kaltstart). Für eine
+  "mal ausprobieren"-Demo in Ordnung, nicht für irgendetwas latenzempfindliches.
+- Die Free-Tier-Bedingungen beider Plattformen ändern sich mit der Zeit - prüfe
+  Renders und Neons aktuelle Grenzen, bevor du dich langfristig darauf verlässt.
+- Das ist eine Wegwerf-Demo, keine Vorlage für ein echtes Deployment: das
+  veröffentlichte `NOTENFUCHS_PASSWORD` und das nächtliche Zurücksetzen sind hier
+  beide beabsichtigt und für eine Instanz mit echten Schülerdaten falsch.
 
-## REST API
+## REST-API
 
-All endpoints are under `/api` and scoped to the logged-in teacher (see "Per-teacher
-data ownership" above) - list endpoints only return that teacher's data, and a foreign
-or unknown id returns 404:
+Alle Endpunkte liegen unter `/api` und sind auf die angemeldete Lehrkraft
+beschränkt (siehe "Datenzugriff pro Lehrkraft" oben) - Listen-Endpunkte liefern nur
+die Daten dieser Lehrkraft, und eine fremde oder unbekannte ID liefert 404:
 
 - `GET/POST /api/school-classes`, `GET/PUT/DELETE /api/school-classes/{id}`
-- `GET/POST /api/students`, `GET/PUT/DELETE /api/students/{id}` (filter list with `?schoolClassId=`)
-- `GET/POST /api/subjects`, `GET/PUT/DELETE /api/subjects/{id}` (filter list with `?schoolClassId=`)
-- `GET/POST /api/grade-categories`, `GET/PUT/DELETE /api/grade-categories/{id}` (filter with `?subjectId=`)
-- `GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{id}` (filter with `?categoryId=`)
-- `GET/POST /api/grades`, `GET/PUT/DELETE /api/grades/{id}` (filter with `?studentId=` / `?assessmentId=`)
-- `GET/POST /api/behavior-grades`, `GET/PUT/DELETE /api/behavior-grades/{id}` (filter with
-  `?studentId=` / `?subjectId=`) - Verhaltensnoten, independent of the academic grade above
-- `GET /api/grade-scales`, `GET /api/grade-scales/{id}` (read-only, shared across all teachers)
-- `GET /api/school-classes/{classId}/averages` - computed raw average + final grade for
-  every student x subject combination in that class
+- `GET/POST /api/students`, `GET/PUT/DELETE /api/students/{id}` (Liste filtern mit `?schoolClassId=`)
+- `GET/POST /api/subjects`, `GET/PUT/DELETE /api/subjects/{id}` (Liste filtern mit `?schoolClassId=`)
+- `GET/POST /api/grade-categories`, `GET/PUT/DELETE /api/grade-categories/{id}` (filtern mit `?subjectId=`)
+- `GET/POST /api/assessments`, `GET/PUT/DELETE /api/assessments/{id}` (filtern mit `?categoryId=`)
+- `GET/POST /api/grades`, `GET/PUT/DELETE /api/grades/{id}` (filtern mit `?studentId=` / `?assessmentId=`)
+- `GET/POST /api/behavior-grades`, `GET/PUT/DELETE /api/behavior-grades/{id}` (filtern mit
+  `?studentId=` / `?subjectId=`) - Verhaltensnoten, unabhängig von der akademischen Note oben
+- `GET /api/grade-scales`, `GET /api/grade-scales/{id}` (schreibgeschützt, für alle Lehrkräfte gemeinsam)
+- `GET /api/school-classes/{classId}/averages` - berechneter Rohdurchschnitt + Endnote für
+  jede Kombination aus Schüler x Fach in dieser Klasse
 
-## Web frontend
+## Web-Frontend
 
-Notenfuchs ships a server-rendered HTML frontend (Quarkus Qute templates + HTMX for
-partial updates, plus a small amount of vanilla JS for the grade grid's spreadsheet-style
-keyboard navigation) - no React/SPA, no Node build step.
+Notenfuchs liefert ein serverseitig gerendertes HTML-Frontend (Quarkus-Qute-
+Templates + HTMX für partielle Updates, plus eine kleine Menge Vanilla-JS für die
+tastaturgesteuerte Tabellen-Navigation des Noteneingabe-Rasters) - kein React/SPA,
+kein Node-Build-Schritt.
 
-- `/` redirects to `/classes`
-- `/classes` - list/create/delete school classes
-- `/classes/{id}` - manage a class's subjects and students
-- `/subjects/{id}` - manage a subject's grade categories and assessments ("Leistungen")
-- `/subjects/{id}/grid` - the grade-entry grid: students as rows, assessments as columns
-  (grouped by category), each cell autosaves on blur/navigate-away via a small `fetch()`
-  call, with a live per-student average column computed by `GradeService`
-- `/subjects/{id}/grid/export` - downloads the same grid as an `.xlsx` workbook
-  (Apache POI), for teachers who want the grades outside the app
-- `/classes/{id}/roster/export` - downloads that class's student names as CSV
-- `/classes/{id}/roster/import/preview` and `/classes/{id}/roster/import` - upload a CSV
-  of student names, preview which rows are new vs. already-existing (by exact name match),
-  then confirm to create the new students
-- `/classes/{id}/behavior-grid` - the Verhaltensnoten grid: students as rows, every Fach
-  of the class as columns, for entering a behavior/conduct grade per student per Fach.
-  Independent of `GradeService`/the academic average - it's its own figure on the
-  Halbjahres-/Endjahreszeugnis. Shows a live per-Fach average (own scale, rounded final
-  grade) and a per-student average across all their Fächer (raw only, since Fächer may
-  use different scales), highlighted when close to a whole-grade rounding boundary
-  (e.g. 2.4-2.6, near 2.5)
+- `/` leitet auf `/classes` weiter
+- `/classes` - Klassen auflisten/anlegen/löschen
+- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten
+- `/subjects/{id}` - die Notenkategorien und Leistungen eines Fachs verwalten
+- `/subjects/{id}/grid` - das Noteneingabe-Raster: Schüler als Zeilen, Leistungen als
+  Spalten (gruppiert nach Kategorie), jede Zelle speichert bei Blur/Verlassen
+  automatisch über einen kleinen `fetch()`-Aufruf, mit einer live berechneten
+  Durchschnittsspalte pro Schüler (`GradeService`)
+- `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
+  herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
+  möchten
+- `/classes/{id}/roster/export` - lädt die Schülernamen dieser Klasse als CSV
+  herunter
+- `/classes/{id}/roster/import/preview` und `/classes/{id}/roster/import` - eine
+  CSV mit Schülernamen hochladen, eine Vorschau anzeigen, welche Zeilen neu sind
+  bzw. bereits existieren (per exaktem Namensabgleich), und dann bestätigen, um die
+  neuen Schüler anzulegen
+- `/classes/{id}/behavior-grid` - das Verhaltensnoten-Raster: Schüler als Zeilen,
+  jedes Fach der Klasse als Spalten, zur Eingabe einer Verhaltensnote pro Schüler
+  und Fach. Unabhängig von `GradeService`/dem akademischen Durchschnitt - eine
+  eigene Kennzahl fürs Halbjahres-/Endjahreszeugnis. Zeigt einen live berechneten
+  Durchschnitt pro Fach (eigene Skala, gerundete Endnote) sowie einen Durchschnitt
+  pro Schüler über alle Fächer (nur roh, da Fächer unterschiedliche Skalen nutzen
+  können), hervorgehoben, wenn nahe an einer Rundungsgrenze zur nächsten ganzen
+  Note (z. B. 2,4-2,6, nahe 2,5)
 
-### Roster CSV format
+### Roster-CSV-Format
 
-A "roster" is just a class's list of student names, one per line under a `Name` header.
-Handled by `CsvRosterService` (`de.notenfuchs.service`), a pure/DB-free service - like
-`GradeService` - so it's unit-tested without a database.
+Ein "Roster" ist einfach die Liste der Schülernamen einer Klasse, einer pro Zeile
+unter einer `Name`-Kopfzeile. Wird von `CsvRosterService` (`de.notenfuchs.service`)
+behandelt, einem reinen, DB-freien Service - wie `GradeService` - daher ohne
+Datenbank unit-testbar.
 
-- **Export** always writes UTF-8 with a BOM and a **semicolon**-delimited `Name` column,
-  so German-locale Excel opens umlauts correctly out of the box without a manual encoding
-  prompt.
-- **Import** is tolerant of what real German Excel exports actually look like: it sniffs
-  the delimiter (`;` vs `,`) from the header line, decodes UTF-8 (with or without a BOM)
-  and falls back to Windows-1252 if the bytes aren't valid UTF-8, and accepts both CRLF and
-  LF line endings. A `Name` header (case-insensitive) is recognized and dropped if present.
-  A header with separate `Vorname`/`Nachname` columns (case-insensitive, any position, any
-  other columns such as `Alter`/`Klasse`/`Geburtsdatum` ignored) is also recognized and the
-  two columns are joined with a space into the full name - the shape many school-admin
-  systems export. Without either recognizable header, every line is treated as a name.
-  Blank lines are skipped, names are trimmed.
-- Import is a two-step, stateless flow: uploading a CSV renders a **preview** page marking
-  each row NEW or DUPLICATE (against the class's existing students, exact name match) before
-  anything is written to the database. The preview's confirm form carries the parsed names
-  back as hidden inputs rather than relying on a server-side session, so the confirm request
-  is self-contained. Confirming creates a `Student` per new name and skips duplicates
-  (including duplicates within the uploaded file itself).
+- **Export** schreibt immer UTF-8 mit BOM und eine **semikolon**-getrennte
+  `Name`-Spalte, damit Excel mit deutscher Locale Umlaute out of the box korrekt
+  öffnet, ohne manuelle Nachfrage zur Kodierung.
+- **Import** ist tolerant gegenüber dem, was echte Exporte aus deutschem Excel
+  tatsächlich aussehen: er erkennt das Trennzeichen (`;` vs. `,`) aus der
+  Kopfzeile, dekodiert UTF-8 (mit oder ohne BOM) und fällt auf Windows-1252
+  zurück, falls die Bytes kein gültiges UTF-8 sind, und akzeptiert sowohl CRLF-
+  als auch LF-Zeilenenden. Eine `Name`-Kopfzeile (Groß-/Kleinschreibung egal) wird
+  erkannt und, falls vorhanden, entfernt. Eine Kopfzeile mit separaten
+  `Vorname`/`Nachname`-Spalten (Groß-/Kleinschreibung egal, beliebige Position,
+  andere Spalten wie `Alter`/`Klasse`/`Geburtsdatum` werden ignoriert) wird
+  ebenfalls erkannt, und die beiden Spalten werden mit einem Leerzeichen zum
+  vollen Namen zusammengefügt - das Format, das viele Schulverwaltungssysteme
+  exportieren. Ohne eine dieser erkennbaren Kopfzeilen wird jede Zeile als Name
+  behandelt. Leerzeilen werden übersprungen, Namen werden getrimmt.
+- Der Import ist ein zweistufiger, zustandsloser Ablauf: das Hochladen einer CSV
+  rendert eine **Vorschau**-Seite, die jede Zeile als NEU oder DUPLIKAT markiert
+  (gegen die bestehenden Schüler der Klasse, exakter Namensabgleich), bevor
+  irgendetwas in die Datenbank geschrieben wird. Das Bestätigungsformular der
+  Vorschau führt die geparsten Namen als versteckte Eingabefelder zurück, statt
+  sich auf eine serverseitige Session zu verlassen, sodass die
+  Bestätigungsanfrage in sich abgeschlossen ist. Das Bestätigen legt pro neuem
+  Namen einen `Student` an und überspringt Duplikate (auch Duplikate innerhalb
+  der hochgeladenen Datei selbst).
 
-**HTMX is self-hosted**, not loaded from a CDN. `htmx.min.js` (v1.9.12) is vendored at
-`src/main/resources/META-INF/resources/static/js/htmx.min.js` and served from
-`/static/js/htmx.min.js` via the `<script>` tag in `templates/base.html`. To upgrade,
-replace that file with a newer `htmx.min.js` from https://htmx.org and update the version
-noted here.
+**HTMX wird selbst gehostet**, nicht von einem CDN geladen. `htmx.min.js`
+(v1.9.12) liegt eingebunden unter
+`src/main/resources/META-INF/resources/static/js/htmx.min.js` und wird über den
+`<script>`-Tag in `templates/base.html` unter `/static/js/htmx.min.js`
+ausgeliefert. Für ein Upgrade diese Datei durch ein neueres `htmx.min.js` von
+https://htmx.org ersetzen und die hier vermerkte Version aktualisieren.
 
-## License
+## Lizenz
 
-MIT, see [LICENSE](LICENSE).
+MIT, siehe [LICENSE](LICENSE).

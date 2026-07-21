@@ -2,6 +2,8 @@
 
 Open-source grade-management tool for teachers (Klassen, Fächer, Noten). Focus is **grade entry and grade calculation** done well — that's the gap in existing tools. German context, self-hosted.
 
+User-facing documentation (README.md and any other docs aimed at teachers, not developers) must be written in German — the audience is German-speaking teachers. Everything developer-facing stays English: CLAUDE.md itself, code (comments, Javadoc, identifiers), and commit messages.
+
 ## Tech stack
 
 Quarkus 3.37.2 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5 · quarkus-oidc (alternative SSO auth) · quarkus-elytron-security-properties-file (default local auth) · Apache POI (poi-ooxml, xlsx export) · FastCSV (`de.siegmar:fastcsv`, roster CSV import/export) · quarkus-playwright (browser ITs). Postgres runs via Docker Compose. Group id `de.notenfuchs`.
