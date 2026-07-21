@@ -12,6 +12,7 @@
         <h2>Fächer</h2>
         {#include fragments/subjectList /}
 
+        {#if isClassTeacher}
         <h3>Neues Fach anlegen</h3>
         <div class="card">
             <form class="inline-form" hx-post="/classes/{schoolClass.id}/subjects" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
@@ -30,13 +31,14 @@
                 <div class="form-field">
                     <label for="roundingMode">Rundung</label>
                     <select id="roundingMode" name="roundingMode" required>
-                        <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
                         <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
+                        <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
                     </select>
                 </div>
                 <button type="submit">Anlegen</button>
             </form>
         </div>
+        {/if}
     </section>
 
     <section>
@@ -46,6 +48,7 @@
         {/if}
         {#include fragments/studentList /}
 
+        {#if isClassAdmin}
         <h3>Schüler hinzufügen</h3>
         <div class="card">
             <form class="inline-form" hx-post="/classes/{schoolClass.id}/students" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
@@ -60,10 +63,12 @@
                 <button type="submit">Hinzufügen</button>
             </form>
         </div>
+        {/if}
 
         <h3>Schülerliste (CSV)</h3>
         <div class="card">
             <p><a class="btn secondary" href="/classes/{schoolClass.id}/roster/export">Als CSV exportieren</a></p>
+            {#if isClassAdmin}
             <form class="inline-form" method="post" action="/classes/{schoolClass.id}/roster/import/preview" enctype="multipart/form-data">
                 <div class="form-field">
                     <label for="rosterFile">CSV importieren</label>
@@ -76,16 +81,29 @@
                 <button type="submit">Vorschau anzeigen</button>
             </form>
             <p class="hint">Eine Spalte „Name“, ein Name pro Zeile. Semikolon- oder komma-getrennt, UTF-8 oder Windows-1252.</p>
+            {/if}
         </div>
     </section>
 </div>
 
-<h2>Lehrkräfte</h2>
-{#include fragments/classTeachers /}
+<h2>Verhaltensnoten</h2>
+<div class="card">
+    <p class="hint">Eine Verhaltensnote je Schüler und Fach - fließt nicht in die Fachnote ein, sondern erscheint als eigene Note auf dem Zeugnis.</p>
+    <p><a class="btn secondary" href="/classes/{schoolClass.id}/behavior-grid">Verhaltensnoten erfassen</a></p>
+</div>
 
+{#if isClassAdmin}
+<h2>Notenübersicht</h2>
+<div class="card">
+    <p class="hint">Endnoten aller Fächer für jeden Schüler - nur für Admins.</p>
+    <p><a class="btn secondary" href="/classes/{schoolClass.id}/overview">Notenübersicht anzeigen</a></p>
+</div>
+{/if}
+
+{#if isClassAdmin}
 <h2>Klasseneinstellungen</h2>
 <details class="settings-disclosure" {#if schoolClass.halfYearCutoff || schoolClass.halfYearGradeDisplay.name != 'WHOLE'}open{/if}>
-    <summary>Schuljahreswechsel, Halbjahr-Ansicht, Verhaltensnoten</summary>
+    <summary>Schuljahreswechsel, Halbjahr-Ansicht</summary>
     <div class="settings-body">
         <div class="card">
             <h3 style="margin-top: 0;">Schuljahreswechsel</h3>
@@ -110,13 +128,33 @@
             <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
             {#include fragments/halfYearGradeDisplay /}
         </div>
-
-        <div class="card">
-            <h3 style="margin-top: 0;">Verhaltensnoten</h3>
-            <p class="hint">Eine Verhaltensnote je Schüler und Fach - fließt nicht in die Fachnote ein, sondern erscheint als eigene Note auf dem Zeugnis.</p>
-            <p><a class="btn secondary" href="/classes/{schoolClass.id}/behavior-grid">Verhaltensnoten erfassen</a></p>
-        </div>
     </div>
 </details>
+{/if}
+
+{#if isClassAdmin}
+<h2>Lehrkräfte</h2>
+{#include fragments/classTeachers /}
+
+<h2>Fachlehrer mit Klassenzugriff</h2>
+<div class="card">
+    <p class="hint">Diese Lehrkräfte sehen die ganze Klasse (Schülerliste, Verhaltensnoten), weil sie mindestens ein Fach dieser Klasse unterrichten - nicht weil sie als Lehrkraft der Klasse hinzugefügt wurden. Nur zur Information; verwaltet wird das beim jeweiligen Fach, nicht hier.</p>
+    {#if transitiveTeachers.isEmpty}
+        <p class="hint">Keine.</p>
+    {#else}
+        <table class="entity-list">
+            <thead><tr><th>Lehrkraft</th><th>Fach/Fächer</th></tr></thead>
+            <tbody>
+                {#for t in transitiveTeachers}
+                    <tr>
+                        <td>{t.label}</td>
+                        <td>{t.subjectNames}</td>
+                    </tr>
+                {/for}
+            </tbody>
+        </table>
+    {/if}
+</div>
+{/if}
 
 {/include}

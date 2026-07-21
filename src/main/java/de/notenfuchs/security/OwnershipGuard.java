@@ -3,6 +3,7 @@ package de.notenfuchs.security;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.BehaviorGrade;
 import de.notenfuchs.domain.ClassTeacher;
+import de.notenfuchs.domain.ClassTeacherRole;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.PointsGradeBand;
@@ -20,21 +21,24 @@ import java.util.List;
  *
  * <p>Two independent axes, both keyed on a teacher's OIDC subject (see {@link CurrentUser}):
  * <ul>
- *     <li>{@link ClassTeacher} - full co-ownership (Klassenlehrer-tier) of a {@link SchoolClass}.
- *     A class can have several owners with identical rights and no hierarchy between them.
- *     Ownership grants roster read/write, class-wide settings, seeing every subject's average,
- *     and managing which teachers are attached to the class.</li>
- *     <li>{@link SubjectTeacher} - teaches a specific {@link Subject} (Fachlehrer-tier). Gates
- *     all Leistung-level access (categories, assessments, grades, subject config) for that one
- *     subject - true for owners and collaborators alike, so an owner who doesn't personally
- *     teach a subject can't see its grades either.</li>
+ *     <li>{@link ClassTeacher} - attaches a teacher to a {@link SchoolClass} at one of two
+ *     {@link ClassTeacherRole} tiers, no hierarchy between rows of the same role. {@code ADMIN}
+ *     grants roster read/write, class-wide settings, managing admins and the FACHLEHRER tier
+ *     itself, deleting any Subject, and a read-only class-wide grade overview. {@code FACHLEHRER}
+ *     (class-level) can add a new Subject and delete/manage Subjects it personally teaches, but
+ *     not administer the class - see {@link #isAdmin}/{@link #isClassTeacher}.</li>
+ *     <li>{@link SubjectTeacher} - teaches a specific {@link Subject} (Fachlehrer-tier, subject
+ *     level). Gates all Leistung-level access (categories, assessments, grades, subject config,
+ *     renaming it) for that one subject - true regardless of any {@link ClassTeacher} role, so an
+ *     admin who doesn't personally teach a subject can't see its grades either, and has no
+ *     override on who else teaches it (self-service only, see {@link #requireTeachesSubject}).</li>
  * </ul>
  *
  * <p>Plain class-wide access (roster read, subject list, Verhaltensnoten) is deliberately
- * <b>derived</b>, not stored: a teacher has it if they own the class, or teach at least one of
- * its subjects (see {@link #hasClassAccess}). This is what lets a Fachlehrer share their Fach
- * with a colleague and have that colleague land with exactly the class access they need, without
- * a separate approval step or a second row to keep in sync.
+ * <b>derived</b>, not stored: a teacher has it if they hold a {@link ClassTeacher} row of either
+ * role, or teach at least one of the class's subjects (see {@link #hasClassAccess}). This is what
+ * lets a Fachlehrer share their Fach with a colleague and have that colleague land with exactly
+ * the class access they need, without a separate approval step or a second row to keep in sync.
  *
  * <p>Every REST/web endpoint that reads or writes an entity by id must resolve it through one of
  * the {@code require*} methods here instead of a raw {@code findById} - foreign or unknown ids
@@ -50,7 +54,15 @@ public class OwnershipGuard {
 
     // ---- predicates ----
 
-    public boolean isOwner(SchoolClass schoolClass, String teacherSubject) {
+    /** Holds an ADMIN-tier {@link ClassTeacher} row on this class. */
+    public boolean isAdmin(SchoolClass schoolClass, String teacherSubject) {
+        return schoolClass != null && ClassTeacher.count(
+                "schoolClass = ?1 and teacherSubject = ?2 and role = ?3",
+                schoolClass, teacherSubject, ClassTeacherRole.ADMIN) > 0;
+    }
+
+    /** Holds a {@link ClassTeacher} row of either role on this class. */
+    public boolean isClassTeacher(SchoolClass schoolClass, String teacherSubject) {
         return schoolClass != null
                 && ClassTeacher.count("schoolClass = ?1 and teacherSubject = ?2", schoolClass, teacherSubject) > 0;
     }
@@ -60,9 +72,9 @@ public class OwnershipGuard {
                 && SubjectTeacher.count("subject = ?1 and teacherSubject = ?2", subject, teacherSubject) > 0;
     }
 
-    /** Owner of the class, or teaches at least one of its subjects. */
+    /** Holds a {@link ClassTeacher} row of either role, or teaches at least one of its subjects. */
     public boolean hasClassAccess(SchoolClass schoolClass, String teacherSubject) {
-        if (isOwner(schoolClass, teacherSubject)) {
+        if (isClassTeacher(schoolClass, teacherSubject)) {
             return true;
         }
         return schoolClass != null
@@ -79,7 +91,7 @@ public class OwnershipGuard {
                 teacherSubject);
     }
 
-    /** Read-only class access: owner, or teaches at least one subject in it. */
+    /** Read-only class access: a {@link ClassTeacher} row of either role, or teaches at least one subject in it. */
     public SchoolClass requireClassAccess(Long classId, String currentSubject) {
         SchoolClass entity = SchoolClass.findById(classId);
         if (entity == null || !hasClassAccess(entity, currentSubject)) {
@@ -88,10 +100,19 @@ public class OwnershipGuard {
         return entity;
     }
 
-    /** Class-wide mutation/admin rights: owners only (roster writes, class settings, teacher management). */
-    public SchoolClass requireClassOwner(Long classId, String currentSubject) {
+    /** Class-level standing of either role: can add a Subject, but not administer the class. */
+    public SchoolClass requireClassTeacher(Long classId, String currentSubject) {
         SchoolClass entity = SchoolClass.findById(classId);
-        if (entity == null || !isOwner(entity, currentSubject)) {
+        if (entity == null || !isClassTeacher(entity, currentSubject)) {
+            throw new NotFoundException("SchoolClass " + classId + " not found");
+        }
+        return entity;
+    }
+
+    /** Class-wide mutation/admin rights: ADMIN-tier only (roster writes, class settings, admin/Fachlehrer-tier management). */
+    public SchoolClass requireClassAdmin(Long classId, String currentSubject) {
+        SchoolClass entity = SchoolClass.findById(classId);
+        if (entity == null || !isAdmin(entity, currentSubject)) {
             throw new NotFoundException("SchoolClass " + classId + " not found");
         }
         return entity;
@@ -117,6 +138,25 @@ public class OwnershipGuard {
         return entity;
     }
 
+    /**
+     * Deleting a Subject (destructive - cascades its categories/assessments/grades) is tighter
+     * than the self-service {@link #requireTeachesSubject}: an admin can delete any Subject in
+     * the class, a class-level Fachlehrer only one it personally teaches, and a subject-only
+     * Fachlehrer none at all.
+     */
+    public Subject requireCanDeleteSubject(Long subjectId, String currentSubject) {
+        Subject entity = Subject.findById(subjectId);
+        if (entity == null) {
+            throw new NotFoundException("Subject " + subjectId + " not found");
+        }
+        boolean allowed = isAdmin(entity.schoolClass, currentSubject)
+                || (isClassTeacher(entity.schoolClass, currentSubject) && teachesSubject(entity, currentSubject));
+        if (!allowed) {
+            throw new NotFoundException("Subject " + subjectId + " not found");
+        }
+        return entity;
+    }
+
     // ---- student-level ----
 
     /** Read-only: class access to the student's class is enough. */
@@ -128,10 +168,10 @@ public class OwnershipGuard {
         return entity;
     }
 
-    /** Roster mutation (add/rename/delete a student): class owner only. */
+    /** Roster mutation (add/rename/delete a student): ADMIN-tier only. */
     public Student requireRosterManageStudent(Long studentId, String currentSubject) {
         Student entity = Student.findById(studentId);
-        if (entity == null || !isOwner(entity.schoolClass, currentSubject)) {
+        if (entity == null || !isAdmin(entity.schoolClass, currentSubject)) {
             throw new NotFoundException("Student " + studentId + " not found");
         }
         return entity;
@@ -189,12 +229,23 @@ public class OwnershipGuard {
         return entity;
     }
 
-    // ---- class teacher management: adding/removing co-owners, owner-only ----
+    // ---- class teacher management: adding/removing admins or class-level Fachlehrer, ADMIN-only ----
 
-    public ClassTeacher requireClassOwnerTeacher(Long classTeacherId, String currentSubject) {
+    public ClassTeacher requireClassAdminTeacher(Long classTeacherId, String currentSubject) {
         ClassTeacher entity = ClassTeacher.findById(classTeacherId);
-        if (entity == null || !isOwner(entity.schoolClass, currentSubject)) {
+        if (entity == null || !isAdmin(entity.schoolClass, currentSubject)) {
             throw new NotFoundException("ClassTeacher " + classTeacherId + " not found");
+        }
+        return entity;
+    }
+
+    // ---- subject teacher management: adding/removing Fachlehrer, self-service (any current
+    // teacher of the subject, no admin override - see the Authorization section in CLAUDE.md) ----
+
+    public SubjectTeacher requireTeachesSubjectTeacher(Long subjectTeacherId, String currentSubject) {
+        SubjectTeacher entity = SubjectTeacher.findById(subjectTeacherId);
+        if (entity == null || !teachesSubject(entity.subject, currentSubject)) {
+            throw new NotFoundException("SubjectTeacher " + subjectTeacherId + " not found");
         }
         return entity;
     }

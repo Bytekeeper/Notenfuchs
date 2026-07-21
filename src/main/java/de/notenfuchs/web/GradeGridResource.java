@@ -25,6 +25,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -423,6 +424,9 @@ public class GradeGridResource {
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         Student student = guard.requireClassAccessStudent(studentId, currentSubject);
         Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
+        if (!assessment.category.subject.id.equals(subject.id) || !student.schoolClass.id.equals(subject.schoolClass.id)) {
+            throw new NotFoundException();
+        }
 
         Grade existing = Grade.find("assessment.id = ?1 and student.id = ?2", assessmentId, studentId).firstResult();
 

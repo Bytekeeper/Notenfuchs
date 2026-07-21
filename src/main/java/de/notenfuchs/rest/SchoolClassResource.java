@@ -56,7 +56,7 @@ public class SchoolClassResource {
     @Path("/{id}")
     @Transactional
     public SchoolClass update(@PathParam("id") Long id, @Valid SchoolClassRequest request) {
-        SchoolClass entity = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass entity = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.schoolYear = request.schoolYear;
         return entity;
@@ -66,7 +66,7 @@ public class SchoolClassResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        SchoolClass entity = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass entity = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

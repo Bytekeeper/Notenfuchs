@@ -73,8 +73,9 @@ public class BehaviorGridResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance grid(@PathParam("id") Long id) {
-        SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
-        GridData data = loadGridData(schoolClass);
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentSubject);
+        GridData data = loadGridData(schoolClass, currentSubject);
         return currentUser.withUser(gridTemplate
                 .data("schoolClass", schoolClass)
                 .data("subjects", data.subjects())
@@ -85,7 +86,7 @@ public class BehaviorGridResource {
                 .data("gridEmpty", data.gridEmpty()));
     }
 
-    private GridData loadGridData(SchoolClass schoolClass) {
+    private GridData loadGridData(SchoolClass schoolClass, String currentSubject) {
         List<Subject> subjects = Subject.list("schoolClass.id = ?1 order by name", schoolClass.id);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", schoolClass.id);
 
@@ -113,7 +114,7 @@ public class BehaviorGridResource {
                     studentValues.add(grade.value);
                     columnValues.get(colIndex).add(grade.value);
                 }
-                cells.add(new CellView(colIndex, subject.id, displayValue));
+                cells.add(new CellView(colIndex, subject.id, displayValue, guard.teachesSubject(subject, currentSubject)));
                 colIndex++;
             }
             BigDecimal rowAverage = behaviorGradeService.average(studentValues);
@@ -237,7 +238,10 @@ public class BehaviorGridResource {
     public record StudentView(Long id, String effectiveName) {
     }
 
-    public record CellView(int colIndex, Long subjectId, String displayValue) {
+    /** {@code taught} is false when the viewer has class-wide (not Fach-level) access only -
+     * used by {@code GridPage/behaviorGrid.html} to render the cell read-only, since {@link #saveCell}
+     * would 404 via {@link OwnershipGuard#requireTeachesSubject} for that Fach otherwise. */
+    public record CellView(int colIndex, Long subjectId, String displayValue, boolean taught) {
     }
 
     public record RowView(int rowIndex, StudentView student, List<CellView> cells,

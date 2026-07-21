@@ -22,22 +22,24 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 
 /**
  * Browser-driven end-to-end coverage for the "Lehrkräfte" section on {@code
- * ClassPage/detail.html} (backed by {@code fragments/classTeachers.html} and {@code
- * ClassUiResource#addClassTeacher}/{@code #removeClassTeacher}). Complements {@code
- * de.notenfuchs.web.ClassTeacherIT}, which asserts the same behavior at the HTTP/data level - this
- * test instead drives the real select-a-colleague-and-add flow through the UI. A Failsafe IT
- * (./mvnw verify) for the same reasons as {@link ClassDuplicationE2EIT}.
+ * SubjectPage/detail.html} (backed by {@code fragments/subjectTeachers.html} and {@code
+ * SubjectUiResource#addSubjectTeacher}/{@code #removeSubjectTeacher}). Complements {@code
+ * de.notenfuchs.web.SubjectTeacherIT}, which asserts the same behavior (plus the self-service and
+ * self-removal-redirect specifics) at the HTTP/data level - this test instead drives the real
+ * select-a-colleague-and-add flow through the UI, mirroring {@link ClassTeacherE2EIT} closely. A
+ * Failsafe IT (./mvnw verify) for the same reasons as {@link ClassDuplicationE2EIT}.
  *
- * <p>Doesn't assert the "no other teacher known yet" empty-directory hint: with no reset between
- * test classes (see {@code ClassDuplicationIT}'s Javadoc on the same point), other tests in the
- * same run leave real, uniquely-named {@link Teacher} rows behind, so a brand new class's
- * available-teachers list isn't reliably empty by the time this test runs. That branch is simple
- * template logic ({@code #if availableTeachers.isEmpty}) already exercised manually during
- * implementation; what's actually worth a browser test is the add/remove interaction itself.
+ * <p>No self-removal-through-the-browser scenario here, for the same reason {@link
+ * ClassTeacherE2EIT} has none: it would navigate the actor away mid-test for no additional
+ * coverage the HTTP-level IT doesn't already give more precisely (including both redirect-target
+ * branches, which need seeded cross-tenant state a browser flow can't easily set up anyway). Also
+ * doesn't assert the "no other teacher known yet" empty-directory hint - same reasoning as {@link
+ * ClassTeacherE2EIT}: no reset between test classes means a fresh subject's available-teachers
+ * list isn't reliably empty by the time this runs.
  */
 @QuarkusTest
 @WithPlaywright
-class ClassTeacherE2EIT {
+class SubjectTeacherE2EIT {
 
     @TestHTTPResource("/")
     URL rootUrl;
@@ -57,11 +59,12 @@ class ClassTeacherE2EIT {
     }
 
     @Test
-    void addAndRemoveClassTeacherThroughTheRealUi() {
+    void addAndRemoveSubjectTeacherThroughTheRealUi() {
         String unique = Long.toString(System.nanoTime());
-        String className = "E2E-Teacher-Klasse-" + unique;
-        String colleagueSubject = "e2e-colleague-" + unique;
-        String colleagueLabel = "kollegin-" + unique + "@schule.de";
+        String className = "E2E-SubjTeacher-Klasse-" + unique;
+        String subjectName = "E2E-SubjTeacher-Fach-" + unique;
+        String colleagueSubject = "e2e-subj-colleague-" + unique;
+        String colleagueLabel = "kollegin-subj-" + unique + "@schule.de";
         seedTeacher(colleagueSubject, colleagueLabel);
 
         page.navigate(baseUrl());
@@ -70,28 +73,31 @@ class ClassTeacherE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        // Sole owner: shown as "(Sie)", no removal option.
-        Locator teachersFragment = page.locator("#class-teachers-fragment");
+        page.locator("#subjectName").fill(subjectName);
+        page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
+        page.locator("#roundingMode").selectOption("COMMERCIAL");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+
+        // Sole teacher: shown as "(Sie)", no removal option.
+        Locator teachersFragment = page.locator("#subject-teachers-fragment");
         assertThat(teachersFragment.locator("tbody tr")).hasCount(1);
         assertThat(teachersFragment.locator("tbody tr").first()).containsText("(Sie)");
         assertThat(teachersFragment.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Entfernen")))
                 .hasCount(0);
 
-        // The seeded colleague is selectable and gets added as a second ADMIN (not the default
-        // FACHLEHRER tier) - this test is about the symmetric two-admin add/remove flow, not the
-        // role split itself (see OwnershipGuardIT/ClassTeacherIT for role-specific coverage).
+        // The seeded colleague is selectable and gets added.
         page.locator("#teacherSubject").selectOption(new SelectOption().setValue(colleagueSubject));
-        page.locator("#classTeacherRole").selectOption("ADMIN");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Zugriff gewähren")).click();
         assertThat(teachersFragment.locator("tbody tr")).hasCount(2);
         assertThat(teachersFragment.locator("tbody tr").filter(new Locator.FilterOptions().setHasText(colleagueLabel)))
                 .isVisible();
 
-        // Now two owners: both rows offer "Entfernen".
+        // Now two teachers: both rows offer "Entfernen".
         assertThat(teachersFragment.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Entfernen")))
                 .hasCount(2);
 
-        // Remove the colleague again - back to a single, non-removable owner.
+        // Remove the colleague again - back to a single, non-removable teacher.
         Locator colleagueRow = teachersFragment.locator("tbody tr").filter(new Locator.FilterOptions().setHasText(colleagueLabel));
         page.onceDialog(Dialog::accept);
         colleagueRow.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Entfernen")).click();

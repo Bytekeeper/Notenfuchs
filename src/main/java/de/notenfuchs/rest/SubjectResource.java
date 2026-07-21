@@ -51,10 +51,10 @@ public class SubjectResource {
     public Response create(@Valid SubjectRequest request) {
         String currentSubject = currentUser.effectiveSubject();
         Subject entity = new Subject();
-        entity.schoolClass = guard.requireClassAccess(request.schoolClassId, currentSubject);
+        entity.schoolClass = guard.requireClassTeacher(request.schoolClassId, currentSubject);
         entity.name = request.name;
         entity.gradeScale = findGradeScaleOrNotFound(request.gradeScaleId);
-        entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.COMMERCIAL;
+        entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.IN_FAVOR_OF_STUDENT;
         entity.persist();
 
         SubjectTeacher teacher = new SubjectTeacher();
@@ -71,10 +71,10 @@ public class SubjectResource {
     public Subject update(@PathParam("id") Long id, @Valid SubjectRequest request) {
         String subject = currentUser.effectiveSubject();
         Subject entity = guard.requireTeachesSubject(id, subject);
-        entity.schoolClass = guard.requireClassAccess(request.schoolClassId, subject);
+        entity.schoolClass = guard.requireClassTeacher(request.schoolClassId, subject);
         entity.name = request.name;
         entity.gradeScale = findGradeScaleOrNotFound(request.gradeScaleId);
-        entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.COMMERCIAL;
+        entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.IN_FAVOR_OF_STUDENT;
         return entity;
     }
 
@@ -82,7 +82,7 @@ public class SubjectResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
-        Subject entity = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        Subject entity = guard.requireCanDeleteSubject(id, currentUser.effectiveSubject());
         entity.delete();
         return Response.noContent().build();
     }

@@ -1,0 +1,40 @@
+{#include base}
+{#title}Notenübersicht – {schoolClass.name}{/title}
+
+<div class="breadcrumbs">
+    <a href="/classes">Klassen</a> / <a href="/classes/{schoolClass.id}">{schoolClass.name}</a> / Notenübersicht
+</div>
+<h1>Notenübersicht: {schoolClass.name}</h1>
+<p class="hint">Endnoten aller Fächer für jeden Schüler - rein lesend, nur für Admins sichtbar. Keine Kategorien, Leistungen oder einzelne Noten - dafür weiterhin die Notenerfassung des jeweiligen Fachs.</p>
+
+{#if gridEmpty}
+    <p class="hint">Diese Klasse hat noch keine Fächer. <a href="/classes/{schoolClass.id}">Erst Fächer anlegen</a>.</p>
+{#else}
+    <div class="grid-wrapper">
+        <table class="grade-grid">
+            <thead>
+                <tr>
+                    <th>Schüler</th>
+                    {#for s in subjects}
+                        <th class="assessment-header">{s.name}</th>
+                    {/for}
+                </tr>
+            </thead>
+            <tbody>
+                {#for row in rows}
+                    <tr>
+                        <td class="student-cell">{row.studentName}</td>
+                        {#for cell in row.cells}
+                            <td class="average-cell">
+                                <span class="average-final">{cell.finalGrade ?: '–'}</span>
+                                <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>
+                            </td>
+                        {/for}
+                    </tr>
+                {/for}
+            </tbody>
+        </table>
+    </div>
+{/if}
+
+{/include}

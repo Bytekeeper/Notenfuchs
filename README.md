@@ -392,34 +392,44 @@ is the value actually used for per-teacher data ownership (see below).
 ### Per-teacher data ownership
 
 Authentication (above) proves *who* is logged in; access control is a separate layer on
-top that decides which classes/subjects a teacher can see and edit. A class can have
-several full co-owners, and a subject can have several teachers - see `CLAUDE.md`'s
-"Authorization" section for the full model; the summary:
+top that decides which classes/subjects a teacher can see and edit, with three tiers
+across two entities - see `CLAUDE.md`'s "Authorization" section for the full model; the
+summary:
 
-- `ClassTeacher` marks full co-ownership of a `SchoolClass` (roster read/write,
-  class-wide settings, seeing every subject's average) and `SubjectTeacher` marks who
-  teaches a specific `Subject` (gates all Leistung-level access - categories,
-  assessments, grades - for that one subject, true for owners and collaborators alike).
-  Plain class-wide access (roster read, subject list, Verhaltensnoten) is **derived**:
-  a teacher has it if they own the class, or teach at least one of its subjects.
+- `ClassTeacher` attaches a teacher to a `SchoolClass` at one of two roles: `ADMIN`
+  (roster read/write, class-wide settings, managing admins and the Fachlehrer tier
+  itself, deleting any Subject, and a read-only class-wide grade overview) or
+  `FACHLEHRER` (class-level: can add a new Subject and delete/manage Subjects it
+  personally teaches, but not administer the class). `SubjectTeacher` marks who teaches
+  a specific `Subject` (gates all Leistung-level access - categories, assessments,
+  grades, renaming it - for that one subject, regardless of `ClassTeacher` role, and
+  with no admin override: sharing a Fach with a colleague stays exclusively
+  self-service by whoever currently teaches it). Plain class-wide access (roster read,
+  subject list, Verhaltensnoten) is **derived**: a teacher has it if they hold a
+  `ClassTeacher` row of either role, or teach at least one of the class's subjects.
   `GradeScale` is shared reference data, not owned by anyone.
 - `de.notenfuchs.security.OwnershipGuard` is the single place this is enforced. Every
   REST/web endpoint that reads or writes an entity by id resolves it through one of its
-  `require*` methods (`requireClassAccess`/`requireClassOwner`,
-  `requireClassAccessSubject`/`requireTeachesSubject`, etc.); a foreign class/subject/
-  student/etc. and an unknown id both come back as a plain **404**, deliberately
-  indistinguishable, so a teacher can't tell "doesn't exist" apart from "isn't yours".
-  List endpoints (e.g. `GET /api/school-classes`) are filtered to classes the current
-  teacher can access rather than returning everyone's data.
+  `require*` methods (`requireClassAccess`/`requireClassTeacher`/`requireClassAdmin`,
+  `requireClassAccessSubject`/`requireTeachesSubject`/`requireCanDeleteSubject`, etc.);
+  a foreign class/subject/student/etc. and an unknown id both come back as a plain
+  **404**, deliberately indistinguishable, so a teacher can't tell "doesn't exist"
+  apart from "isn't yours". List endpoints (e.g. `GET /api/school-classes`) are
+  filtered to classes the current teacher can access rather than returning everyone's
+  data.
 - In `%dev`/`%test`, where OIDC is disabled (see above), `CurrentUser.effectiveSubject()`
   falls back to a fixed `"dev-user"` subject, so ownership still works locally and in
   tests without a real login.
-- A class's detail page has a "Lehrkräfte" section to add/remove co-owners, picking from
-  a directory of every teacher who's made at least one authenticated request against
-  this instance (`de.notenfuchs.domain.Teacher`, kept fresh by
-  `de.notenfuchs.security.TeacherDirectoryRecorder` - see `CLAUDE.md`'s "Class access
-  UI" section for how). A subject still only gets the one `SubjectTeacher` row its
-  creator got at creation time - there's no UI yet to share a Fach with a colleague.
+- A class's detail page has a "Lehrkräfte" section (admin-only) to add/remove
+  `ClassTeacher` rows of either role, picking from a directory of every teacher who's
+  made at least one authenticated request against this instance
+  (`de.notenfuchs.domain.Teacher`, kept fresh by
+  `de.notenfuchs.security.TeacherDirectoryRecorder` - see `CLAUDE.md`'s "Class & subject
+  access UI" section for how), plus a "Notenübersicht" link (admin-only) showing every
+  student's final grade in every Subject, read-only. A subject's detail page has an
+  analogous "Lehrkräfte" section for sharing a Fach with a colleague - self-service,
+  gated only by teaching that subject, with no admin override, unlike the class-level
+  section above.
 
 ## Deploying a free demo instance
 

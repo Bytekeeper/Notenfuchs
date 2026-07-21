@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.notenfuchs.domain.BehaviorGrade;
 import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectTeacher;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -202,6 +204,46 @@ class BehaviorGridIT {
         assertTrue(html.contains(subjectName));
         assertTrue(html.contains("data-max-row=\"0\""));
         assertTrue(html.contains("data-max-col=\"0\""));
+    }
+
+    /**
+     * The grid is class-wide viewable (owner or any one Fach's teacher sees every column, see
+     * {@link BehaviorGridResource}'s javadoc), but {@link BehaviorGridResource#saveCell} still
+     * 404s via {@link de.notenfuchs.security.OwnershipGuard#requireTeachesSubject} for a Fach the
+     * viewer doesn't teach - the template must mark that Fach's cells readonly rather than
+     * offering a save that will fail.
+     */
+    @Test
+    void gridPage_marksCellReadonlyForSubjectViewerDoesNotTeach() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
+
+        Long classId = createClass("VN-Readonly-Klasse-" + unique, "2025/26");
+        String studentName = "VN-Readonly-Schueler-" + unique;
+        createStudent(classId, studentName);
+
+        // Unlike createSubject() below (which goes through the real endpoint and auto-adds the
+        // dev-user as SubjectTeacher), seed this Subject directly so dev-user owns the class but
+        // isn't a teacher of this one Subject.
+        String otherFachName = "VN-Readonly-Fach-" + unique;
+        QuarkusTransaction.requiringNew().run(() -> {
+            SchoolClass schoolClass = SchoolClass.<SchoolClass>findById(classId);
+            Subject subject = new Subject();
+            subject.schoolClass = schoolClass;
+            subject.name = otherFachName;
+            subject.gradeScale = GradeScale.<GradeScale>findById(gradeScale.id);
+            subject.roundingMode = RoundingMode.COMMERCIAL;
+            subject.persist();
+            SubjectTeacher teacher = new SubjectTeacher();
+            teacher.subject = subject;
+            teacher.teacherSubject = "colleague-" + unique;
+            teacher.persist();
+        });
+
+        String html = get("/classes/" + classId + "/behavior-grid").body();
+        assertTrue(html.contains(otherFachName));
+        assertTrue(html.contains("grade-input-readonly"));
+        assertTrue(html.contains("readonly"));
     }
 
     private JsonNode saveCellAndParse(Long classId, Long studentId, Long subjectId, String value) throws Exception {

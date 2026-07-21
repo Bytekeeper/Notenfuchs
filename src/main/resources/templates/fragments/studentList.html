@@ -10,6 +10,7 @@
                 {#for st in students}
                     <tr>
                         <td>
+                            {#if isClassAdmin}
                             <div class="rename-wrap" id="student-rename-{st.id}">
                                 <span class="rename-view">
                                     <span class="rename-display">{st.name}</span>
@@ -21,15 +22,20 @@
                                     <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
                                 </form>
                             </div>
+                            {#else}
+                            {st.name}
+                            {/if}
                         </td>
                         <td>{st.displayName ?: ''}</td>
                         <td>
+                            {#if isClassAdmin}
                             <div class="row-actions">
                                 <button type="button" class="rename-toggle" data-rename-target="student-rename-{st.id}">Ändern</button>
                                 <form hx-delete="/classes/{schoolClass.id}/students/{st.id}" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="Schüler '{st.name}' wirklich löschen? Das löscht auch alle Noten dieses Schülers.">
                                     <button type="submit" class="delete-btn">Löschen</button>
                                 </form>
                             </div>
+                            {/if}
                         </td>
                     </tr>
                 {/for}

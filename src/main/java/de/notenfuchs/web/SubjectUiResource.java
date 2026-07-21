@@ -6,7 +6,10 @@ import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
 import de.notenfuchs.domain.RoundingMode;
+import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectTeacher;
+import de.notenfuchs.domain.Teacher;
 import de.notenfuchs.security.CurrentUser;
 import de.notenfuchs.security.OwnershipGuard;
 import de.notenfuchs.service.PointsConversionService;
@@ -15,22 +18,32 @@ import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Server-rendered HTML pages for managing a subject's grade categories and
@@ -57,6 +70,10 @@ public class SubjectUiResource {
     @Location("fragments/categoryList.html")
     Template categoryListFragment;
 
+    @Inject
+    @Location("fragments/subjectTeachers.html")
+    Template subjectTeachersFragment;
+
     @GET
     @Path("/{id}")
     @Produces(MediaType.TEXT_HTML)
@@ -67,7 +84,122 @@ public class SubjectUiResource {
                 .data("subject", subject)
                 .data("categories", data.categories())
                 .data("weightSum", data.weightSum())
-                .data("weightSumWarning", data.weightSumWarning()));
+                .data("weightSumWarning", data.weightSumWarning())
+                .data("subjectTeachers", subjectTeachersWithResolvedLabels(id))
+                .data("availableTeachers", availableTeachers(id))
+                .data("currentUserSubject", currentUser.effectiveSubject()));
+    }
+
+    /**
+     * Adds a Fachlehrer ({@link SubjectTeacher}) to the subject - self-service, gated purely by
+     * {@link OwnershipGuard#requireTeachesSubject} like every other endpoint in this class, NOT
+     * owner-only: any current teacher of a subject can share it with a colleague directly, no
+     * class-owner approval needed (see {@code CLAUDE.md}'s Authorization section). Picks from the
+     * {@link Teacher} directory the same way {@code ClassUiResource#addClassTeacher} does.
+     */
+    @POST
+    @Path("/{id}/teachers")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance addSubjectTeacher(@PathParam("id") Long id, @FormParam("teacherSubject") String teacherSubject) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        Teacher knownTeacher = Teacher.find("subject", teacherSubject).firstResult();
+        if (knownTeacher == null) {
+            throw new BadRequestException("Unbekannte Lehrkraft");
+        }
+        if (SubjectTeacher.count("subject.id = ?1 and teacherSubject = ?2", id, teacherSubject) > 0) {
+            throw new BadRequestException("Diese Lehrkraft unterrichtet dieses Fach bereits");
+        }
+        SubjectTeacher subjectTeacher = new SubjectTeacher();
+        subjectTeacher.subject = subject;
+        subjectTeacher.teacherSubject = teacherSubject;
+        try {
+            // Flushed immediately so a double-submitted request that raced past the count check
+            // above surfaces here as the same clean 400, not an uncaught constraint-violation 500.
+            subjectTeacher.persistAndFlush();
+        } catch (PersistenceException e) {
+            throw new BadRequestException("Diese Lehrkraft unterrichtet dieses Fach bereits");
+        }
+        return subjectTeachersResponse(subject);
+    }
+
+    /**
+     * Removes a Fachlehrer - self-service like {@link #addSubjectTeacher}. Guarded so a subject
+     * always keeps at least one {@link SubjectTeacher} row (primary defense is the template not
+     * rendering "Entfernen" next to the last row; this check is defense-in-depth). Self-removal is
+     * special-cased, same as {@code ClassUiResource#removeClassTeacher}: losing your one
+     * {@code SubjectTeacher} row on THIS subject doesn't necessarily cost class access at all - you
+     * might still own the class, or teach another subject in it. So the redirect target is computed
+     * from {@link OwnershipGuard#hasClassAccess}, checked right after the delete (same transaction),
+     * rather than hardcoded.
+     */
+    @DELETE
+    @Path("/{id}/teachers/{teacherId}")
+    @Transactional
+    public Response removeSubjectTeacher(@PathParam("id") Long id, @PathParam("teacherId") Long teacherId) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        SubjectTeacher subjectTeacher = guard.requireTeachesSubjectTeacher(teacherId, currentSubject);
+        if (!subjectTeacher.subject.id.equals(id)) {
+            throw new NotFoundException("SubjectTeacher " + teacherId + " not found");
+        }
+        // Locks every SubjectTeacher row of this subject for the rest of the transaction, so a
+        // second, concurrent removal request for the same subject blocks here until this one commits
+        // or rolls back - closing the TOCTOU race a plain count-then-delete would have.
+        long teacherCount = SubjectTeacher.find("subject.id", id)
+                .withLock(LockModeType.PESSIMISTIC_WRITE)
+                .list().size();
+        if (teacherCount <= 1) {
+            throw new BadRequestException("Die letzte verbleibende Lehrkraft kann nicht entfernt werden");
+        }
+        boolean removingSelf = subjectTeacher.teacherSubject.equals(currentSubject);
+        SchoolClass schoolClass = subject.schoolClass;
+        subjectTeacher.delete();
+        if (removingSelf) {
+            String redirect = guard.hasClassAccess(schoolClass, currentSubject)
+                    ? "/classes/" + schoolClass.id
+                    : "/classes";
+            return Response.ok().header("HX-Redirect", redirect).build();
+        }
+        return Response.ok(subjectTeachersResponse(subject)).build();
+    }
+
+    /** {@link Teacher} directory rows not yet a {@link SubjectTeacher} on this subject, for the add-teacher select. */
+    private List<Teacher> availableTeachers(Long subjectId) {
+        List<SubjectTeacher> subjectTeachers = SubjectTeacher.list("subject.id", subjectId);
+        Set<String> alreadyTeaching = new HashSet<>(subjectTeachers.stream().map(st -> st.teacherSubject).toList());
+        List<Teacher> teachers = Teacher.listAll();
+        return teachers.stream()
+                .filter(t -> !alreadyTeaching.contains(t.subject))
+                .sorted(Comparator.comparing(Teacher::displayLabel))
+                .toList();
+    }
+
+    /**
+     * This subject's {@link SubjectTeacher} rows with {@link SubjectTeacher#resolvedLabel}
+     * attached from the {@link Teacher} directory (batch-loaded, not one query per row).
+     */
+    private List<SubjectTeacher> subjectTeachersWithResolvedLabels(Long subjectId) {
+        List<SubjectTeacher> subjectTeachers = SubjectTeacher.list("subject.id = ?1 order by id", subjectId);
+        List<String> subjects = subjectTeachers.stream().map(st -> st.teacherSubject).toList();
+        Map<String, Teacher> teachersBySubject = new HashMap<>();
+        List<Teacher> knownTeachers = Teacher.list("subject in ?1", subjects);
+        for (Teacher teacher : knownTeachers) {
+            teachersBySubject.put(teacher.subject, teacher);
+        }
+        for (SubjectTeacher subjectTeacher : subjectTeachers) {
+            Teacher teacher = teachersBySubject.get(subjectTeacher.teacherSubject);
+            subjectTeacher.resolvedLabel = teacher != null ? teacher.displayLabel() : null;
+        }
+        return subjectTeachers;
+    }
+
+    private TemplateInstance subjectTeachersResponse(Subject subject) {
+        return subjectTeachersFragment
+                .data("subject", subject)
+                .data("subjectTeachers", subjectTeachersWithResolvedLabels(subject.id))
+                .data("availableTeachers", availableTeachers(subject.id))
+                .data("currentUserSubject", currentUser.effectiveSubject());
     }
 
     @POST

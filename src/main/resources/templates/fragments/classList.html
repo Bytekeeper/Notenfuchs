@@ -7,6 +7,7 @@
             <div class="class-grid">
                 {#for c in group.classes}
                     <div class="class-card">
+                        {#if adminClassIds.contains(c.id)}
                         <div class="rename-wrap">
                             <div class="rename-view">
                                 <a class="class-name" href="/classes/{c.id}">{c.name}</a>
@@ -25,6 +26,10 @@
                                 <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
                             </form>
                         </div>
+                        {#else}
+                        <a class="class-name" href="/classes/{c.id}">{c.name}</a>
+                        <div class="class-year">{c.schoolYear}</div>
+                        {/if}
                     </div>
                 {/for}
             </div>

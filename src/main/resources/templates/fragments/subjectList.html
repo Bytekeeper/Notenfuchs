@@ -4,18 +4,38 @@
     {#else}
         {#for s in subjects}
             <div class="subject-list-item">
+                {#if taughtSubjectIds.contains(s.id)}
                 <div class="rename-wrap">
                     <div class="rename-view">
                         <div>
                             <a href="/subjects/{s.id}">{s.name}</a>
-                            <div class="subject-meta">{s.gradeScale.name} · {s.roundingMode}</div>
+                            <div class="subject-meta">
+                                {s.gradeScale.name} · {s.roundingMode}
+                                {#if s.primaryTeacherLabel}
+                                    · {s.primaryTeacherLabel}
+                                    {#if !s.otherTeacherLabels.isEmpty}
+                                    <details class="subject-teachers-more">
+                                        <summary>+{s.otherTeacherLabels.size} weitere</summary>
+                                        <ul>
+                                            {#for label in s.otherTeacherLabels}
+                                            <li>{label}</li>
+                                            {/for}
+                                        </ul>
+                                    </details>
+                                    {/if}
+                                {#else}
+                                    · keine Lehrkraft
+                                {/if}
+                            </div>
                         </div>
                         <div class="row-actions">
                             <a class="btn secondary" href="/subjects/{s.id}/grid">Noten</a>
                             <button type="button" class="rename-toggle">Ändern</button>
+                            {#if isClassAdmin || isClassTeacher}
                             <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
                                 <button type="submit" class="delete-btn">Löschen</button>
                             </form>
+                            {/if}
                         </div>
                     </div>
                     <form class="rename-form" hx-patch="/classes/{schoolClass.id}/subjects/{s.id}/rename" hx-target="#subject-list-fragment" hx-swap="outerHTML">
@@ -28,6 +48,38 @@
                         <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
                     </form>
                 </div>
+                {#else}
+                <div class="rename-view">
+                    <div>
+                        {s.name}
+                        <div class="subject-meta">
+                            {s.gradeScale.name} · {s.roundingMode}
+                            {#if s.primaryTeacherLabel}
+                                · unterrichtet von: {s.primaryTeacherLabel}
+                                {#if !s.otherTeacherLabels.isEmpty}
+                                <details class="subject-teachers-more">
+                                    <summary>+{s.otherTeacherLabels.size} weitere</summary>
+                                    <ul>
+                                        {#for label in s.otherTeacherLabels}
+                                        <li>{label}</li>
+                                        {/for}
+                                    </ul>
+                                </details>
+                                {/if}
+                            {#else}
+                                · keine Lehrkraft
+                            {/if}
+                        </div>
+                    </div>
+                    {#if isClassAdmin}
+                    <div class="row-actions">
+                        <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
+                            <button type="submit" class="delete-btn">Löschen</button>
+                        </form>
+                    </div>
+                    {/if}
+                </div>
+                {/if}
             </div>
         {/for}
     {/if}

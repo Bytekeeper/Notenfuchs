@@ -1,6 +1,7 @@
 package de.notenfuchs.web;
 
 import de.notenfuchs.domain.ClassTeacher;
+import de.notenfuchs.domain.ClassTeacherRole;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Teacher;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -148,7 +149,9 @@ class ClassTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Teacher-RemoveSelf-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-self-" + unique);
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        // Explicitly ADMIN, not the default FACHLEHRER - this test is about self-removal while
+        // another admin remains, not the last-admin guardrail (see the dedicated test for that).
+        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject, "role", "ADMIN"));
         // dev-user is the class's creator/owner (see CurrentUser#effectiveSubject in %test).
         ClassTeacher ownSelfClassTeacher = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, "dev-user")
@@ -162,6 +165,109 @@ class ClassTeacherIT {
         assertTrue(response.body().isEmpty());
         assertFalse(ClassTeacher.count("id", ownSelfClassTeacherId) > 0);
         assertEquals(1, ClassTeacher.count("schoolClass.id", classId));
+    }
+
+    @Test
+    void addClassTeacher_blankRole_defaultsToFachlehrer() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Teacher-DefaultRole-Klasse-" + unique, "2025/26");
+        String colleagueSubject = seedTeacher("colleague-defaultrole-" + unique);
+
+        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+
+        ClassTeacher colleagueClassTeacher = ClassTeacher
+                .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
+                .firstResult();
+        assertEquals(ClassTeacherRole.FACHLEHRER, colleagueClassTeacher.role);
+    }
+
+    @Test
+    void addClassTeacher_explicitAdminRole_isPersisted() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Teacher-ExplicitAdmin-Klasse-" + unique, "2025/26");
+        String colleagueSubject = seedTeacher("colleague-explicitadmin-" + unique);
+
+        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject, "role", "ADMIN"));
+
+        ClassTeacher colleagueClassTeacher = ClassTeacher
+                .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
+                .firstResult();
+        assertEquals(ClassTeacherRole.ADMIN, colleagueClassTeacher.role);
+    }
+
+    @Test
+    void removeClassTeacher_lastAdmin_isRejected_evenWithFachlehrerTierRowPresent() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Teacher-LastAdminWithFachlehrer-Klasse-" + unique, "2025/26");
+        String colleagueSubject = seedTeacher("colleague-lastadmin-" + unique);
+        // Defaults to FACHLEHRER - does not count toward the admin guardrail.
+        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        // dev-user is the class's sole ADMIN (creator).
+        ClassTeacher soleAdmin = ClassTeacher
+                .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, "dev-user")
+                .firstResult();
+
+        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + soleAdmin.id);
+
+        assertEquals(400, response.statusCode());
+        assertEquals(2, ClassTeacher.count("schoolClass.id", classId));
+    }
+
+    @Test
+    void removeClassTeacher_fachlehrerTierRow_neverBlockedByAdminGuardrail() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Teacher-RemoveFachlehrer-Klasse-" + unique, "2025/26");
+        String colleagueSubject = seedTeacher("colleague-removefachlehrer-" + unique);
+        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        ClassTeacher colleagueClassTeacher = ClassTeacher
+                .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
+                .firstResult();
+        assertEquals(ClassTeacherRole.FACHLEHRER, colleagueClassTeacher.role);
+
+        // Only one ADMIN exists (dev-user) alongside this FACHLEHRER row, yet removing the
+        // FACHLEHRER row is never gated by the admin count - that guardrail only protects ADMIN rows.
+        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + colleagueClassTeacher.id);
+
+        assertEquals(200, response.statusCode());
+        assertEquals(1, ClassTeacher.count("schoolClass.id", classId));
+    }
+
+    /**
+     * The class list (/classes) shows every class the viewer has any kind of access to (via
+     * {@link OwnershipGuard#listAccessibleClasses}), including classes where they're only a
+     * {@code FACHLEHRER}-tier {@link ClassTeacher} - but {@link ClassUiResource#rename}/{@code
+     * #delete} are {@code requireClassAdmin}-gated, so {@code fragments/classList.html} must hide
+     * Ändern/Löschen for those rows rather than offering a control that would 404.
+     */
+    @Test
+    void classList_hidesRenameAndDeleteForClassesWhereViewerIsNotAdmin() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long adminClassId = createClass("List-Admin-Klasse-" + unique, "2025/26");
+        Long fachlehrerClassId = QuarkusTransaction.requiringNew().call(() -> {
+            SchoolClass foreign = new SchoolClass();
+            foreign.name = "List-Fachlehrer-Klasse-" + unique;
+            foreign.schoolYear = "2025/26";
+            foreign.persist();
+            ClassTeacher admin = new ClassTeacher();
+            admin.schoolClass = foreign;
+            admin.teacherSubject = "teacherB-" + unique;
+            admin.role = ClassTeacherRole.ADMIN;
+            admin.persist();
+            ClassTeacher devUserAsFachlehrer = new ClassTeacher();
+            devUserAsFachlehrer.schoolClass = foreign;
+            devUserAsFachlehrer.teacherSubject = "dev-user";
+            devUserAsFachlehrer.role = ClassTeacherRole.FACHLEHRER;
+            devUserAsFachlehrer.persist();
+            return foreign.id;
+        });
+
+        String html = get("/classes").body();
+
+        assertTrue(html.contains("List-Admin-Klasse-" + unique));
+        assertTrue(html.contains("hx-delete=\"/classes/" + adminClassId + "\""));
+        assertTrue(html.contains("List-Fachlehrer-Klasse-" + unique));
+        assertFalse(html.contains("hx-delete=\"/classes/" + fachlehrerClassId + "\""));
+        assertFalse(html.contains("hx-patch=\"/classes/" + fachlehrerClassId + "/rename\""));
     }
 
     private String seedTeacher(String subject) {
@@ -191,6 +297,11 @@ class ClassTeacherIT {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> get(String path) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build();
         return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 

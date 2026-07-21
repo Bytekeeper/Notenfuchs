@@ -34,12 +34,13 @@
                             <td class="grade-cell">
                                 <input type="text"
                                        inputmode="decimal"
-                                       class="grade-input"
+                                       class="grade-input{#if !cell.taught} grade-input-readonly{/if}"
                                        data-row="{row.rowIndex}"
                                        data-col="{cell.colIndex}"
                                        data-student-id="{row.student.id}"
                                        data-subject-id="{cell.subjectId}"
-                                       value="{cell.displayValue ?: ''}">
+                                       value="{cell.displayValue ?: ''}"
+                                       {#if !cell.taught}readonly title="Sie unterrichten dieses Fach nicht"{/if}>
                             </td>
                         {/for}
                         <td class="average-cell {#if row.borderline}borderline{/if}" data-student-id="{row.student.id}">

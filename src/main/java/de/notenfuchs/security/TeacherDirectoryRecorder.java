@@ -8,6 +8,7 @@ import io.quarkus.security.spi.runtime.AuthenticationSuccessEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.PersistenceException;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.jboss.logging.Logger;
 
@@ -86,19 +87,28 @@ public class TeacherDirectoryRecorder {
     }
 
     private void record(String subject, String email, String displayName) {
-        QuarkusTransaction.requiringNew().run(() -> {
-            Teacher teacher = Teacher.find("subject", subject).firstResult();
-            Instant now = Instant.now();
-            if (teacher == null) {
-                teacher = new Teacher();
-                teacher.subject = subject;
-                teacher.firstSeenAt = now;
-                teacher.persist();
-            }
-            teacher.email = email;
-            teacher.displayName = displayName;
-            teacher.lastSeenAt = now;
-        });
+        try {
+            QuarkusTransaction.requiringNew().run(() -> upsert(subject, email, displayName));
+        } catch (PersistenceException e) {
+            // Lost a race against another near-simultaneous sighting's insert for the same brand-new
+            // subject (unique constraint on Teacher#subject) - that row now exists, so retry as a
+            // plain update instead of losing this sighting's email/displayName/lastSeenAt refresh.
+            QuarkusTransaction.requiringNew().run(() -> upsert(subject, email, displayName));
+        }
+    }
+
+    private void upsert(String subject, String email, String displayName) {
+        Teacher teacher = Teacher.find("subject", subject).firstResult();
+        Instant now = Instant.now();
+        if (teacher == null) {
+            teacher = new Teacher();
+            teacher.subject = subject;
+            teacher.firstSeenAt = now;
+            teacher.persist();
+        }
+        teacher.email = email;
+        teacher.displayName = displayName;
+        teacher.lastSeenAt = now;
     }
 
     private static String blankToNull(String value) {

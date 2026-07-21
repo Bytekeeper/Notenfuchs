@@ -1,6 +1,7 @@
 package de.notenfuchs.web;
 
 import de.notenfuchs.domain.ClassTeacher;
+import de.notenfuchs.domain.ClassTeacherRole;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.HalfYearGradeDisplay;
@@ -18,6 +19,8 @@ import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -107,7 +110,10 @@ public class ClassUiResource {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
-        return currentUser.withUser(listTemplate.data("yearGroups", groupByYear(guard.listAccessibleClasses(currentUser.effectiveSubject()))));
+        String subject = currentUser.effectiveSubject();
+        return currentUser.withUser(listTemplate
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
+                .data("adminClassIds", adminClassIds(subject)));
     }
 
     @GET
@@ -115,20 +121,26 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id,
                                     @QueryParam("rosterImportResult") String rosterImportResult) {
-        SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAccess(id, currentSubject);
         List<Subject> subjects = Subject.list("schoolClass.id", id);
+        attachTeacherLabels(subjects);
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
         List<GradeScale> gradeScales = GradeScale.listAll();
         return currentUser.withUser(detailTemplate
                 .data("schoolClass", schoolClass)
                 .data("predecessorClass", classWithPredecessorFetched(id).predecessorClass)
                 .data("subjects", subjects)
+                .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
                 .data("students", students)
                 .data("gradeScales", gradeScales)
                 .data("rosterImportResult", rosterImportResult)
                 .data("classTeachers", classTeachersWithResolvedLabels(id))
                 .data("availableTeachers", availableTeachers(id))
-                .data("currentUserSubject", currentUser.effectiveSubject()));
+                .data("transitiveTeachers", transitiveTeachers(id))
+                .data("currentUserSubject", currentSubject)
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
+                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject)));
     }
 
     /**
@@ -147,7 +159,7 @@ public class ClassUiResource {
                                @FormParam("name") String name,
                                @FormParam("schoolYear") String schoolYear) {
         String currentSubject = currentUser.effectiveSubject();
-        SchoolClass source = guard.requireClassOwner(id, currentSubject);
+        SchoolClass source = guard.requireClassAdmin(id, currentSubject);
 
         SchoolClass copy = new SchoolClass();
         copy.name = name;
@@ -158,6 +170,7 @@ public class ClassUiResource {
         ClassTeacher copyOwner = new ClassTeacher();
         copyOwner.schoolClass = copy;
         copyOwner.teacherSubject = currentSubject;
+        copyOwner.role = ClassTeacherRole.ADMIN;
         copyOwner.persist();
 
         List<Subject> sourceSubjects = Subject.list("schoolClass.id", id);
@@ -220,9 +233,12 @@ public class ClassUiResource {
         ClassTeacher owner = new ClassTeacher();
         owner.schoolClass = entity;
         owner.teacherSubject = subject;
+        owner.role = ClassTeacherRole.ADMIN;
         owner.persist();
 
-        return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
+        return classListFragment
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
+                .data("adminClassIds", adminClassIds(subject));
     }
 
     @DELETE
@@ -231,9 +247,11 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance delete(@PathParam("id") Long id) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass entity = guard.requireClassOwner(id, subject);
+        SchoolClass entity = guard.requireClassAdmin(id, subject);
         entity.delete();
-        return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
+        return classListFragment
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
+                .data("adminClassIds", adminClassIds(subject));
     }
 
     @PATCH
@@ -244,31 +262,35 @@ public class ClassUiResource {
     public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name,
                                     @FormParam("schoolYear") String schoolYear) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass entity = guard.requireClassOwner(id, subject);
+        SchoolClass entity = guard.requireClassAdmin(id, subject);
         if (name != null && !name.isBlank()) {
             entity.name = name;
         }
         if (schoolYear != null && !schoolYear.isBlank()) {
             entity.schoolYear = schoolYear;
         }
-        return classListFragment.data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
+        return classListFragment
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
+                .data("adminClassIds", adminClassIds(subject));
     }
 
     /**
-     * Adds a co-owner ({@link ClassTeacher}) to the class - the current teacher picks one from
-     * the {@link Teacher} directory (see {@link #availableTeachers}), since there's no other way
-     * to identify a colleague (no email lookup, no invite links - see the class-access-UI plan).
-     * Not named {@code addTeacher}: this codebase has three different "teacher" concepts
-     * ({@link Teacher} the directory, {@link ClassTeacher} the co-ownership row, {@link
-     * SubjectTeacher} the per-subject row) and a future subject-level increment will need its own
-     * near-identical {@code addSubjectTeacher}.
+     * Attaches a teacher to the class at either {@link ClassTeacherRole} tier - the current admin
+     * picks one from the {@link Teacher} directory (see {@link #availableTeachers}), since there's
+     * no other way to identify a colleague (no email lookup, no invite links - see the
+     * class-access-UI plan). Admin-only: granting either tier is a class-structural decision, not
+     * self-service like {@code SubjectTeacher} sharing on a single Fach is. Not named
+     * {@code addTeacher}: this codebase has three different "teacher" concepts ({@link Teacher}
+     * the directory, {@link ClassTeacher} this row, {@link SubjectTeacher} the per-subject row).
      */
     @POST
     @Path("/{id}/teachers")
     @Produces(MediaType.TEXT_HTML)
     @Transactional
-    public TemplateInstance addClassTeacher(@PathParam("id") Long id, @FormParam("teacherSubject") String teacherSubject) {
-        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+    public TemplateInstance addClassTeacher(@PathParam("id") Long id,
+                                             @FormParam("teacherSubject") String teacherSubject,
+                                             @FormParam("role") String role) {
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         Teacher knownTeacher = Teacher.find("subject", teacherSubject).firstResult();
         if (knownTeacher == null) {
             throw new BadRequestException("Unbekannte Lehrkraft");
@@ -279,37 +301,70 @@ public class ClassUiResource {
         ClassTeacher classTeacher = new ClassTeacher();
         classTeacher.schoolClass = schoolClass;
         classTeacher.teacherSubject = teacherSubject;
-        classTeacher.persist();
+        classTeacher.role = parseRole(role);
+        try {
+            // Flushed immediately (not deferred to commit) so a double-submitted request that raced
+            // past the count check above surfaces here as the same clean 400, not an uncaught
+            // constraint-violation 500 at transaction commit.
+            classTeacher.persistAndFlush();
+        } catch (PersistenceException e) {
+            throw new BadRequestException("Diese Lehrkraft hat bereits Zugriff auf die Klasse");
+        }
         return classTeachersResponse(schoolClass);
     }
 
+    /** Blank defaults to the lower-privilege {@code FACHLEHRER}; any other unrecognized value is a 400, not a 500. */
+    private ClassTeacherRole parseRole(String role) {
+        if (role == null || role.isBlank()) {
+            return ClassTeacherRole.FACHLEHRER;
+        }
+        try {
+            return ClassTeacherRole.valueOf(role);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Unbekannte Rolle: " + role);
+        }
+    }
+
     /**
-     * Removes a co-owner. Guarded so a class always keeps at least one {@link ClassTeacher} row -
-     * the primary defense is {@code fragments/classTeachers.html} not rendering "Entfernen" at all
-     * next to the last remaining row; this is defense-in-depth for direct API misuse or races.
-     * Any owner (including the acting teacher themselves - co-owners are symmetric, no
-     * hierarchy) can be removed. Self-removal is special-cased: after removing themselves, the
-     * actor no longer has {@link OwnershipGuard#requireClassAccess} to this class, so re-rendering
-     * "this page's teacher list" makes no sense - an {@code HX-Redirect} sends them back to the
-     * class list instead of returning the fragment.
+     * Removes a {@link ClassTeacher} row. Guarded so a class always keeps at least one
+     * {@code ADMIN}-tier row - the primary defense is {@code fragments/classTeachers.html} not
+     * rendering "Entfernen" at all next to the last remaining admin ({@link ClassTeacher#canRemove});
+     * this is defense-in-depth for direct API misuse or races. Removing a {@code FACHLEHRER}-tier
+     * row is never blocked by this guardrail - a class can have zero of those at any time. Any row
+     * (including the acting teacher's own) can be removed. Self-removal is special-cased: this
+     * ADMIN-only teacher-management fragment is never valid to re-render for the actor once they've
+     * lost their own {@code ClassTeacher} row, so an {@code HX-Redirect} is always sent instead of
+     * returning the fragment - but same as {@link SubjectUiResource#removeSubjectTeacher}, the
+     * target is computed from {@link OwnershipGuard#hasClassAccess}, checked right after the delete
+     * (same transaction), since the actor may still teach a Subject in this class.
      */
     @DELETE
     @Path("/{id}/teachers/{teacherId}")
     @Transactional
     public Response removeClassTeacher(@PathParam("id") Long id, @PathParam("teacherId") Long teacherId) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireClassOwner(id, subject);
-        ClassTeacher classTeacher = guard.requireClassOwnerTeacher(teacherId, subject);
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
+        ClassTeacher classTeacher = guard.requireClassAdminTeacher(teacherId, subject);
         if (!classTeacher.schoolClass.id.equals(id)) {
             throw new NotFoundException("ClassTeacher " + teacherId + " not found");
         }
-        if (ClassTeacher.count("schoolClass.id", id) <= 1) {
-            throw new BadRequestException("Die letzte verbleibende Lehrkraft kann nicht entfernt werden");
+        if (classTeacher.role == ClassTeacherRole.ADMIN) {
+            // Locks every ADMIN-tier row of this class for the rest of the transaction, so a second,
+            // concurrent self/peer removal request for the same class blocks here until this one
+            // commits or rolls back - closing the TOCTOU race a plain count-then-delete would have.
+            long adminCount = ClassTeacher
+                    .find("schoolClass.id = ?1 and role = ?2", id, ClassTeacherRole.ADMIN)
+                    .withLock(LockModeType.PESSIMISTIC_WRITE)
+                    .list().size();
+            if (adminCount <= 1) {
+                throw new BadRequestException("Der letzte verbleibende Admin kann nicht entfernt werden");
+            }
         }
         boolean removingSelf = classTeacher.teacherSubject.equals(subject);
         classTeacher.delete();
         if (removingSelf) {
-            return Response.ok().header("HX-Redirect", "/classes").build();
+            String redirect = guard.hasClassAccess(schoolClass, subject) ? "/classes/" + schoolClass.id : "/classes";
+            return Response.ok().header("HX-Redirect", redirect).build();
         }
         return Response.ok(classTeachersResponse(schoolClass)).build();
     }
@@ -330,7 +385,9 @@ public class ClassUiResource {
      * from the {@link Teacher} directory (batch-loaded, not one query per row) - see {@code
      * fragments/classTeachers.html}, which falls back to the raw {@code teacherSubject} when a
      * row has no matching {@link Teacher} (shouldn't normally happen, but the directory and
-     * class_teacher/subject_teacher are deliberately decoupled, not FK-enforced).
+     * class_teacher/subject_teacher are deliberately decoupled, not FK-enforced). Also attaches
+     * {@link ClassTeacher#canRemove} - false only for an {@code ADMIN}-tier row that's the last
+     * one left, so the template can hide "Entfernen" without re-deriving the admin count itself.
      */
     private List<ClassTeacher> classTeachersWithResolvedLabels(Long schoolClassId) {
         List<ClassTeacher> classTeachers = ClassTeacher.list("schoolClass.id = ?1 order by id", schoolClassId);
@@ -340,9 +397,11 @@ public class ClassUiResource {
         for (Teacher teacher : knownTeachers) {
             teachersBySubject.put(teacher.subject, teacher);
         }
+        long adminCount = classTeachers.stream().filter(ct -> ct.role == ClassTeacherRole.ADMIN).count();
         for (ClassTeacher classTeacher : classTeachers) {
             Teacher teacher = teachersBySubject.get(classTeacher.teacherSubject);
             classTeacher.resolvedLabel = teacher != null ? teacher.displayLabel() : null;
+            classTeacher.canRemove = !(classTeacher.role == ClassTeacherRole.ADMIN && adminCount <= 1);
         }
         return classTeachers;
     }
@@ -367,7 +426,7 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance updateHalfYearCutoff(@PathParam("id") Long id,
                                                   @FormParam("halfYearCutoff") LocalDate halfYearCutoff) {
-        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         schoolClass.halfYearCutoff = halfYearCutoff;
         return halfYearCutoffFragment.data("schoolClass", schoolClass);
     }
@@ -388,7 +447,7 @@ public class ClassUiResource {
     public TemplateInstance updateHalfYearGradeDisplay(@PathParam("id") Long id,
                                                          @FormParam("halfYearGradeDisplay") String halfYearGradeDisplay,
                                                          @FormParam("tendencyThreshold") BigDecimal tendencyThreshold) {
-        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         HalfYearGradeDisplay mode = (halfYearGradeDisplay == null || halfYearGradeDisplay.isBlank())
                 ? HalfYearGradeDisplay.WHOLE
                 : HalfYearGradeDisplay.valueOf(halfYearGradeDisplay);
@@ -405,14 +464,14 @@ public class ClassUiResource {
     public TemplateInstance addStudent(@PathParam("id") Long id,
                                         @FormParam("name") String name,
                                         @FormParam("displayName") String displayName) {
-        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         Student student = new Student();
         student.schoolClass = schoolClass;
         student.name = name;
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
         student.persist();
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students);
+        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
     }
 
     @DELETE
@@ -421,11 +480,11 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance deleteStudent(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireClassOwner(id, subject);
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
         Student student = guard.requireRosterManageStudent(studentId, subject);
         student.delete();
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students);
+        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
     }
 
     @PATCH
@@ -437,14 +496,14 @@ public class ClassUiResource {
                                            @FormParam("name") String name,
                                            @FormParam("displayName") String displayName) {
         String subject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireClassOwner(id, subject);
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
         Student student = guard.requireRosterManageStudent(studentId, subject);
         if (name != null && !name.isBlank()) {
             student.name = name;
         }
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
         List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students);
+        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
     }
 
     /**
@@ -482,7 +541,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public TemplateInstance previewRosterImport(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
-        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         if (file == null) {
             throw new BadRequestException("Keine Datei hochgeladen");
         }
@@ -526,7 +585,7 @@ public class ClassUiResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
     public Response confirmRosterImport(@PathParam("id") Long id, @FormParam("names") List<String> submittedNames) {
-        SchoolClass schoolClass = guard.requireClassOwner(id, currentUser.effectiveSubject());
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         Set<String> seenNames = existingStudentNames(id);
 
         int created = 0;
@@ -578,7 +637,7 @@ public class ClassUiResource {
                                         @FormParam("gradeScaleId") Long gradeScaleId,
                                         @FormParam("roundingMode") String roundingMode) {
         String currentSubject = currentUser.effectiveSubject();
-        SchoolClass schoolClass = guard.requireClassAccess(id, currentSubject);
+        SchoolClass schoolClass = guard.requireClassTeacher(id, currentSubject);
         GradeScale gradeScale = GradeScale.findById(gradeScaleId);
         if (gradeScale == null) {
             throw new NotFoundException("GradeScale " + gradeScaleId + " not found");
@@ -588,7 +647,7 @@ public class ClassUiResource {
         subject.name = name;
         subject.gradeScale = gradeScale;
         subject.roundingMode = (roundingMode == null || roundingMode.isBlank())
-                ? RoundingMode.COMMERCIAL
+                ? RoundingMode.IN_FAVOR_OF_STUDENT
                 : RoundingMode.valueOf(roundingMode);
         subject.persist();
 
@@ -598,7 +657,11 @@ public class ClassUiResource {
         teacher.persist();
 
         List<Subject> subjects = subjectsWithGradeScale(id);
-        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
+        attachTeacherLabels(subjects);
+        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects)
+                .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
+                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject));
     }
 
     @DELETE
@@ -607,14 +670,18 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance deleteSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId) {
         String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(subjectId, currentSubject);
+        Subject subject = guard.requireCanDeleteSubject(subjectId, currentSubject);
         if (!subject.schoolClass.id.equals(id)) {
             throw new NotFoundException("Subject " + subjectId + " not found");
         }
         SchoolClass schoolClass = subject.schoolClass;
         subject.delete();
         List<Subject> subjects = subjectsWithGradeScale(id);
-        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
+        attachTeacherLabels(subjects);
+        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects)
+                .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
+                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject));
     }
 
     @PATCH
@@ -638,7 +705,11 @@ public class ClassUiResource {
             subject.roundingMode = RoundingMode.valueOf(roundingMode);
         }
         List<Subject> subjects = subjectsWithGradeScale(id);
-        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects);
+        attachTeacherLabels(subjects);
+        return subjectListFragment.data("schoolClass", schoolClass).data("subjects", subjects)
+                .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
+                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject));
     }
 
     /**
@@ -649,6 +720,115 @@ public class ClassUiResource {
      */
     private List<Subject> subjectsWithGradeScale(Long schoolClassId) {
         return Subject.find("from Subject s join fetch s.gradeScale where s.schoolClass.id = ?1", schoolClassId).list();
+    }
+
+    /**
+     * Ids of the classes the given teacher is an ADMIN-tier {@link ClassTeacher} on - used by
+     * {@code fragments/classList.html} to hide Ändern/Löschen for classes the viewer sees in
+     * their list (via {@link OwnershipGuard#listAccessibleClasses}) but isn't an admin of, since
+     * both would otherwise 404 via {@link OwnershipGuard#requireClassAdmin}.
+     */
+    private Set<Long> adminClassIds(String currentSubject) {
+        List<ClassTeacher> myAdminRows = ClassTeacher.list(
+                "teacherSubject = ?1 and role = ?2", currentSubject, ClassTeacherRole.ADMIN);
+        Set<Long> ids = new HashSet<>();
+        for (ClassTeacher row : myAdminRows) {
+            ids.add(row.schoolClass.id);
+        }
+        return ids;
+    }
+
+    /**
+     * Ids of this class's Subjects the given teacher actually teaches - used by
+     * {@code fragments/subjectList.html} to hide Noten/Ändern/Löschen for subjects the viewer
+     * has class-wide (owner or another-subject) access to but isn't a {@link SubjectTeacher} of,
+     * since those would otherwise 404 via {@link OwnershipGuard#requireTeachesSubject}.
+     */
+    private Set<Long> taughtSubjectIds(Long schoolClassId, String currentSubject) {
+        List<SubjectTeacher> myTeachingRows = SubjectTeacher.list(
+                "teacherSubject = ?1 and subject.schoolClass.id = ?2", currentSubject, schoolClassId);
+        Set<Long> ids = new HashSet<>();
+        for (SubjectTeacher row : myTeachingRows) {
+            ids.add(row.subject.id);
+        }
+        return ids;
+    }
+
+    /**
+     * Batch-attaches {@link Subject#primaryTeacherLabel}/{@link Subject#otherTeacherLabels} from
+     * the {@link Teacher} directory (one query per lookup, not one per Subject) so {@code
+     * fragments/subjectList.html} can show who teaches each Subject - regardless of whether the
+     * viewer teaches it themselves, since this is precisely what lets a class admin see contact
+     * info per Fach and notice which teachers have class access only via teaching a Subject, not
+     * a {@link ClassTeacher} row.
+     */
+    private void attachTeacherLabels(List<Subject> subjects) {
+        if (subjects.isEmpty()) {
+            return;
+        }
+        List<Long> subjectIds = subjects.stream().map(s -> s.id).toList();
+        List<SubjectTeacher> teacherRows = SubjectTeacher.list("subject.id in ?1 order by id", subjectIds);
+        List<String> teacherSubjects = teacherRows.stream().map(st -> st.teacherSubject).distinct().toList();
+        Map<String, Teacher> teachersBySubject = new HashMap<>();
+        List<Teacher> knownTeachers = Teacher.list("subject in ?1", teacherSubjects);
+        for (Teacher teacher : knownTeachers) {
+            teachersBySubject.put(teacher.subject, teacher);
+        }
+        Map<Long, List<String>> labelsBySubjectId = new HashMap<>();
+        for (SubjectTeacher row : teacherRows) {
+            Teacher teacher = teachersBySubject.get(row.teacherSubject);
+            String label = teacher != null ? teacher.displayLabel() : row.teacherSubject;
+            labelsBySubjectId.computeIfAbsent(row.subject.id, k -> new ArrayList<>()).add(label);
+        }
+        for (Subject subject : subjects) {
+            List<String> labels = labelsBySubjectId.getOrDefault(subject.id, List.of());
+            subject.primaryTeacherLabel = labels.isEmpty() ? null : labels.get(0);
+            subject.otherTeacherLabels = labels.size() > 1 ? labels.subList(1, labels.size()) : List.of();
+        }
+    }
+
+    /**
+     * Teachers who can see this whole class (roster, Verhaltensnoten) purely by teaching one of
+     * its Subjects (see {@link OwnershipGuard#hasClassAccess}), holding no {@link ClassTeacher}
+     * row of their own here - shown read-only on the class page so an admin isn't surprised by
+     * who else has that access, since {@link SubjectTeacher} additions are self-service and
+     * never require the class admin's approval. Purely informational: that access is granted and
+     * revoked on the Subject itself (see {@code fragments/subjectTeachers.html}), not here.
+     */
+    public record TransitiveTeacher(String label, String subjectNames) {
+    }
+
+    private List<TransitiveTeacher> transitiveTeachers(Long schoolClassId) {
+        List<ClassTeacher> classTeachers = ClassTeacher.list("schoolClass.id", schoolClassId);
+        Set<String> classTeacherSubjects = new HashSet<>(classTeachers.stream().map(ct -> ct.teacherSubject).toList());
+
+        List<SubjectTeacher> subjectTeacherRows = SubjectTeacher.find(
+                "from SubjectTeacher st join fetch st.subject where st.subject.schoolClass.id = ?1 order by st.id",
+                schoolClassId).list();
+        Map<String, List<String>> subjectNamesByTeacher = new HashMap<>();
+        for (SubjectTeacher row : subjectTeacherRows) {
+            if (classTeacherSubjects.contains(row.teacherSubject)) {
+                continue;
+            }
+            subjectNamesByTeacher.computeIfAbsent(row.teacherSubject, k -> new ArrayList<>()).add(row.subject.name);
+        }
+        if (subjectNamesByTeacher.isEmpty()) {
+            return List.of();
+        }
+
+        List<Teacher> knownTeachers = Teacher.list("subject in ?1", new ArrayList<>(subjectNamesByTeacher.keySet()));
+        Map<String, Teacher> teachersBySubject = new HashMap<>();
+        for (Teacher teacher : knownTeachers) {
+            teachersBySubject.put(teacher.subject, teacher);
+        }
+        List<TransitiveTeacher> result = new ArrayList<>();
+        for (Map.Entry<String, List<String>> entry : subjectNamesByTeacher.entrySet()) {
+            Teacher teacher = teachersBySubject.get(entry.getKey());
+            String label = teacher != null ? teacher.displayLabel() : entry.getKey();
+            result.add(new TransitiveTeacher(label, String.join(", ", entry.getValue())));
+        }
+        result.sort(Comparator.comparing(TransitiveTeacher::label));
+        return result;
     }
 
     /** One row of the roster import preview - see {@code ClassPage/rosterImportPreview.html}. */

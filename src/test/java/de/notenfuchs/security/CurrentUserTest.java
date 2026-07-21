@@ -21,4 +21,31 @@ class CurrentUserTest {
         assertTrue(currentUser.subject().isEmpty());
         assertEquals(CurrentUser.DEV_USER_SUBJECT, currentUser.effectiveSubject());
     }
+
+    @Test
+    void effectiveSubject_usesDevUserSubjectOverride_whenConfigured() {
+        CurrentUser currentUser = new CurrentUser();
+        currentUser.devUserSubject = "colleague-2";
+
+        assertEquals("colleague-2", currentUser.effectiveSubject());
+    }
+
+    @Test
+    void effectiveSubject_ignoresIdentitySwitchCookie_whenSwitchNotActive() {
+        CurrentUser currentUser = new CurrentUser();
+        currentUser.devIdentitySwitchActive = false;
+
+        assertEquals(CurrentUser.DEV_USER_SUBJECT, currentUser.effectiveSubject());
+    }
+
+    @Test
+    void effectiveSubject_fallsBackToDevUserSubject_whenIdentitySwitchActiveButNoRequestContext() {
+        CurrentUser currentUser = new CurrentUser();
+        currentUser.devIdentitySwitchActive = true;
+        // currentVertxRequest stays null, exactly as it does for this plain non-CDI instance -
+        // the cookie lookup must tolerate that rather than NPE, and fall back like the switch
+        // was never active.
+
+        assertEquals(CurrentUser.DEV_USER_SUBJECT, currentUser.effectiveSubject());
+    }
 }

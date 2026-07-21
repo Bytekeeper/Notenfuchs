@@ -58,7 +58,7 @@ public class ClassAveragesResource {
         // collaborator who isn't an owner only sees averages for subjects they actually teach -
         // this is the one place that needs row-level filtering rather than a blanket gate, since
         // the same endpoint serves both breadths depending on who's asking.
-        if (!guard.isOwner(schoolClass, currentSubject)) {
+        if (!guard.isAdmin(schoolClass, currentSubject)) {
             subjects = subjects.stream().filter(s -> guard.teachesSubject(s, currentSubject)).toList();
         }
 

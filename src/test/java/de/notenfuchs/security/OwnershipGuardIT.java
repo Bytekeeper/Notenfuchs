@@ -3,6 +3,7 @@ package de.notenfuchs.security;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.BehaviorGrade;
 import de.notenfuchs.domain.ClassTeacher;
+import de.notenfuchs.domain.ClassTeacherRole;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -86,7 +88,7 @@ class OwnershipGuardIT {
         SchoolClass found = guard.requireClassAccess(b.id, "collaborator");
         assertEquals(b.id, found.id);
 
-        assertThrows(NotFoundException.class, () -> guard.requireClassOwner(b.id, "collaborator"));
+        assertThrows(NotFoundException.class, () -> guard.requireClassAdmin(b.id, "collaborator"));
     }
 
     @Test
@@ -105,10 +107,10 @@ class OwnershipGuardIT {
 
     @Test
     @TestTransaction
-    void requireClassOwner_foreignClass_throwsNotFound() {
+    void requireClassAdmin_foreignClass_throwsNotFound() {
         SchoolClass b = persistClass("teacherB");
 
-        assertThrows(NotFoundException.class, () -> guard.requireClassOwner(b.id, "teacherA"));
+        assertThrows(NotFoundException.class, () -> guard.requireClassAdmin(b.id, "teacherA"));
     }
 
     @Test
@@ -244,12 +246,101 @@ class OwnershipGuardIT {
 
     @Test
     @TestTransaction
-    void requireClassOwnerTeacher_foreignClassTeacher_throwsNotFound() {
+    void requireClassAdminTeacher_foreignClassTeacher_throwsNotFound() {
         SchoolClass b = persistClass("teacherB");
         ClassTeacher classTeacher = ClassTeacher.find("schoolClass", b).firstResult();
 
-        assertThrows(NotFoundException.class, () -> guard.requireClassOwnerTeacher(classTeacher.id, "teacherA"));
-        assertEquals(classTeacher.id, guard.requireClassOwnerTeacher(classTeacher.id, "teacherB").id);
+        assertThrows(NotFoundException.class, () -> guard.requireClassAdminTeacher(classTeacher.id, "teacherA"));
+        assertEquals(classTeacher.id, guard.requireClassAdminTeacher(classTeacher.id, "teacherB").id);
+    }
+
+    @Test
+    @TestTransaction
+    void requireTeachesSubjectTeacher_nonTeacherOfSubject_throwsNotFound_butAnyCurrentTeacherCanResolveIt() {
+        SchoolClass b = persistClass("teacherB");
+        Subject subjectA = persistSubject(b, "teacherB");
+        persistSubjectTeacher(subjectA, "collaborator");
+        SubjectTeacher subjectTeacherRow = SubjectTeacher
+                .find("subject = ?1 and teacherSubject = ?2", subjectA, "collaborator").firstResult();
+
+        assertThrows(NotFoundException.class, () -> guard.requireTeachesSubjectTeacher(subjectTeacherRow.id, "teacherA"));
+        // Unlike requireClassAdminTeacher (owner-only), a non-owner who teaches the subject also
+        // resolves it - this is the self-service axis, not the class-ownership one.
+        assertEquals(subjectTeacherRow.id, guard.requireTeachesSubjectTeacher(subjectTeacherRow.id, "collaborator").id);
+        assertEquals(subjectTeacherRow.id, guard.requireTeachesSubjectTeacher(subjectTeacherRow.id, "teacherB").id);
+    }
+
+    @Test
+    @TestTransaction
+    void isAdmin_and_isClassTeacher_distinguishRoles() {
+        SchoolClass b = persistClass("teacherB");
+        persistClassTeacher(b, "classFachlehrer", ClassTeacherRole.FACHLEHRER);
+
+        assertTrue(guard.isAdmin(b, "teacherB"));
+        assertFalse(guard.isAdmin(b, "classFachlehrer"));
+
+        assertTrue(guard.isClassTeacher(b, "teacherB"));
+        assertTrue(guard.isClassTeacher(b, "classFachlehrer"));
+
+        // hasClassAccess is broadened to either role, not admin-only.
+        assertTrue(guard.hasClassAccess(b, "classFachlehrer"));
+    }
+
+    @Test
+    @TestTransaction
+    void requireClassAdmin_rejectsFachlehrerTierRow_butRequireClassTeacherAcceptsEitherRole() {
+        SchoolClass b = persistClass("teacherB");
+        persistClassTeacher(b, "classFachlehrer", ClassTeacherRole.FACHLEHRER);
+
+        assertThrows(NotFoundException.class, () -> guard.requireClassAdmin(b.id, "classFachlehrer"));
+        assertEquals(b.id, guard.requireClassTeacher(b.id, "classFachlehrer").id);
+        assertEquals(b.id, guard.requireClassTeacher(b.id, "teacherB").id);
+    }
+
+    @Test
+    @TestTransaction
+    void requireCanDeleteSubject_adminAnyFach_classFachlehrerOwnFachOnly_subjectOnlyFachlehrerNever() {
+        SchoolClass b = persistClass("teacherB");
+        persistClassTeacher(b, "classFachlehrer", ClassTeacherRole.FACHLEHRER);
+        // Taught by a colleague who has no ClassTeacher row at all on this class.
+        Subject subjectNotTeacherBs = persistSubject(b, "someoneElse");
+        // Taught by the class-level Fachlehrer.
+        Subject subjectOwnedByClassFachlehrer = persistSubject(b, "classFachlehrer");
+        // Taught only by a subject-only Fachlehrer (no ClassTeacher row anywhere).
+        Subject subjectOwnedBySubjectOnlyFachlehrer = persistSubject(b, "subjectOnlyFachlehrer");
+
+        // Admin deletes any Subject, even one they don't personally teach.
+        assertEquals(subjectNotTeacherBs.id, guard.requireCanDeleteSubject(subjectNotTeacherBs.id, "teacherB").id);
+
+        // Class-level Fachlehrer deletes a Subject they teach...
+        assertEquals(subjectOwnedByClassFachlehrer.id,
+                guard.requireCanDeleteSubject(subjectOwnedByClassFachlehrer.id, "classFachlehrer").id);
+        // ...but not one they don't.
+        assertThrows(NotFoundException.class,
+                () -> guard.requireCanDeleteSubject(subjectNotTeacherBs.id, "classFachlehrer"));
+
+        // A subject-only Fachlehrer (no ClassTeacher row) can't delete even their own Subject.
+        assertThrows(NotFoundException.class,
+                () -> guard.requireCanDeleteSubject(subjectOwnedBySubjectOnlyFachlehrer.id, "subjectOnlyFachlehrer"));
+    }
+
+    @Test
+    @TestTransaction
+    void requireTeachesSubject_adminNotTeachingSubject_stillThrowsNotFound_noAdminOverride() {
+        // Confirmed explicitly with the user: an admin has no standing on a Subject they don't
+        // personally teach - adding/removing a SubjectTeacher stays exclusively self-service.
+        SchoolClass b = persistClass("teacherB");
+        Subject subject = persistSubject(b, "someoneElse");
+
+        assertThrows(NotFoundException.class, () -> guard.requireTeachesSubject(subject.id, "teacherB"));
+    }
+
+    private void persistClassTeacher(SchoolClass schoolClass, String teacherSubject, ClassTeacherRole role) {
+        ClassTeacher classTeacher = new ClassTeacher();
+        classTeacher.schoolClass = schoolClass;
+        classTeacher.teacherSubject = teacherSubject;
+        classTeacher.role = role;
+        classTeacher.persist();
     }
 
     private SchoolClass persistClass(String owner) {

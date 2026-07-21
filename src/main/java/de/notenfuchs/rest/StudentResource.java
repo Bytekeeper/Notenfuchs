@@ -48,7 +48,7 @@ public class StudentResource {
     @Transactional
     public Response create(@Valid StudentRequest request) {
         Student entity = new Student();
-        entity.schoolClass = guard.requireClassOwner(request.schoolClassId, currentUser.effectiveSubject());
+        entity.schoolClass = guard.requireClassAdmin(request.schoolClassId, currentUser.effectiveSubject());
         entity.name = request.name;
         entity.displayName = request.displayName;
         entity.persist();
@@ -61,7 +61,7 @@ public class StudentResource {
     public Student update(@PathParam("id") Long id, @Valid StudentRequest request) {
         String subject = currentUser.effectiveSubject();
         Student entity = guard.requireRosterManageStudent(id, subject);
-        entity.schoolClass = guard.requireClassOwner(request.schoolClassId, subject);
+        entity.schoolClass = guard.requireClassAdmin(request.schoolClassId, subject);
         entity.name = request.name;
         entity.displayName = request.displayName;
         return entity;

@@ -46,8 +46,8 @@ WITH new_class AS (
     RETURNING id
 ),
 new_class_teacher AS (
-    INSERT INTO class_teacher (id, school_class_id, teacher_subject)
-    SELECT nextval('class_teacher_seq'), new_class.id, 'lehrer' FROM new_class
+    INSERT INTO class_teacher (id, school_class_id, teacher_subject, role)
+    SELECT nextval('class_teacher_seq'), new_class.id, 'lehrer', 'ADMIN' FROM new_class
 ),
 new_students AS (
     INSERT INTO student (id, school_class_id, name)
