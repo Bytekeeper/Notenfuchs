@@ -159,6 +159,16 @@
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>
                     <!--
+                      ReadmeScreenshotIT is a manual, on-demand content-generation step (it
+                      regenerates the PNGs embedded in README.md), not a regression test, so
+                      it's excluded from the default `./mvnw verify` run (CI included) - run it
+                      explicitly with `./mvnw verify -Dit.test=ReadmeScreenshotIT`, which
+                      overrides this exclude (Failsafe's documented behavior for -Dit.test).
+                    -->
+                    <excludes>
+                        <exclude>**/ReadmeScreenshotIT.java</exclude>
+                    </excludes>
+                    <!--
                       Testcontainers' container-reuse flag is only ever read from the
                       TESTCONTAINERS_REUSE_ENABLE env var or ~/.testcontainers.properties -
                       never from this project. That means it's machine-global: if it's ever

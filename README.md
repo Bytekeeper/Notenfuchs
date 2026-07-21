@@ -6,6 +6,16 @@ subjects, weighted grade categories (e.g. "Schriftlich" / "Muendlich"), individu
 assessments, and grades - and computes weighted per-student, per-subject averages
 and rounded final grades automatically.
 
+## Screenshots
+
+| Class overview | Grade-entry grid |
+|---|---|
+| ![Class list](screenshots/class-list.png) | ![Grade-entry grid](screenshots/grade-grid.png) |
+
+![Class detail: subjects and roster](screenshots/class-detail.png)
+
+(All names shown are made-up placeholder data, not real students.)
+
 ## Running Notenfuchs
 
 Notenfuchs runs as a Docker container alongside PostgreSQL. The only thing you
@@ -225,6 +235,23 @@ test (needs Docker for its Testcontainers Postgres, no browser involved) that se
 `SchoolClass`/`Subject` rows with different `ClassTeacher`/`SubjectTeacher` owners and
 asserts cross-tenant isolation directly against `OwnershipGuard` - see "Per-teacher data
 ownership" above.
+
+### Regenerating the README screenshots
+
+The images under "Screenshots" above are generated, not hand-taken, by
+`ReadmeScreenshotIT` (`src/test/java/de/notenfuchs/e2e`) - it drives the real UI through a
+browser exactly like the other Playwright ITs, then writes lossless, metadata-stripped PNGs
+into `screenshots/`. It's excluded from the default `./mvnw verify` run (see `pom.xml`)
+since it's a manual, on-demand step, not a regression test - run it explicitly whenever the
+UI changes enough to make the current screenshots stale:
+
+```bash
+./mvnw verify -Dit.test=ReadmeScreenshotIT
+```
+
+Then check `git diff --stat screenshots/` and commit only if something actually changed -
+re-running it with no visible UI change reproduces byte-identical files, regardless of which
+day you run it on.
 
 ## The grade model
 
