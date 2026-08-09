@@ -8,7 +8,7 @@
     <version>1.0.0-SNAPSHOT</version>
 
     <properties>
-        <compiler-plugin.version>3.13.0</compiler-plugin.version>
+        <compiler-plugin.version>3.15.0</compiler-plugin.version>
         <maven.compiler.release>17</maven.compiler.release>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -16,12 +16,14 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.37.2</quarkus.platform.version>
+        <quarkus.platform.version>3.38.1</quarkus.platform.version>
         <skipITs>false</skipITs>
-        <surefire-plugin.version>3.3.1</surefire-plugin.version>
-        <quarkus-playwright.version>2.3.7</quarkus-playwright.version>
-        <poi.version>5.4.0</poi.version>
-        <fastcsv.version>3.6.0</fastcsv.version>
+        <surefire-plugin.version>3.5.6</surefire-plugin.version>
+        <quarkus-playwright.version>2.3.8</quarkus-playwright.version>
+        <poi.version>5.5.1</poi.version>
+        <fastcsv.version>4.4.0</fastcsv.version>
+        <versions-plugin.version>2.21.0</versions-plugin.version>
+        <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -131,6 +133,36 @@
                     <parameters>true</parameters>
                 </configuration>
             </plugin>
+            <!--
+              Declares the minimum Maven this project builds with (matching what
+              .mvn/wrapper/maven-wrapper.properties pins ./mvnw to) so a build using some
+              other, older Maven fails fast with a clear message instead of a confusing
+              downstream error. This also fixes noisy output from
+              `./mvnw versions:display-plugin-updates` (see below): without a declared
+              minimum, that goal doesn't know which of a plugin's newer versions we could
+              actually run, so it dumps every available version bucketed by the Maven release
+              it requires, all the way down to versions from the Maven 2 era.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-maven-version</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>3.9.0</version>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -193,6 +225,25 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!--
+              Not bound to any lifecycle phase - run on demand via
+              `./mvnw versions:display-dependency-updates` / `versions:display-plugin-updates`
+              (see Commands in CLAUDE.md). Configured to report only released versions, and to
+              skip the hundreds of artifacts pulled in transitively via the Quarkus BOM import
+              (processDependencyManagement=false) - see CLAUDE.md's "Conventions & gotchas" for
+              the full rationale, including a versions-maven-plugin bug that rules out also
+              hiding BOM-managed direct dependencies (showVersionless=false).
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>versions-maven-plugin</artifactId>
+                <version>${versions-plugin.version}</version>
+                <configuration>
+                    <processDependencyManagement>false</processDependencyManagement>
+                    <allowSnapshots>false</allowSnapshots>
+                    <ignoredVersions>(?i).*[-.](alpha|beta|m|rc|cr)([-.]?\d+)?,.*-SNAPSHOT</ignoredVersions>
+                </configuration>
             </plugin>
         </plugins>
     </build>
