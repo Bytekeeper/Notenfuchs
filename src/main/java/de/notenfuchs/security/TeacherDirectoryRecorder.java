@@ -104,11 +104,12 @@ public class TeacherDirectoryRecorder {
             teacher = new Teacher();
             teacher.subject = subject;
             teacher.firstSeenAt = now;
-            teacher.persist();
         }
         teacher.email = email;
         teacher.displayName = displayName;
         teacher.lastSeenAt = now;
+        // Must come after every field is set: Hibernate snapshots the INSERT's values at persist().
+        teacher.persist();
     }
 
     private static String blankToNull(String value) {

@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,10 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>The recorder's DB write is deliberately fire-and-forget (see its Javadoc for why - the event
  * fires on the Vert.x event-loop thread, which can't block), so this test polls briefly rather
- * than asserting immediately after the request returns. Doesn't assume this is "lehrer"'s
- * first-ever sighting in this test run (another test class sharing this profile, e.g. {@code
- * LoginIT}, may have already logged in as "lehrer") - only that each round makes {@code
- * lastSeenAt} advance and never moves an already-set {@code firstSeenAt}.
+ * than asserting immediately after the request returns. The "lehrer" row is deleted first: V4
+ * seeds it, so otherwise only the update path would run, and the insert path for a brand-new
+ * teacher once failed on every OIDC login unnoticed.
  */
 @QuarkusTest
 @TestProfile(LocalAuthTestProfile.class)
@@ -56,10 +56,12 @@ class TeacherDirectoryRecorderIT {
 
     @Test
     void loginThenProtectedRequestRecordsAndRefreshesTeacherDirectoryRow() throws Exception {
+        QuarkusTransaction.requiringNew().run(() -> Teacher.delete("subject", LocalAuthTestProfile.USERNAME));
+
         Instant beforeFirstRound = Instant.now();
         loginAndVisitProtectedPage();
         Teacher afterFirstRound = awaitTeacherSeenAfter(beforeFirstRound);
-        assertNotNull(afterFirstRound.firstSeenAt);
+        assertFalse(afterFirstRound.firstSeenAt.isBefore(beforeFirstRound), "expected a newly inserted row");
         Instant firstSeenAt = afterFirstRound.firstSeenAt;
 
         Instant beforeSecondRound = Instant.now();
