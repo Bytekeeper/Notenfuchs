@@ -175,6 +175,41 @@ einschränkt, wer diese Ports direkt erreichen kann; `TRUST_PROXY=true` /
 `OIDC_TRUST_PROXY=true` ergeben nur Sinn, wenn der *einzige* Weg hinein wirklich über
 den Proxy führt.
 
+#### Über einen Cloudflare Tunnel veröffentlichen
+
+Ein Cloudflare Tunnel macht Notenfuchs (und Pocket ID) im Internet erreichbar, ohne
+dass auf dem Server ein einziger Port geöffnet werden muss: der Container
+`cloudflared` baut selbst eine ausgehende Verbindung zu Cloudflare auf, und Anfragen
+kommen über diese Verbindung herein. Niemand kann Cloudflare umgehen und den Server
+direkt ansprechen, und ein eigener Reverse Proxy oder ein eigenes TLS-Zertifikat ist
+nicht nötig - Cloudflare übernimmt HTTPS.
+
+1. **Tunnel anlegen.** Im Cloudflare-Dashboard unter Zero Trust -> Networks ->
+   Tunnels einen neuen Tunnel vom Typ "Cloudflared" anlegen. Cloudflare zeigt danach
+   einen Installationsbefehl mit einem langen Token - nur dieses Token wird gebraucht.
+   Trage es in `.env` als `CLOUDFLARE_TUNNEL_TOKEN` ein.
+2. **Öffentliche Hostnamen eintragen** (im Tunnel unter "Public Hostname"). Die Ziele
+   sind die Container-Namen im Docker-Netz, nicht `localhost`:
+   - `notenfuchs.example.com` -> Typ `HTTP`, URL `app:8080`
+   - `id.example.com` -> Typ `HTTP`, URL `pocket-id:1411` (nur mit Option B)
+3. **`.env` anpassen:**
+   - `COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml:docker-compose.cloudflare.yml`
+     (ohne Pocket ID: `docker-compose.yml:docker-compose.cloudflare.yml`)
+   - `APP_HOST_BIND=127.0.0.1`, damit Notenfuchs nur noch über den Tunnel erreichbar
+     ist (`POCKET_ID_HOST_BIND` steht bereits standardmäßig auf `127.0.0.1`).
+   - Nur mit Option B: `POCKET_ID_APP_URL=https://id.example.com` (ohne Port),
+     `OIDC_TRUST_PROXY=true` und `TRUST_PROXY=true`. Pocket ID ist dann nur über
+     den Tunnel erreichbar, daher ist das pauschale `true` hier unbedenklich.
+4. **Callback-URL in Pocket ID** (Schritt 5 von Option B) auf
+   `https://notenfuchs.example.com/auth-callback` setzen.
+5. **`docker compose up -d`** ausführen.
+
+In den Cloudflare-Einstellungen der Domain sollten zwei Funktionen ausgeschaltet
+sein: **Email Address Obfuscation** (unter Scrape Shield) schreibt E-Mail-Adressen in
+Seiten um - Notenfuchs zeigt E-Mail-Adressen von Lehrkräften an, z. B. beim
+Hinzufügen einer Lehrkraft zu einer Klasse. **Rocket Loader** verändert, wie
+JavaScript geladen wird, und kann das Noten-Raster stören.
+
 Pocket ID ist vollständig optional - die zugrunde liegende OIDC-Anbindung ist
 provider-unabhängig, sodass du stattdessen `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
 `OIDC_CLIENT_SECRET` auf Clerk, Keycloak, Authentik oder einen anderen

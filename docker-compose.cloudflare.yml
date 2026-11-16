@@ -1,0 +1,19 @@
+# Optional overlay: publishes Notenfuchs (and Pocket ID, if the OIDC overlay is
+# used too) through a Cloudflare Tunnel. cloudflared only opens an outgoing
+# connection to Cloudflare, so the host needs no open inbound port at all.
+# Combine it with the other files, e.g. in .env:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.oidc.yml:docker-compose.cloudflare.yml
+#
+# The tunnel and its public hostnames are configured in the Cloudflare
+# dashboard, not here - see the README's "Über einen Cloudflare Tunnel
+# veröffentlichen" section.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      - app
