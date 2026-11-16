@@ -12,6 +12,6 @@ public class RootUiResource {
 
     @GET
     public Response index() {
-        return Response.seeOther(jakarta.ws.rs.core.UriBuilder.fromPath("/classes").build()).build();
+        return Redirects.seeOther("/classes").build();
     }
 }

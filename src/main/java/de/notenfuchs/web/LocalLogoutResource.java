@@ -6,7 +6,6 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriBuilder;
 
 /**
  * Clears the local-auth session cookie. A distinct path from {@code /logout} (OIDC's
@@ -23,6 +22,6 @@ public class LocalLogoutResource {
     @POST
     public Response logout() {
         FormAuthenticationMechanism.logout(identity);
-        return Response.seeOther(UriBuilder.fromPath("/login").build()).build();
+        return Redirects.seeOther("/login").build();
     }
 }

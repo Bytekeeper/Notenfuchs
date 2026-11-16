@@ -17,7 +17,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 
-import java.net.URI;
 import java.util.List;
 
 /**
@@ -62,6 +61,6 @@ public class DevIdentitySwitchResource {
                 .maxAge(clear ? 0 : NewCookie.DEFAULT_MAX_AGE)
                 .httpOnly(true)
                 .build();
-        return Response.seeOther(URI.create("/dev/identity")).cookie(cookie).build();
+        return Redirects.seeOther("/dev/identity").cookie(cookie).build();
     }
 }

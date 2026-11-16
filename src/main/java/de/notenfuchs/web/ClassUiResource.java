@@ -42,7 +42,6 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -206,7 +205,7 @@ public class ClassUiResource {
             studentCopy.persist();
         }
 
-        return Response.seeOther(URI.create("/classes/" + copy.id)).build();
+        return Redirects.seeOther("/classes/" + copy.id).build();
     }
 
     /**
@@ -609,9 +608,9 @@ public class ClassUiResource {
         }
 
         String message = created + " Schüler angelegt, " + skipped + " übersprungen (bereits vorhanden)";
-        URI redirect = URI.create("/classes/" + id + "?rosterImportResult="
-                + URLEncoder.encode(message, StandardCharsets.UTF_8));
-        return Response.seeOther(redirect).build();
+        String redirect = "/classes/" + id + "?rosterImportResult="
+                + URLEncoder.encode(message, StandardCharsets.UTF_8);
+        return Redirects.seeOther(redirect).build();
     }
 
     private Set<String> existingStudentNames(Long schoolClassId) {
