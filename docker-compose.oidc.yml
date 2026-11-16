@@ -37,6 +37,9 @@ services:
       # .force-redirect-https-scheme comment in application.properties and the
       # README's "Running behind your own reverse proxy" section.
       OIDC_TRUST_PROXY: ${OIDC_TRUST_PROXY:-false}
+      # Pocket ID's own account page (passkeys, login codes), linked as
+      # "Konto" in the Notenfuchs nav.
+      OIDC_ACCOUNT_URL: ${POCKET_ID_APP_URL:-http://localhost:1411}/settings/account
 
   # Lightweight, passkey-only OIDC provider - see the README's "Option B:
   # multi-user, Pocket ID SSO" section. The Notenfuchs OIDC client and teacher

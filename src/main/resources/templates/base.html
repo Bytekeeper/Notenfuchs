@@ -22,6 +22,9 @@
                     <button type="submit" style="all:unset; cursor:pointer; color:var(--color-primary);">Logout</button>
                 </form>
                 {#else}
+                {#if oidcAccountUrl}
+                <a href="{oidcAccountUrl}" target="_blank" rel="noopener">Konto</a>
+                {/if}
                 <a href="/logout">Logout</a>
                 {/if}
             {#else}

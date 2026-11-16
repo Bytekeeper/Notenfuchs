@@ -101,6 +101,12 @@ public class CurrentUser {
     @ConfigProperty(name = LocalAuthConfigSource.ACTIVE_PROPERTY, defaultValue = "false")
     boolean localAuthActive;
 
+    // Provider-specific (Pocket ID, Keycloak, ... each use a different path) and not part of OIDC
+    // discovery, so it can't be derived from the issuer URL.
+    @Inject
+    @ConfigProperty(name = "notenfuchs.oidc.account-url")
+    Optional<String> oidcAccountUrl = Optional.empty();
+
     /**
      * True if the current request is associated with an authenticated OIDC session.
      */
@@ -213,6 +219,7 @@ public class CurrentUser {
                 .data("currentUserAuthenticated", isAuthenticated())
                 .data("currentUserDisplayName", displayName().orElse(""))
                 .data("localAuthActive", localAuthActive())
+                .data("oidcAccountUrl", localAuthActive() ? "" : oidcAccountUrl.orElse(""))
                 .data("devIdentitySwitchActive", devIdentitySwitchActive)
                 .data("devEffectiveSubject", effectiveSubject());
     }

@@ -101,6 +101,17 @@ cp .env.example .env
    Kollegen), damit sie direkt ein eigenes Passkey-Konto anlegen kann - der
    Admin-Login muss nie geteilt werden.
 
+**Weitere Geräte freischalten.** Über den Link "Konto" oben rechts in Notenfuchs
+gelangt eine Lehrkraft zu ihrer Pocket-ID-Kontoseite und kann dort für das aktuelle
+Gerät einen weiteren Passkey hinzufügen. Für ein Gerät, auf dem sie noch gar nicht
+angemeldet ist, gibt es auf der Pocket-ID-Anmeldeseite (zu der Notenfuchs automatisch
+weiterleitet) zwei Wege: "Sign in with another device" (QR-Code mit dem Handy scannen,
+auf dem der Passkey liegt; ab Pocket ID 2.13 - ggf. vorher
+`docker compose pull pocket-id` ausführen) oder "Sign in with login code" mit einem
+Einmal-Code, den eine Admin-Person unter Administration -> Users über das **⋯**-Menü
+der Person ("Login Code") erzeugt. Danach auf dem neuen Gerät über "Konto" einen
+Passkey hinzufügen.
+
 Standardmäßig läuft das alles auf dem eigenen Rechner über reines HTTP:
 `POCKET_ID_APP_URL` in `.env` ist standardmäßig `http://localhost:1411`, und Notenfuchs
 selbst ist unter `http://localhost:8080` erreichbar.
@@ -384,6 +395,11 @@ Standardmäßig fordert die App die Scopes `openid profile email` an (`openid` w
 automatisch von Quarkus hinzugefügt; `profile` und `email` sind explizit
 konfiguriert), damit Name/E-Mail des angemeldeten Nutzers über den
 OIDC-UserInfo-Endpunkt verfügbar sind.
+
+Optional zeigt `OIDC_ACCOUNT_URL` (z. B. die Kontoseite des Providers, bei Pocket ID
+`<POCKET_ID_APP_URL>/settings/account`) einen Link "Konto" neben "Logout" an, über
+den Lehrkräfte z. B. Passkeys für weitere Geräte verwalten. Ohne den Wert gibt es
+keinen Link. Das `docker-compose.oidc.yml`-Overlay setzt ihn bereits passend.
 
 #### Pocket ID (mitgelieferter, selbst gehosteter OIDC-Provider)
 
