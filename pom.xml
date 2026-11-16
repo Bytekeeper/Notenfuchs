@@ -8,7 +8,7 @@
     <version>1.0.0-SNAPSHOT</version>
 
     <properties>
-        <compiler-plugin.version>3.15.0</compiler-plugin.version>
+        <compiler-plugin.version>3.16.0</compiler-plugin.version>
         <maven.compiler.release>17</maven.compiler.release>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -16,14 +16,14 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.38.1</quarkus.platform.version>
+        <quarkus.platform.version>3.40.1.2</quarkus.platform.version>
         <skipITs>false</skipITs>
-        <surefire-plugin.version>3.5.6</surefire-plugin.version>
-        <quarkus-playwright.version>2.3.8</quarkus-playwright.version>
-        <poi.version>5.5.1</poi.version>
-        <fastcsv.version>4.4.0</fastcsv.version>
-        <versions-plugin.version>2.21.0</versions-plugin.version>
-        <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
+        <quarkus-playwright.version>2.5.0</quarkus-playwright.version>
+        <poi.version>6.0.0</poi.version>
+        <fastcsv.version>4.4.1</fastcsv.version>
+        <versions-plugin.version>2.25.2</versions-plugin.version>
+        <enforcer-plugin.version>3.7.0</enforcer-plugin.version>
     </properties>
 
     <dependencyManagement>

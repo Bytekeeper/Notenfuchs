@@ -6,7 +6,7 @@ User-facing documentation (README.md and any other docs aimed at teachers, not d
 
 ## Tech stack
 
-Quarkus 3.37.2 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5 · quarkus-oidc (alternative SSO auth) · quarkus-elytron-security-properties-file (default local auth) · Apache POI (poi-ooxml, xlsx export) · FastCSV (`de.siegmar:fastcsv`, roster CSV import/export) · quarkus-playwright (browser ITs). Postgres runs via Docker Compose. Group id `de.notenfuchs`.
+Quarkus 3.40.1.2 · Java 17+ · Hibernate ORM with Panache · RESTEasy Reactive (quarkus-rest) + Jackson · PostgreSQL · Flyway · Hibernate Validator · JUnit 5 · quarkus-oidc (alternative SSO auth) · quarkus-elytron-security-properties-file (default local auth) · Apache POI (poi-ooxml, xlsx export) · FastCSV (`de.siegmar:fastcsv`, roster CSV import/export) · quarkus-playwright (browser ITs). Postgres runs via Docker Compose. Group id `de.notenfuchs`.
 
 The Maven Wrapper (`./mvnw`) is committed — **no local Maven install needed**, but Java 17+ is required.
 
@@ -149,7 +149,7 @@ Self-removal is where the two diverge, precisely because of the self-service dif
 
 ## Conventions & gotchas
 
-- **Flyway owns the schema**, not Hibernate. `quarkus.hibernate-orm.database.generation=validate`. Schema changes go in a new `src/main/resources/db/migration/V*__*.sql` migration — never rely on auto-DDL.
+- **Flyway owns the schema**, not Hibernate. `quarkus.hibernate-orm.schema-management.strategy=validate`. Schema changes go in a new `src/main/resources/db/migration/V*__*.sql` migration — never rely on auto-DDL.
 - Grade-calc changes must come with tests in `GradeServiceTest` (covers factor weighting, category combination, empty-category normalization, both rounding modes at the .5 boundary).
 - Points→grade conversion changes must come with tests in `PointsConversionServiceTest` (band boundaries at exact thresholds, order-independence, scale-agnosticism, the no-band-matches fallback, the default-bands seeding, and both `RoundingMode`s — `COMMERCIAL` vs. `IN_FAVOR_OF_STUDENT` — on both scale directions). Any Qute template that reads a lazy entity association (e.g. `subject.gradeScale`) from a `TemplateInstance` returned by an `@Transactional` web endpoint must force-initialize it first (`Hibernate.initialize(...)`) — the transaction's Hibernate session is already closed by the time Qute actually renders the response, so an untouched lazy proxy throws `LazyInitializationException` (see `SubjectUiResource#categoryFragment`).
 - Free-text student names by design — the teacher decides what to enter (real name or Kürzel). No PII assumptions baked into the model.
