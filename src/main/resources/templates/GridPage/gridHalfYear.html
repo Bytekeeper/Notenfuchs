@@ -92,14 +92,14 @@
                         <td class="student-cell">{row.student.effectiveName}</td>
                         {#if !undatedColumns.isEmpty}
                             {#for cell in row.undatedCells}
-                                <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}"{#if cell.due} data-due="true"{/if}>
+                                <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}{#if cell.absence} grade-cell-absent{/if}"{#if cell.due} data-due="true"{/if}>
                                     {#if cell.assessmentId}
                                         {#if cell.pointsBased}
                                         <span class="points-cell">
                                             <input type="text" inputmode="decimal" class="grade-input points-input"
                                                    data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                    data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                                   placeholder="Pkt." value="{cell.displayValue ?: ''}">
+                                                   placeholder="Pkt." value="{cell.inputValue}">
                                             <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                             <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                         </span>
@@ -107,21 +107,21 @@
                                         <input type="text" inputmode="decimal" class="grade-input"
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                               value="{cell.displayValue ?: ''}">
+                                               value="{cell.inputValue}">
                                         {/if}
                                     {/if}
                                 </td>
                             {/for}
                         {/if}
                         {#for cell in row.h1Cells}
-                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}"{#if cell.due} data-due="true"{/if}>
+                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}{#if cell.absence} grade-cell-absent{/if}"{#if cell.due} data-due="true"{/if}>
                                 {#if cell.assessmentId}
                                     {#if cell.pointsBased}
                                     <span class="points-cell">
                                         <input type="text" inputmode="decimal" class="grade-input points-input"
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                               placeholder="Pkt." value="{cell.displayValue ?: ''}">
+                                               placeholder="Pkt." value="{cell.inputValue}">
                                         <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                         <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
@@ -129,7 +129,7 @@
                                     <input type="text" inputmode="decimal" class="grade-input"
                                            data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                            data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                           value="{cell.displayValue ?: ''}">
+                                           value="{cell.inputValue}">
                                     {/if}
                                 {/if}
                             </td>
@@ -139,14 +139,14 @@
                             <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="h1">{row.h1RawAverage ?: '–'}</span>
                         </td>
                         {#for cell in row.h2Cells}
-                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}"{#if cell.due} data-due="true"{/if}>
+                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}{#if cell.absence} grade-cell-absent{/if}"{#if cell.due} data-due="true"{/if}>
                                 {#if cell.assessmentId}
                                     {#if cell.pointsBased}
                                     <span class="points-cell">
                                         <input type="text" inputmode="decimal" class="grade-input points-input"
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                               placeholder="Pkt." value="{cell.displayValue ?: ''}">
+                                               placeholder="Pkt." value="{cell.inputValue}">
                                         <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                         <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
@@ -154,7 +154,7 @@
                                     <input type="text" inputmode="decimal" class="grade-input"
                                            data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                            data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                           value="{cell.displayValue ?: ''}">
+                                           value="{cell.inputValue}">
                                     {/if}
                                 {/if}
                             </td>
@@ -214,6 +214,7 @@
     </div>
     <p class="grid-legend">
         + neben einer Kategorie: neue Leistung · Name einer Leistung anklicken: ändern oder löschen ·
+        e / u: abwesend entschuldigt / unentschuldigt, allein oder neben der Note (z. B. „6 u“) – ändert die Note nicht ·
         Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
         Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
         Zelle leeren + verlassen löscht die Note. Punktebasierte Leistungen: Punktzahl eingeben,

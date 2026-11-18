@@ -358,7 +358,9 @@ public class SubjectUiResource {
         }
         boolean pointsBased = isChecked(pointsBasedRaw);
         if (pointsBased != assessment.pointsBased) {
-            Grade.delete("assessment.id", assessment.id);
+            // A grade entered in one mode means nothing in the other; an absence still happened.
+            Grade.delete("assessment.id = ?1 and absence is null", assessment.id);
+            Grade.update("value = null, points = null where assessment.id = ?1", assessment.id);
         }
         assessment.pointsBased = pointsBased;
         assessment.roundingMode = parseRoundingMode(roundingModeRaw);

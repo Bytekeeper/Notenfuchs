@@ -1,5 +1,6 @@
 package de.notenfuchs.web;
 
+import de.notenfuchs.domain.Absence;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
@@ -403,6 +404,7 @@ public class GradeGridResource {
         int totalCols = totalColumns(blockColumns);
         LocalDate today = LocalDate.now();
         List<List<BigDecimal>> columnValues = new ArrayList<>();
+        int[] columnEntered = new int[totalCols];
         for (int i = 0; i < totalCols; i++) {
             columnValues.add(new ArrayList<>());
         }
@@ -414,7 +416,7 @@ public class GradeGridResource {
             int localIndex = 0;
             for (CategoryColumns cc : blockColumns) {
                 if (cc.assessments().isEmpty()) {
-                    cells.add(new CellView(colIndex, null, true, null, false, null, false, false));
+                    cells.add(new CellView(colIndex, null, true, null, null, false, null, false, false));
                     colIndex++;
                     continue;
                 }
@@ -432,14 +434,18 @@ public class GradeGridResource {
                             columnValues.get(localIndex).add(derived);
                         }
                     } else {
-                        displayValue = grade != null ? plain(grade.value) : null;
-                        if (grade != null) {
+                        displayValue = grade != null && grade.value != null ? plain(grade.value) : null;
+                        if (grade != null && grade.value != null) {
                             columnValues.get(localIndex).add(grade.value);
                         }
                     }
+                    Absence absence = grade != null ? grade.absence : null;
+                    if (grade != null) {
+                        columnEntered[localIndex]++;
+                    }
                     boolean due = isDue(assessment, today);
-                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue,
-                            assessment.pointsBased, derivedDisplay, due, due && displayValue == null));
+                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue, absence,
+                            assessment.pointsBased, derivedDisplay, due, due && grade == null));
                     categoryStart = false;
                     colIndex++;
                     localIndex++;
@@ -461,7 +467,7 @@ public class GradeGridResource {
                             values, subject.gradeScale, subject.roundingMode);
                     columnAverages.add(new ColumnAverageView(assessment.id,
                             columnAverage.rawAverage(), columnAverage.finalGrade(),
-                            isDue(assessment, today), students.size() - values.size()));
+                            isDue(assessment, today), students.size() - columnEntered[footerColIndex]));
                     footerColIndex++;
                 }
             }
@@ -538,11 +544,30 @@ public class GradeGridResource {
         Grade existing = Grade.find("assessment.id = ?1 and student.id = ?2", assessmentId, studentId).firstResult();
 
         String trimmed = rawValue == null ? "" : rawValue.trim();
+        // An absence letter may stand alone or next to the number, before or after it.
+        Absence absence = null;
+        if (!trimmed.isEmpty() && Absence.fromCode(trimmed.substring(trimmed.length() - 1)) != null) {
+            absence = Absence.fromCode(trimmed.substring(trimmed.length() - 1));
+            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
+        } else if (!trimmed.isEmpty() && Absence.fromCode(trimmed.substring(0, 1)) != null) {
+            absence = Absence.fromCode(trimmed.substring(0, 1));
+            trimmed = trimmed.substring(1).trim();
+        }
         if (trimmed.isEmpty()) {
-            if (existing != null) {
-                existing.delete();
+            if (absence == null) {
+                if (existing != null) {
+                    existing.delete();
+                }
+            } else {
+                Grade grade = existing != null ? existing : newGrade(assessment, student);
+                grade.value = null;
+                grade.points = null;
+                grade.absence = absence;
+                if (existing == null) {
+                    grade.persist();
+                }
             }
-            return Response.ok(averagePayload(subject, student, assessment, null)).build();
+            return Response.ok(averagePayload(subject, student, assessment, null, absence)).build();
         }
 
         BigDecimal enteredValue;
@@ -564,11 +589,11 @@ public class GradeGridResource {
             if (existing != null) {
                 existing.points = enteredValue;
                 existing.value = null;
+                existing.absence = absence;
             } else {
-                Grade grade = new Grade();
-                grade.assessment = assessment;
-                grade.student = student;
+                Grade grade = newGrade(assessment, student);
                 grade.points = enteredValue;
+                grade.absence = absence;
                 grade.persist();
             }
         } else {
@@ -582,16 +607,23 @@ public class GradeGridResource {
             if (existing != null) {
                 existing.value = enteredValue;
                 existing.points = null;
+                existing.absence = absence;
             } else {
-                Grade grade = new Grade();
-                grade.assessment = assessment;
-                grade.student = student;
+                Grade grade = newGrade(assessment, student);
                 grade.value = enteredValue;
+                grade.absence = absence;
                 grade.persist();
             }
         }
 
-        return Response.ok(averagePayload(subject, student, assessment, enteredValue)).build();
+        return Response.ok(averagePayload(subject, student, assessment, enteredValue, absence)).build();
+    }
+
+    private static Grade newGrade(Assessment assessment, Student student) {
+        Grade grade = new Grade();
+        grade.assessment = assessment;
+        grade.student = student;
+        return grade;
     }
 
     /**
@@ -602,7 +634,7 @@ public class GradeGridResource {
      * see {@code updateAverageRow}'s {@code data-scope} handling in {@code notenfuchs.js}.
      */
     private CellSaveResponse averagePayload(Subject subject, Student student, Assessment assessment,
-                                             BigDecimal enteredValue) {
+                                             BigDecimal enteredValue, Absence absence) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
         List<CategoryColumns> allColumns = new ArrayList<>();
         for (GradeCategory category : categories) {
@@ -630,7 +662,7 @@ public class GradeGridResource {
         SubjectAverageResult assessmentAverage = gradeService.calculateAssessmentAverage(
                 assessmentValues, subject.gradeScale, subject.roundingMode);
 
-        String displayValue = enteredValue != null ? plain(enteredValue) : "";
+        String displayValue = cellText(enteredValue != null ? plain(enteredValue) : null, absence);
         String derivedGradeDisplay = null;
         if (assessment.pointsBased && enteredValue != null) {
             BigDecimal derived = pointsConversionService.convert(enteredValue,
@@ -763,10 +795,7 @@ public class GradeGridResource {
                 List<CellView> cells = row.cells();
                 for (int i = 0; i < cells.size(); i++) {
                     CellView cell = cells.get(i);
-                    String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
-                    if (exportValue != null) {
-                        xlsxRow.createCell(1 + i).setCellValue(new BigDecimal(exportValue).doubleValue());
-                    }
+                    writeCell(xlsxRow, 1 + i, cell);
                 }
                 if (row.rawAverage() != null) {
                     xlsxRow.createCell(avgRawCol).setCellValue(row.rawAverage().doubleValue());
@@ -925,11 +954,17 @@ public class GradeGridResource {
 
     private void writeCells(Row xlsxRow, List<CellView> cells, int startCol) {
         for (int i = 0; i < cells.size(); i++) {
-            CellView cell = cells.get(i);
-            String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
-            if (exportValue != null) {
-                xlsxRow.createCell(startCol + i).setCellValue(new BigDecimal(exportValue).doubleValue());
-            }
+            writeCell(xlsxRow, startCol + i, cells.get(i));
+        }
+    }
+
+    /** A grade stays a number so Excel can calculate with it; an absence without a grade becomes its letter. */
+    private static void writeCell(Row xlsxRow, int col, CellView cell) {
+        String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
+        if (exportValue != null) {
+            xlsxRow.createCell(col).setCellValue(new BigDecimal(exportValue).doubleValue());
+        } else if (cell.absence() != null) {
+            xlsxRow.createCell(col).setCellValue(cell.absence().code);
         }
     }
 
@@ -1016,8 +1051,20 @@ public class GradeGridResource {
      * @param derivedGradeDisplay only set for a points-based assessment with a grade entered -
      *                            the grade derived live from displayValue via the Notenschlüssel
      */
-    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue,
+    /** {@code displayValue} is the number only (the xlsx export parses it); {@link #inputValue} adds the absence letter. */
+    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue, Absence absence,
                             boolean pointsBased, String derivedGradeDisplay, boolean due, boolean open) {
+        public String inputValue() {
+            return cellText(displayValue, absence);
+        }
+    }
+
+    /** What a grade cell shows and accepts back: "2.3", "6 u", "e" or "". */
+    static String cellText(String number, Absence absence) {
+        if (absence == null) {
+            return number != null ? number : "";
+        }
+        return number != null ? number + " " + absence.code : absence.code;
     }
 
     public record RowView(int rowIndex, StudentView student, List<CellView> cells,

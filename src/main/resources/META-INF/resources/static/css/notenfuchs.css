@@ -684,3 +684,4 @@ table.grade-grid .open-count { display: block; font-size: 0.75rem; color: var(--
     color: var(--color-primary-dark);
     font-size: 0.8rem;
 }
+table.grade-grid td.grade-cell-absent input { font-style: italic; color: var(--color-text-muted); }

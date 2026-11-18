@@ -3,6 +3,8 @@ package de.notenfuchs.domain;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -25,6 +27,9 @@ import java.math.BigDecimal;
  * {@link #value} null - the actual grade is derived live from the points plus the assessment's
  * {@link PointsGradeBand}s rather than stored, so it never goes stale (see
  * {@link de.notenfuchs.service.PointsConversionService}).
+ *
+ * <p>{@link #absence} is independent of both: a row may hold only the mark (absent, no grade
+ * yet), so code that reads {@link #value}/{@link #points} must expect both to be null.
  */
 @Entity
 @Table(name = "grade")
@@ -45,4 +50,8 @@ public class Grade extends PanacheEntity {
 
     @Column(precision = 6, scale = 2)
     public BigDecimal points;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    public Absence absence;
 }

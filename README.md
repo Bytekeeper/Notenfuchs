@@ -660,7 +660,10 @@ kein Node-Build-Schritt.
   automatisch über einen kleinen `fetch()`-Aufruf, mit einer live berechneten
   Durchschnittsspalte pro Schüler (`GradeService`). Neue Leistungen lassen sich direkt
   hier anlegen (+ neben der Kategorie), bestehende über ihren Spaltenkopf ändern oder
-  löschen
+  löschen. Fehlende Noten von Leistungen, deren Datum erreicht ist, werden markiert.
+  `e` / `u` in einer Zelle vermerkt „abwesend entschuldigt / unentschuldigt“ – allein
+  (zählt dann nicht als fehlend) oder neben der Note (z. B. `6 u`); die Note selbst
+  ändert sich dadurch nie
 - `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
   herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
   möchten

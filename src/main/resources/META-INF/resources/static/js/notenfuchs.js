@@ -249,7 +249,9 @@
         // Only cells of a Leistung whose date has come carry data-due; see GradeGridResource#isDue.
         function updateOpenState(input) {
             const cell = input.closest("td.grade-cell");
-            if (!cell || cell.dataset.due !== "true") return;
+            if (!cell) return;
+            cell.classList.toggle("grade-cell-absent", /^[eu]|[eu]$/i.test(input.value.trim()));
+            if (cell.dataset.due !== "true") return;
             cell.classList.toggle("grade-cell-open", input.value.trim() === "");
             const id = input.dataset.assessmentId;
             const counter = root.querySelector('.open-count[data-assessment-id="' + id + '"]');
