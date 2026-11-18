@@ -131,12 +131,12 @@ class ReadmeScreenshotIT {
     }
 
     private void setHalfYearCutoff(String isoDate) {
-        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
         page.locator("#half-year-cutoff-fragment .rename-toggle").click();
         page.locator("#half-year-cutoff-fragment input[name='halfYearCutoff']").fill(isoDate);
         page.locator("#half-year-cutoff-fragment .rename-save").click();
         assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText(isoDate);
-        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Fächer & Schüler")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Fächer & Schüler")).click();
     }
 
     private void setAssessmentDate(String assessmentName, String isoDate) {

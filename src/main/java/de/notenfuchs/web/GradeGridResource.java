@@ -124,6 +124,7 @@ public class GradeGridResource {
         HalfYearGridData data = loadHalfYearGridData(subject, cutoff);
         return currentUser.withUser(gridHalfYearTemplate
                 .data("subject", subject)
+                .data("isClassAdmin", guard.isAdmin(subject.schoolClass, currentUser.effectiveSubject()))
                 .data("cutoff", cutoff)
                 .data("undatedColumns", data.undatedColumns())
                 .data("undatedTotalCols", data.undatedTotalCols())

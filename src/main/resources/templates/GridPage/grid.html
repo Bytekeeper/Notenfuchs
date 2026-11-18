@@ -1,10 +1,7 @@
 {#include base}
 {#title}Noten – {subject.name}{/title}
 
-<div class="breadcrumbs">
-    <a href="/classes">Übersicht</a> / <a href="/classes/{subject.schoolClass.id}">{subject.schoolClass.name}</a> / <a href="/subjects/{subject.id}">{subject.name}</a> / Notenerfassung
-</div>
-<h1>Notenerfassung: {subject.name}</h1>
+{#include SubjectPage/subjectHeader activeTab='grid' /}
 <p class="hint">Notenskala {subject.gradeScale.name} ({subject.gradeScale.min}–{subject.gradeScale.max}, {#if subject.gradeScale.lowerIsBetter}niedriger ist besser{#else}höher ist besser{/if}) · Rundung: {subject.roundingMode}</p>
 
 {#if gridEmpty}

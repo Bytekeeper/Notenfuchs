@@ -88,7 +88,7 @@ class BehaviorGridE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectB))).isVisible();
 
-        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Verhaltensnoten")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Verhaltensnoten")).click();
 
         Locator row0 = page.locator("table.behavior-grid-root tbody tr").nth(0); // student A
         Locator row1 = page.locator("table.behavior-grid-root tbody tr").nth(1); // student B

@@ -67,6 +67,10 @@ public class SubjectUiResource {
     Template detailTemplate;
 
     @Inject
+    @Location("SubjectPage/teachers.html")
+    Template teachersTemplate;
+
+    @Inject
     @Location("fragments/categoryList.html")
     Template categoryListFragment;
 
@@ -84,7 +88,16 @@ public class SubjectUiResource {
                 .data("subject", subject)
                 .data("categories", data.categories())
                 .data("weightSum", data.weightSum())
-                .data("weightSumWarning", data.weightSumWarning())
+                .data("weightSumWarning", data.weightSumWarning()));
+    }
+
+    @GET
+    @Path("/{id}/teachers")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance teachersPage(@PathParam("id") Long id) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        return currentUser.withUser(teachersTemplate
+                .data("subject", subject)
                 .data("subjectTeachers", subjectTeachersWithResolvedLabels(id))
                 .data("availableTeachers", availableTeachers(id))
                 .data("currentUserSubject", currentUser.effectiveSubject()));

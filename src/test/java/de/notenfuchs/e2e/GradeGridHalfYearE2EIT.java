@@ -228,7 +228,7 @@ class GradeGridHalfYearE2EIT {
 
     /** The Halbjahr settings live on the class's "Einstellungen" tab, students and Fächer on the first one. */
     private static void openClassTab(Page page, String tabName) {
-        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName(tabName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName(tabName)).click();
     }
 
     /**

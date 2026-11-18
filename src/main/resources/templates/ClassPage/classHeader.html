@@ -1,6 +1,6 @@
 <div class="breadcrumbs"><a href="/classes">Übersicht</a> / {schoolClass.name}</div>
 <h1>{schoolClass.name} <small style="color: var(--color-text-muted); font-weight: 400;">({schoolClass.schoolYear})</small></h1>
-<nav class="class-tabs">
+<nav class="tabs">
     <a href="/classes/{schoolClass.id}" {#if activeTab == 'main'}class="active" aria-current="page"{/if}>Fächer &amp; Schüler</a>
     <a href="/classes/{schoolClass.id}/behavior-grid" {#if activeTab == 'behavior'}class="active" aria-current="page"{/if}>Verhaltensnoten</a>
     {#if isClassAdmin}

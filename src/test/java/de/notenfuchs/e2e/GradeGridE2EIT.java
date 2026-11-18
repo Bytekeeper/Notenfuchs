@@ -109,7 +109,7 @@ class GradeGridE2EIT {
 
         // We're already on the grid page with one category ("E2E-Kategorie-<unique>", 2
         // assessments). Go back to the subject page and add a second, still-empty category.
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("E2E-Fach-" + unique)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -145,7 +145,7 @@ class GradeGridE2EIT {
         // assessments (col 0/1, both graded via cell0/cell1 in other tests). Add an empty
         // category, then a third with its own assessment - the empty one must not make
         // "LeistungNachLuecke" unreachable.
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("E2E-Fach-" + unique)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -291,10 +291,10 @@ class GradeGridE2EIT {
         assertThat(page.locator(".derived-grade")).hasText("1");
         assertThat(page.locator(".average-final")).hasText("1");
 
-        // Go back to the subject page (third breadcrumb link: Klassen / Klasse / Fach) and
+        // Go back to the "Leistungen & Gewichtung" tab and
         // change the ">=60 points" band's grade from 1 to 2 - the default bands render
         // best-to-worst, so this is the first band row.
-        page.locator(".breadcrumbs a").nth(2).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
         Locator bandForm = page.locator(".band-form").nth(0);
         Locator gradeValueInput = bandForm.locator("input[name='gradeValue']");
@@ -335,7 +335,7 @@ class GradeGridE2EIT {
         pointsCell.evaluate("el => el.blur()");
         assertThat(page.locator(".derived-grade")).hasText("4.7");
 
-        page.locator(".breadcrumbs a").nth(2).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
         Locator row = page.locator("table.entity-list tbody tr")
                 .filter(new Locator.FilterOptions().setHasText(assessmentName)).first();

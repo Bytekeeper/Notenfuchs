@@ -1,0 +1,8 @@
+<div class="breadcrumbs"><a href="/classes">Übersicht</a> / <a href="/classes/{subject.schoolClass.id}">{subject.schoolClass.name}</a> / {subject.name}</div>
+<h1>{subject.schoolClass.name} – {subject.name} <small style="color: var(--color-text-muted); font-weight: 400;">({subject.schoolClass.schoolYear})</small></h1>
+<nav class="tabs">
+    <a href="/subjects/{subject.id}/grid" {#if activeTab == 'grid'}class="active" aria-current="page"{/if}>Notenerfassung</a>
+    <a href="/subjects/{subject.id}" {#if activeTab == 'setup'}class="active" aria-current="page"{/if}>Leistungen &amp; Gewichtung</a>
+    <a href="/subjects/{subject.id}/teachers" {#if activeTab == 'teachers'}class="active" aria-current="page"{/if}>Lehrkräfte</a>
+    <a class="tabs-aside" href="/classes/{subject.schoolClass.id}/behavior-grid">Verhaltensnoten der Klasse →</a>
+</nav>

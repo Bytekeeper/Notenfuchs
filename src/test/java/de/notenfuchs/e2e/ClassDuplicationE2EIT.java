@@ -80,7 +80,7 @@ class ClassDuplicationE2EIT {
 
         // Back to the class (breadcrumb), where the duplicate action lives on the "Einstellungen" tab.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
-        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
 
         page.locator("#newClassName").fill(newClassName);
         page.locator("#newSchoolYear").fill(newSchoolYear);

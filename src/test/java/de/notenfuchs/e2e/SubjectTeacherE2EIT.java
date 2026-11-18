@@ -21,8 +21,8 @@ import java.time.Instant;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 /**
- * Browser-driven end-to-end coverage for the "Lehrkräfte" section on {@code
- * SubjectPage/detail.html} (backed by {@code fragments/subjectTeachers.html} and {@code
+ * Browser-driven end-to-end coverage for the Fach's "Lehrkräfte" tab ({@code
+ * SubjectPage/teachers.html}, backed by {@code fragments/subjectTeachers.html} and {@code
  * SubjectUiResource#addSubjectTeacher}/{@code #removeSubjectTeacher}). Complements {@code
  * de.notenfuchs.web.SubjectTeacherIT}, which asserts the same behavior (plus the self-service and
  * self-removal-redirect specifics) at the HTTP/data level - this test instead drives the real
@@ -78,6 +78,7 @@ class SubjectTeacherE2EIT {
         page.locator("#roundingMode").selectOption("COMMERCIAL");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Lehrkräfte")).click();
 
         // Sole teacher: shown as "(Sie)", no removal option.
         Locator teachersFragment = page.locator("#subject-teachers-fragment");
