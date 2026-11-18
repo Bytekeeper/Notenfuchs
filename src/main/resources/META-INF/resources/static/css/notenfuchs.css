@@ -674,7 +674,6 @@ table.grade-grid th .column-edit:hover { color: var(--color-primary); }
 /* Missing grades: an empty cell of a Leistung whose date has come. */
 table.grade-grid td.grade-cell-open { background: #fff6e5; }
 table.grade-grid td.grade-cell-open input { border-color: #e0b56a; }
-table.grade-grid .open-count { display: block; font-size: 0.75rem; color: var(--color-primary-dark); }
 .class-card .open-badge {
     display: inline-block;
     margin-top: 0.35rem;

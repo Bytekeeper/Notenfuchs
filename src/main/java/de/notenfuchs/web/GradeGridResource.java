@@ -645,7 +645,6 @@ public class GradeGridResource {
         int totalCols = totalColumns(blockColumns);
         LocalDate today = LocalDate.now();
         List<List<BigDecimal>> columnValues = new ArrayList<>();
-        int[] columnEntered = new int[totalCols];
         for (int i = 0; i < totalCols; i++) {
             columnValues.add(new ArrayList<>());
         }
@@ -681,9 +680,6 @@ public class GradeGridResource {
                         }
                     }
                     Absence absence = grade != null ? grade.absence : null;
-                    if (grade != null) {
-                        columnEntered[localIndex]++;
-                    }
                     boolean due = isDue(assessment, today);
                     cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue, absence,
                             assessment.pointsBased, derivedDisplay, due, due && grade == null));
@@ -700,15 +696,14 @@ public class GradeGridResource {
         for (CategoryColumns cc : blockColumns) {
             List<ColumnAverageView> columnAverages = new ArrayList<>();
             if (cc.assessments().isEmpty()) {
-                columnAverages.add(new ColumnAverageView(null, null, null, false, 0));
+                columnAverages.add(new ColumnAverageView(null, null, null));
             } else {
                 for (Assessment assessment : cc.assessments()) {
                     List<BigDecimal> values = columnValues.get(footerColIndex);
                     SubjectAverageResult columnAverage = gradeService.calculateAssessmentAverage(
                             values, subject.gradeScale, subject.roundingMode);
                     columnAverages.add(new ColumnAverageView(assessment.id,
-                            columnAverage.rawAverage(), columnAverage.finalGrade(),
-                            isDue(assessment, today), students.size() - columnEntered[footerColIndex]));
+                            columnAverage.rawAverage(), columnAverage.finalGrade()));
                     footerColIndex++;
                 }
             }
@@ -1358,8 +1353,7 @@ public class GradeGridResource {
     }
 
     /** Per-assessment ("Leistung") average across all students, shown in the grid footer. */
-    public record ColumnAverageView(Long assessmentId, BigDecimal rawAverage, Integer finalGrade,
-                                    boolean due, int openCount) {
+    public record ColumnAverageView(Long assessmentId, BigDecimal rawAverage, Integer finalGrade) {
     }
 
     public record CategoryFooter(GradeCategory category, List<ColumnAverageView> columnAverages) {

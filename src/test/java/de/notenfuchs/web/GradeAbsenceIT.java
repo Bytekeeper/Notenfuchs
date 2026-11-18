@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,7 +61,7 @@ class GradeAbsenceIT {
         String html = get("/subjects/" + f.subjectId + "/grid").body();
         assertTrue(html.contains("value=\"e\""));
         // Ben has nothing yet, Anna is absent: only one cell counts as missing.
-        assertTrue(html.contains("1 offen"), html);
+        assertEquals(1, html.split("grade-cell-open", -1).length - 1, html);
     }
 
     @Test
@@ -116,7 +115,6 @@ class GradeAbsenceIT {
             assertTrue(foundLetter);
             assertTrue(foundNumber);
         }
-        assertFalse(get("/subjects/" + f.subjectId + "/grid").body().contains("2 offen"));
     }
 
     private record Fixture(Long subjectId, Long assessmentId, Long annaId, Long benId) {

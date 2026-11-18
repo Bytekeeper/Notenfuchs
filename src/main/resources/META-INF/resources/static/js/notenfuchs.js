@@ -253,11 +253,6 @@
             cell.classList.toggle("grade-cell-absent", /^[eu]|[eu]$/i.test(input.value.trim()));
             if (cell.dataset.due !== "true") return;
             cell.classList.toggle("grade-cell-open", input.value.trim() === "");
-            const id = input.dataset.assessmentId;
-            const counter = root.querySelector('.open-count[data-assessment-id="' + id + '"]');
-            if (!counter) return;
-            const open = root.querySelectorAll('td.grade-cell-open input[data-assessment-id="' + id + '"]').length;
-            counter.textContent = open > 0 ? open + " offen" : "";
         }
 
         function updateAssessmentAverage(data) {
