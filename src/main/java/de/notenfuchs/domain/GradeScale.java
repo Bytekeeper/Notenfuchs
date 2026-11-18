@@ -41,4 +41,16 @@ public class GradeScale extends PanacheEntity {
     @NotNull
     @Column(name = "lower_is_better", nullable = false)
     public boolean lowerIsBetter;
+
+    /** A final grade this bad or worse puts the student at risk (e.g. 5 on DE 1-6); null = no signal. */
+    @Column(name = "at_risk_from", precision = 4, scale = 2)
+    public BigDecimal atRiskFrom;
+
+    public boolean isAtRisk(Integer finalGrade) {
+        if (finalGrade == null || atRiskFrom == null) {
+            return false;
+        }
+        int comparison = BigDecimal.valueOf(finalGrade).compareTo(atRiskFrom);
+        return lowerIsBetter ? comparison >= 0 : comparison <= 0;
+    }
 }

@@ -772,49 +772,12 @@ public class ClassUiResource {
                 .data("adminClassIds", adminClassIds(subject));
     }
 
-    /**
-     * Per Fach, a label like "5 Noten offen" counting grades still missing for Leistungen whose
-     * date has come (the same rule as the grade table's highlight, {@link GradeGridResource#isDue}).
-     * Only Fächer with at least one missing grade are in the map. Three grouped queries instead of
-     * loading every grade.
-     */
+    /** Per Fach, a label like "5 Noten offen"; only Fächer with something missing are in the map. */
     private Map<Long, String> openGradeCounts(List<Subject> subjects) {
-        if (subjects.isEmpty()) {
-            return Map.of();
-        }
-        List<Long> subjectIds = subjects.stream().map(s -> s.id).toList();
-        List<Long> classIds = subjects.stream().map(s -> s.schoolClass.id).distinct().toList();
-        LocalDate today = LocalDate.now();
-        var em = Subject.getEntityManager();
-        Map<Long, Long> dueAssessments = countsById(em.createQuery(
-                "select a.category.subject.id, count(a) from Assessment a"
-                        + " where a.category.subject.id in :ids and a.date <= :today group by a.category.subject.id",
-                Object[].class).setParameter("ids", subjectIds).setParameter("today", today).getResultList());
-        Map<Long, Long> studentsByClass = countsById(em.createQuery(
-                "select s.schoolClass.id, count(s) from Student s where s.schoolClass.id in :ids group by s.schoolClass.id",
-                Object[].class).setParameter("ids", classIds).getResultList());
-        Map<Long, Long> enteredGrades = countsById(em.createQuery(
-                "select g.assessment.category.subject.id, count(g) from Grade g"
-                        + " where g.assessment.category.subject.id in :ids and g.assessment.date <= :today"
-                        + " group by g.assessment.category.subject.id",
-                Object[].class).setParameter("ids", subjectIds).setParameter("today", today).getResultList());
-        Map<Long, String> open = new HashMap<>();
-        for (Subject s : subjects) {
-            long missing = dueAssessments.getOrDefault(s.id, 0L) * studentsByClass.getOrDefault(s.schoolClass.id, 0L)
-                    - enteredGrades.getOrDefault(s.id, 0L);
-            if (missing > 0) {
-                open.put(s.id, missing + (missing == 1 ? " Note offen" : " Noten offen"));
-            }
-        }
-        return open;
-    }
-
-    private static Map<Long, Long> countsById(List<Object[]> rows) {
-        Map<Long, Long> counts = new HashMap<>();
-        for (Object[] row : rows) {
-            counts.put((Long) row[0], (Long) row[1]);
-        }
-        return counts;
+        Map<Long, String> labels = new HashMap<>();
+        GradeGridResource.openGradeCounts(subjects).forEach((subjectId, missing) ->
+                labels.put(subjectId, missing + (missing == 1 ? " Note offen" : " Noten offen")));
+        return labels;
     }
 
     /** Older years pile up after every "Ins neue Schuljahr übernehmen", and only the current one matters day to day. */

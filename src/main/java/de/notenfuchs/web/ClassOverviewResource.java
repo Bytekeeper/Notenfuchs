@@ -70,23 +70,45 @@ public class ClassOverviewResource {
         }
 
         List<RowView> rows = new ArrayList<>();
+        int studentsAtRisk = 0;
         for (Student student : students) {
             Map<Long, StudentSubjectAverageResponse> studentAverages =
                     bySubjectThenStudent.getOrDefault(student.id, Map.of());
             List<CellView> cells = new ArrayList<>();
+            int atRiskCount = 0;
             for (Subject subject : subjects) {
                 StudentSubjectAverageResponse average = studentAverages.get(subject.id);
-                cells.add(new CellView(
-                        average != null ? average.rawAverage : null,
-                        average != null ? average.finalGrade : null));
+                Integer finalGrade = average != null ? average.finalGrade : null;
+                boolean atRisk = subject.gradeScale.isAtRisk(finalGrade);
+                if (atRisk) {
+                    atRiskCount++;
+                }
+                cells.add(new CellView(average != null ? average.rawAverage : null, finalGrade, atRisk));
             }
-            rows.add(new RowView(student.id, student.effectiveName(), cells));
+            if (atRiskCount > 0) {
+                studentsAtRisk++;
+            }
+            rows.add(new RowView(student.id, student.effectiveName(), cells, atRiskCount));
+        }
+
+        // What is still missing before the Zeugniskonferenz, per Fach and aligned with the columns.
+        Map<Long, Long> openGrades = GradeGridResource.openGradeCounts(subjects);
+        Map<Long, Long> behaviorEntered = GradeGridResource.countsById(Subject.getEntityManager().createQuery(
+                "select b.subject.id, count(b) from BehaviorGrade b where b.subject.schoolClass.id = :id group by b.subject.id",
+                Object[].class).setParameter("id", id).getResultList());
+        List<SubjectStatus> subjectStatus = new ArrayList<>();
+        for (Subject subject : subjects) {
+            subjectStatus.add(new SubjectStatus(openGrades.getOrDefault(subject.id, 0L),
+                    students.size() - behaviorEntered.getOrDefault(subject.id, 0L)));
         }
 
         return currentUser.withUser(overviewTemplate
                 .data("schoolClass", schoolClass)
                 .data("subjects", subjects)
                 .data("rows", rows)
+                .data("studentsAtRisk", studentsAtRisk)
+                .data("anyAtRiskScale", subjects.stream().anyMatch(s -> s.gradeScale.atRiskFrom != null))
+                .data("subjectStatus", subjectStatus)
                 .data("gridEmpty", subjects.isEmpty())
                 .data("isClassAdmin", true));
     }
@@ -94,10 +116,14 @@ public class ClassOverviewResource {
     // ---- View models for the Qute template ----
 
     /** One student's row - {@code cells} is aligned index-for-index with the {@code subjects} header list. */
-    public record RowView(Long studentId, String studentName, List<CellView> cells) {
+    public record RowView(Long studentId, String studentName, List<CellView> cells, int atRiskCount) {
+    }
+
+    /** Per Fach (aligned with {@code subjects}): grades still missing for due Leistungen, and missing Verhaltensnoten. */
+    public record SubjectStatus(long openGrades, long openBehaviorGrades) {
     }
 
     /** {@code null} fields mean no grade entered yet for that (student, Subject) - rendered as "-". */
-    public record CellView(BigDecimal rawAverage, Integer finalGrade) {
+    public record CellView(BigDecimal rawAverage, Integer finalGrade, boolean atRisk) {
     }
 }

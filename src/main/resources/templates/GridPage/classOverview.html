@@ -2,11 +2,14 @@
 {#title}Notenübersicht – {schoolClass.name}{/title}
 
 {#include ClassPage/classHeader activeTab='overview' /}
-<p class="hint">Endnoten aller Fächer für jeden Schüler - rein lesend, nur für Admins sichtbar. Keine Kategorien, Leistungen oder einzelne Noten - dafür weiterhin die Notenerfassung des jeweiligen Fachs.</p>
+<p class="hint">Endnoten aller Fächer für jeden Schüler - rein lesend, nur für Admins sichtbar. Keine Kategorien, Leistungen oder einzelne Noten - dafür weiterhin die Notenerfassung des jeweiligen Fachs. Unten je Fach: wie viele Noten (von Leistungen, deren Datum erreicht ist) und Verhaltensnoten noch fehlen.</p>
 
 {#if gridEmpty}
     <p class="hint">Diese Klasse hat noch keine Fächer. <a href="/classes/{schoolClass.id}">Erst Fächer anlegen</a>.</p>
 {#else}
+    {#if anyAtRiskScale}
+    <p class="overview-summary">{#if studentsAtRisk == 0}Keine gefährdeten Schüler.{#else}<strong>{studentsAtRisk}</strong> {#if studentsAtRisk == 1}Schüler ist{#else}Schüler sind{/if} in mindestens einem Fach gefährdet (rot markiert).{/if}</p>
+    {/if}
     <div class="grid-wrapper">
         <table class="grade-grid">
             <thead>
@@ -15,6 +18,7 @@
                     {#for s in subjects}
                         <th class="assessment-header">{s.name}</th>
                     {/for}
+                    {#if anyAtRiskScale}<th>Gefährdet</th>{/if}
                 </tr>
             </thead>
             <tbody>
@@ -22,14 +26,31 @@
                     <tr>
                         <td class="student-cell">{row.studentName}</td>
                         {#for cell in row.cells}
-                            <td class="average-cell">
+                            <td class="average-cell{#if cell.atRisk} at-risk{/if}">
                                 <span class="average-final">{cell.finalGrade ?: '–'}</span>
                                 <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>
                             </td>
                         {/for}
+                        {#if anyAtRiskScale}<td class="average-cell at-risk-count">{#if row.atRiskCount > 0}{row.atRiskCount}{/if}</td>{/if}
                     </tr>
                 {/for}
             </tbody>
+            <tfoot>
+                <tr class="average-row">
+                    <td class="student-cell">Noten offen</td>
+                    {#for st in subjectStatus}
+                        <td class="average-cell status-cell{#if st.openGrades > 0} status-open{/if}">{#if st.openGrades > 0}{st.openGrades}{#else}✓{/if}</td>
+                    {/for}
+                    {#if anyAtRiskScale}<td class="average-cell"></td>{/if}
+                </tr>
+                <tr class="average-row">
+                    <td class="student-cell">Verhaltensnoten offen</td>
+                    {#for st in subjectStatus}
+                        <td class="average-cell status-cell{#if st.openBehaviorGrades > 0} status-open{/if}">{#if st.openBehaviorGrades > 0}{st.openBehaviorGrades}{#else}✓{/if}</td>
+                    {/for}
+                    {#if anyAtRiskScale}<td class="average-cell"></td>{/if}
+                </tr>
+            </tfoot>
         </table>
     </div>
 {/if}
