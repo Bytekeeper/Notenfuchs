@@ -35,6 +35,23 @@
                     </tr>
                 {/for}
             </tbody>
+            {#if !leftRows.isEmpty}
+            <tbody class="left-students">
+                <tr class="left-heading"><td class="student-cell">Ausgetreten</td></tr>
+                {#for row in leftRows}
+                <tr>
+                    <td class="student-cell">{row.studentName}</td>
+                    {#for cell in row.cells}
+                    <td class="average-cell">
+                        <span class="average-final">{cell.finalGrade ?: '–'}</span>
+                        <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>
+                    </td>
+                    {/for}
+                    {#if anyAtRiskScale}<td class="average-cell"></td>{/if}
+                </tr>
+                {/for}
+            </tbody>
+            {/if}
             <tfoot>
                 <tr class="average-row">
                     <td class="student-cell">Noten offen</td>

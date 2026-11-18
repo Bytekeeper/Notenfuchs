@@ -70,6 +70,7 @@ public class ClassOverviewResource {
         }
 
         List<RowView> rows = new ArrayList<>();
+        List<RowView> leftRows = new ArrayList<>();
         int studentsAtRisk = 0;
         for (Student student : students) {
             Map<Long, StudentSubjectAverageResponse> studentAverages =
@@ -85,27 +86,34 @@ public class ClassOverviewResource {
                 }
                 cells.add(new CellView(average != null ? average.rawAverage : null, finalGrade, atRisk));
             }
+            RowView row = new RowView(student.id, student.effectiveName(), cells, atRiskCount);
+            if (student.hasLeft()) {
+                leftRows.add(row);
+                continue;
+            }
             if (atRiskCount > 0) {
                 studentsAtRisk++;
             }
-            rows.add(new RowView(student.id, student.effectiveName(), cells, atRiskCount));
+            rows.add(row);
         }
 
         // What is still missing before the Zeugniskonferenz, per Fach and aligned with the columns.
         Map<Long, Long> openGrades = GradeGridResource.openGradeCounts(subjects);
         Map<Long, Long> behaviorEntered = GradeGridResource.countsById(Subject.getEntityManager().createQuery(
-                "select b.subject.id, count(b) from BehaviorGrade b where b.subject.schoolClass.id = :id group by b.subject.id",
+                "select b.subject.id, count(b) from BehaviorGrade b where b.subject.schoolClass.id = :id"
+                        + " and b.student.leftOn is null group by b.subject.id",
                 Object[].class).setParameter("id", id).getResultList());
         List<SubjectStatus> subjectStatus = new ArrayList<>();
         for (Subject subject : subjects) {
             subjectStatus.add(new SubjectStatus(openGrades.getOrDefault(subject.id, 0L),
-                    students.size() - behaviorEntered.getOrDefault(subject.id, 0L)));
+                    rows.size() - behaviorEntered.getOrDefault(subject.id, 0L)));
         }
 
         return currentUser.withUser(overviewTemplate
                 .data("schoolClass", schoolClass)
                 .data("subjects", subjects)
                 .data("rows", rows)
+                .data("leftRows", leftRows)
                 .data("studentsAtRisk", studentsAtRisk)
                 .data("anyAtRiskScale", subjects.stream().anyMatch(s -> s.gradeScale.atRiskFrom != null))
                 .data("subjectStatus", subjectStatus)

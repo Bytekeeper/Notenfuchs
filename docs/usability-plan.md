@@ -133,5 +133,5 @@ ask a few before building.
 
 S = up to a day, M = a few days.
 
-Also still open from the use cases: U10 (a student who leaves mid-year loses all grades when
-deleted) and U16 (class-wide export).
+Also done since: U8 missing Verhaltensnoten are highlighted; U10 a student can be marked
+"ausgetreten" (grades kept, read-only below the tables). Still open: U16 (class-wide export).

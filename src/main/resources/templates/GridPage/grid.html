@@ -85,6 +85,21 @@
                     </tr>
                 {/for}
             </tbody>
+            {#if !leftRows.isEmpty}
+            <tbody class="left-students">
+                <tr class="left-heading"><td class="student-cell">Ausgetreten – nur lesend</td></tr>
+                {#for row in leftRows}
+                <tr>
+                    <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}">{row.student.effectiveName}</a></td>
+                    {#include GridPage/readonlyCells cells=row.cells /}
+                    <td class="average-cell">
+                        <span class="average-final">{row.finalGrade ?: '–'}</span>
+                        <span class="raw-average">{row.rawAverage ?: '–'}</span>
+                    </td>
+                </tr>
+                {/for}
+            </tbody>
+            {/if}
             <tfoot>
                 <tr class="average-row">
                     <td class="student-cell">Ø je Leistung</td>

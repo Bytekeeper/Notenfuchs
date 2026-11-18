@@ -134,6 +134,7 @@ public class GradeGridResource {
                     .data("categories", data.categoryColumns())
                     .data("students", data.students())
                     .data("rows", data.rows())
+                    .data("leftRows", data.leftRows())
                     .data("categoryFooters", data.categoryFooters())
                     .data("maxCol", data.maxCol())
                     .data("maxRow", data.maxRow())
@@ -156,6 +157,7 @@ public class GradeGridResource {
                 .data("h2HeaderColspan", data.h2HeaderColspan())
                 .data("students", data.students())
                 .data("rows", data.rows())
+                .data("leftRows", data.leftRows())
                 .data("undatedFooters", data.undatedFooters())
                 .data("h1Footers", data.h1Footers())
                 .data("h2Footers", data.h2Footers())
@@ -503,7 +505,9 @@ public class GradeGridResource {
 
     private GridData loadGridData(Subject subject) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> allStudents = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> students = allStudents.stream().filter(s -> !s.hasLeft()).toList();
+        List<Student> leftStudents = allStudents.stream().filter(Student::hasLeft).toList();
 
         List<CategoryColumns> categoryColumns = new ArrayList<>();
         List<Assessment> allAssessments = new ArrayList<>();
@@ -516,9 +520,22 @@ public class GradeGridResource {
         Map<Long, List<PointsGradeBandData>> bandsByAssessment = bandsByAssessment(allAssessments);
         Map<GradeKey, Grade> grades = gradesByKey(Grade.list("assessment.category.subject.id", subject.id));
 
+        // Footers come from the active students only; students who left are shown, not counted.
         BlockBuild build = buildBlockCells(categoryColumns, students, subject, bandsByAssessment, grades, 0);
-        List<SubjectAverageResult> averages = subjectAveragesForBlock(categoryColumns, students, subject, grades);
+        List<RowView> rows = rowViews(categoryColumns, students, subject, grades, build);
+        List<RowView> leftRows = rowViews(categoryColumns, leftStudents, subject, grades,
+                buildBlockCells(categoryColumns, leftStudents, subject, bandsByAssessment, grades, 0));
 
+        int maxCol = Math.max(0, totalColumns(categoryColumns) - 1);
+        int maxRow = Math.max(0, rows.size() - 1);
+        boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
+
+        return new GridData(categoryColumns, students, rows, leftRows, build.footers(), maxCol, maxRow, gridEmpty);
+    }
+
+    private List<RowView> rowViews(List<CategoryColumns> columns, List<Student> students, Subject subject,
+                                   Map<GradeKey, Grade> grades, BlockBuild build) {
+        List<SubjectAverageResult> averages = subjectAveragesForBlock(columns, students, subject, grades);
         List<RowView> rows = new ArrayList<>();
         for (int i = 0; i < students.size(); i++) {
             Student student = students.get(i);
@@ -526,12 +543,7 @@ public class GradeGridResource {
             rows.add(new RowView(i, new StudentView(student.id, student.effectiveName()),
                     build.cellsByStudent().get(i), average.rawAverage(), average.finalGrade()));
         }
-
-        int maxCol = Math.max(0, totalColumns(categoryColumns) - 1);
-        int maxRow = Math.max(0, rows.size() - 1);
-        boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
-
-        return new GridData(categoryColumns, students, rows, build.footers(), maxCol, maxRow, gridEmpty);
+        return rows;
     }
 
     /**
@@ -545,7 +557,9 @@ public class GradeGridResource {
      */
     private HalfYearGridData loadHalfYearGridData(Subject subject, LocalDate cutoff) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> allStudents = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> students = allStudents.stream().filter(s -> !s.hasLeft()).toList();
+        List<Student> leftStudents = allStudents.stream().filter(Student::hasLeft).toList();
 
         List<CategoryColumns> allColumns = new ArrayList<>();
         List<Assessment> allAssessments = new ArrayList<>();
@@ -560,6 +574,32 @@ public class GradeGridResource {
         Map<Long, List<PointsGradeBandData>> bandsByAssessment = bandsByAssessment(allAssessments);
         Map<GradeKey, Grade> grades = gradesByKey(Grade.list("assessment.category.subject.id", subject.id));
 
+        HalfYearBuild active = buildHalfYearRows(split, allColumns, students, subject, bandsByAssessment, grades);
+        List<HalfYearRowView> leftRows =
+                buildHalfYearRows(split, allColumns, leftStudents, subject, bandsByAssessment, grades).rows();
+        BlockBuild undatedBuild = active.undated();
+        BlockBuild h1Build = active.h1();
+        BlockBuild h2Build = active.h2();
+        List<HalfYearRowView> rows = active.rows();
+
+        int undatedTotalCols = totalColumns(split.undated());
+        int h1TotalCols = totalColumns(split.h1());
+        int h2TotalCols = totalColumns(split.h2());
+        int maxCol = Math.max(0, h2Build.nextColIndex() - 1);
+        int maxRow = Math.max(0, students.size() - 1);
+        boolean gridEmpty = allColumns.isEmpty() || allAssessments.isEmpty();
+
+        return new HalfYearGridData(split.undated(), undatedTotalCols, split.h1(), h1TotalCols + 1,
+                split.h2(), h2TotalCols + 1, students, rows, leftRows,
+                undatedBuild.footers(), h1Build.footers(), h2Build.footers(), maxCol, maxRow, gridEmpty);
+    }
+
+    private record HalfYearBuild(List<HalfYearRowView> rows, BlockBuild undated, BlockBuild h1, BlockBuild h2) {
+    }
+
+    private HalfYearBuild buildHalfYearRows(HalfSplit split, List<CategoryColumns> allColumns, List<Student> students,
+                                            Subject subject, Map<Long, List<PointsGradeBandData>> bandsByAssessment,
+                                            Map<GradeKey, Grade> grades) {
         BlockBuild undatedBuild = buildBlockCells(split.undated(), students, subject, bandsByAssessment, grades, 0);
         BlockBuild h1Build = buildBlockCells(split.h1(), students, subject, bandsByAssessment, grades, undatedBuild.nextColIndex());
         BlockBuild h2Build = buildBlockCells(split.h2(), students, subject, bandsByAssessment, grades, h1Build.nextColIndex());
@@ -582,17 +622,7 @@ public class GradeGridResource {
                     displayLabel(subject, h2Avg),
                     jahrAvg.rawAverage(), jahrAvg.finalGrade()));
         }
-
-        int undatedTotalCols = totalColumns(split.undated());
-        int h1TotalCols = totalColumns(split.h1());
-        int h2TotalCols = totalColumns(split.h2());
-        int maxCol = Math.max(0, h2Build.nextColIndex() - 1);
-        int maxRow = Math.max(0, students.size() - 1);
-        boolean gridEmpty = allColumns.isEmpty() || allAssessments.isEmpty();
-
-        return new HalfYearGridData(split.undated(), undatedTotalCols, split.h1(), h1TotalCols + 1,
-                split.h2(), h2TotalCols + 1, students, rows,
-                undatedBuild.footers(), h1Build.footers(), h2Build.footers(), maxCol, maxRow, gridEmpty);
+        return new HalfYearBuild(rows, undatedBuild, h1Build, h2Build);
     }
 
     private static int totalColumns(List<CategoryColumns> columns) {
@@ -732,11 +762,13 @@ public class GradeGridResource {
                         + " where a.category.subject.id in :ids and a.date <= :today group by a.category.subject.id",
                 Object[].class).setParameter("ids", subjectIds).setParameter("today", today).getResultList());
         Map<Long, Long> studentsByClass = countsById(em.createQuery(
-                "select s.schoolClass.id, count(s) from Student s where s.schoolClass.id in :ids group by s.schoolClass.id",
+                "select s.schoolClass.id, count(s) from Student s where s.schoolClass.id in :ids and s.leftOn is null"
+                        + " group by s.schoolClass.id",
                 Object[].class).setParameter("ids", classIds).getResultList());
         Map<Long, Long> enteredGrades = countsById(em.createQuery(
                 "select g.assessment.category.subject.id, count(g) from Grade g"
                         + " where g.assessment.category.subject.id in :ids and g.assessment.date <= :today"
+                        + " and g.student.leftOn is null"
                         + " group by g.assessment.category.subject.id",
                 Object[].class).setParameter("ids", subjectIds).setParameter("today", today).getResultList());
         Map<Long, Long> open = new HashMap<>();
@@ -820,6 +852,9 @@ public class GradeGridResource {
         Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
         if (!assessment.category.subject.id.equals(subject.id) || !student.schoolClass.id.equals(subject.schoolClass.id)) {
             throw new NotFoundException();
+        }
+        if (student.hasLeft()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Schüler ist ausgetreten").build();
         }
 
         Grade existing = Grade.find("assessment.id = ?1 and student.id = ?2", assessmentId, studentId).firstResult();
@@ -935,7 +970,7 @@ public class GradeGridResource {
             h2Average = subjectAveragesForBlock(split.h2(), singleStudent, subject, grades).get(0);
         }
 
-        List<Grade> assessmentGrades = Grade.list("assessment.id", assessment.id);
+        List<Grade> assessmentGrades = Grade.list("assessment.id = ?1 and student.leftOn is null", assessment.id);
         List<BigDecimal> assessmentValues = assessmentGrades.stream()
                 .map(g -> effectiveGradeValue(g, assessment, subject.gradeScale))
                 .filter(java.util.Objects::nonNull)
@@ -1070,9 +1105,12 @@ public class GradeGridResource {
             sheet.addMergedRegion(new CellRangeAddress(0, 1, avgFinalCol, avgFinalCol));
 
             int rowNum = 2;
-            for (RowView row : data.rows()) {
+            // Students who left come last, marked, since their grades may still be needed for a report.
+            List<RowView> exportRows = new ArrayList<>(data.rows());
+            exportRows.addAll(data.leftRows());
+            for (RowView row : exportRows) {
                 Row xlsxRow = sheet.createRow(rowNum++);
-                xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
+                xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
                 List<CellView> cells = row.cells();
                 for (int i = 0; i < cells.size(); i++) {
                     CellView cell = cells.get(i);
@@ -1171,9 +1209,11 @@ public class GradeGridResource {
             writeAverageHeader(sheet, categoryRow, jahrAvgRawCol, jahrAvgFinalCol, headerStyle);
 
             int rowNum = 3;
-            for (HalfYearRowView row : data.rows()) {
+            List<HalfYearRowView> exportRows = new ArrayList<>(data.rows());
+            exportRows.addAll(data.leftRows());
+            for (HalfYearRowView row : exportRows) {
                 Row xlsxRow = sheet.createRow(rowNum++);
-                xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
+                xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
                 writeCells(xlsxRow, row.undatedCells(), undatedStartCol);
                 writeCells(xlsxRow, row.h1Cells(), h1StartCol);
                 writeAverageWithLabel(xlsxRow, h1AvgRawCol, h1AvgFinalCol, row.h1RawAverage(), row.h1DisplayLabel());
@@ -1291,6 +1331,10 @@ public class GradeGridResource {
         }
     }
 
+    private static String exportName(StudentView student, boolean left) {
+        return left ? student.effectiveName() + " (ausgetreten)" : student.effectiveName();
+    }
+
     private static void setHeaderCell(Row row, int col, String value, CellStyle style) {
         Cell cell = row.createCell(col);
         cell.setCellValue(value);
@@ -1313,7 +1357,8 @@ public class GradeGridResource {
 
     /** Everything needed to render either the HTML grid or the .xlsx export - see {@link #loadGridData(Subject)}. */
     private record GridData(List<CategoryColumns> categoryColumns, List<Student> students, List<RowView> rows,
-                             List<CategoryFooter> categoryFooters, int maxCol, int maxRow, boolean gridEmpty) {
+                             List<RowView> leftRows, List<CategoryFooter> categoryFooters, int maxCol, int maxRow,
+                             boolean gridEmpty) {
     }
 
     public record CategoryColumns(GradeCategory category, List<Assessment> assessments) {
@@ -1386,7 +1431,7 @@ public class GradeGridResource {
                                      List<CategoryColumns> h1Columns, int h1HeaderColspan,
                                      List<CategoryColumns> h2Columns, int h2HeaderColspan,
                                      List<Student> students, List<HalfYearRowView> rows,
-                                     List<CategoryFooter> undatedFooters, List<CategoryFooter> h1Footers,
+                                     List<HalfYearRowView> leftRows, List<CategoryFooter> undatedFooters, List<CategoryFooter> h1Footers,
                                      List<CategoryFooter> h2Footers, int maxCol, int maxRow, boolean gridEmpty) {
     }
 

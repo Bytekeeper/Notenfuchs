@@ -649,7 +649,9 @@ kein Node-Build-Schritt.
 
 - `/` leitet auf `/classes` weiter
 - `/classes` - Übersicht: "Meine Fächer" sowie Klassen auflisten/anlegen/löschen
-- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten; weitere Reiter der
+- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten (wer die Klasse
+  unterjährig verlässt, wird als „ausgetreten“ markiert statt gelöscht: die Noten
+  bleiben erhalten und erscheinen nur noch lesend unter den Notentabellen); weitere Reiter der
   Klasse: `/behavior-grid` (Verhaltensnoten), und nur für Klassen-Admins `/overview`
   (Notenübersicht), `/teachers` (Lehrkräfte) und `/settings` (Einstellungen)
 - `/subjects/{id}` - die Notenkategorien und Leistungen eines Fachs verwalten

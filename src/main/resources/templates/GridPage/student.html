@@ -3,7 +3,7 @@
 
 {#include SubjectPage/subjectHeader activeTab='grid' /}
 <div class="student-page-heading">
-    <h2>{student.effectiveName}</h2>
+    <h2>{student.effectiveName}{#if student.leftOn} <small class="hint">(ausgetreten am {student.leftOn})</small>{/if}</h2>
     <div class="no-print">
         <a href="/subjects/{subject.id}/grid">← zurück zur Notenerfassung</a>
         <button type="button" class="secondary" onclick="window.print()">Drucken</button>

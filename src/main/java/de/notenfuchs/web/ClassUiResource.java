@@ -137,7 +137,8 @@ public class ClassUiResource {
                 .data("predecessorClass", classWithPredecessorFetched(id).predecessorClass)
                 .data("subjects", subjects)
                 .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
-                .data("students", students)
+                .data("students", students.stream().filter(s -> !s.hasLeft()).toList())
+                .data("leftStudents", students.stream().filter(Student::hasLeft).toList())
                 .data("gradeScales", gradeScales)
                 .data("categorySources", guard.listTaughtSubjects(currentSubject))
                 .data("rosterImportResult", rosterImportResult)
@@ -217,7 +218,8 @@ public class ClassUiResource {
             copyCategories(sourceSubject.id, subjectCopy);
         }
 
-        List<Student> sourceStudents = Student.list("schoolClass.id", id);
+        // Students who left stay with the old class; the new year starts with those still in it.
+        List<Student> sourceStudents = Student.list("schoolClass.id = ?1 and leftOn is null", id);
         for (Student sourceStudent : sourceStudents) {
             Student studentCopy = new Student();
             studentCopy.schoolClass = copy;
@@ -484,8 +486,7 @@ public class ClassUiResource {
         student.name = name;
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
         student.persist();
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
+        return studentListResponse(schoolClass);
     }
 
     @DELETE
@@ -497,8 +498,7 @@ public class ClassUiResource {
         SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
         Student student = guard.requireRosterManageStudent(studentId, subject);
         student.delete();
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
+        return studentListResponse(schoolClass);
     }
 
     @PATCH
@@ -516,8 +516,46 @@ public class ClassUiResource {
             student.name = name;
         }
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
+        return studentListResponse(schoolClass);
+    }
+
+    /**
+     * Marks a student as "ausgetreten" (left mid-year): their grades stay and are shown read-only,
+     * but they leave the editable tables, averages and "offen" counts. Unlike deleting, nothing is lost.
+     */
+    @POST
+    @Path("/{id}/students/{studentId}/leave")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance markStudentLeft(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
+        Student student = guard.requireRosterManageStudent(studentId, subject);
+        if (student.leftOn == null) {
+            student.leftOn = LocalDate.now();
+        }
+        return studentListResponse(schoolClass);
+    }
+
+    /** Undoes {@link #markStudentLeft}, e.g. after a mistake or when the student comes back. */
+    @POST
+    @Path("/{id}/students/{studentId}/rejoin")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance markStudentRejoined(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
+        Student student = guard.requireRosterManageStudent(studentId, subject);
+        student.leftOn = null;
+        return studentListResponse(schoolClass);
+    }
+
+    private TemplateInstance studentListResponse(SchoolClass schoolClass) {
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", schoolClass.id);
+        return studentListFragment.data("schoolClass", schoolClass)
+                .data("students", students.stream().filter(s -> !s.hasLeft()).toList())
+                .data("leftStudents", students.stream().filter(Student::hasLeft).toList())
+                .data("isClassAdmin", true);
     }
 
     /**
@@ -530,7 +568,7 @@ public class ClassUiResource {
     @Produces("text/csv; charset=UTF-8")
     public Response exportRoster(@PathParam("id") Long id) {
         SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
+        List<Student> students = Student.list("schoolClass.id = ?1 and leftOn is null order by name", id);
         List<String> names = students.stream().map(s -> s.name).toList();
         byte[] csv = csvRosterService.format(names);
 
