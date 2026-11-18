@@ -15,6 +15,7 @@
             <a href="/classes">Übersicht</a>
         </nav>
         <div class="user-info">
+            <button type="button" class="feedback-open">Fehler melden</button>
             {#if currentUserAuthenticated}
                 <span>Angemeldet als {currentUserDisplayName}</span>
                 {#if localAuthActive}
@@ -40,6 +41,24 @@
 <main class="app-main">
     {#insert /}
 </main>
+<dialog id="feedback-dialog" class="assessment-dialog">
+    <form class="feedback-form">
+        <h2>Fehler melden oder Idee schicken</h2>
+        <p class="hint">Beschreiben Sie, was nicht geklappt hat oder was besser sein könnte. Mitgeschickt wird
+            nur, auf welcher Art von Seite Sie gerade sind, nicht was darauf steht. Bitte keine Schülernamen
+            eintragen.</p>
+        <div class="form-field">
+            <label for="feedbackMessage">Nachricht</label>
+            <textarea id="feedbackMessage" name="message" rows="6" maxlength="2000" required></textarea>
+        </div>
+        <p class="hint warning feedback-error" role="alert" hidden></p>
+        <p class="feedback-thanks" role="status" hidden>Danke, Ihre Nachricht ist angekommen.</p>
+        <div class="assessment-dialog-actions">
+            <button type="submit" class="feedback-send">Senden</button>
+            <button type="button" class="secondary feedback-close">Schließen</button>
+        </div>
+    </form>
+</dialog>
 <script src="/static/js/notenfuchs.js"></script>
 </body>
 </html>

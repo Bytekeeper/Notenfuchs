@@ -228,6 +228,19 @@ standardkonformen Provider richten und `docker-compose.oidc.yml` komplett weglas
 kannst - siehe "Alternative: OIDC (externes SSO)" unter "Authentifizierung" weiter
 unten für die benötigten Umgebungsvariablen und eine Clerk-Anleitung.
 
+### Rückmeldungen der Lehrkräfte lesen
+
+Über „Fehler melden“ oben rechts auf jeder Seite können Lehrkräfte Fehler und Ideen
+schicken. Gespeichert werden nur die Art der Seite (z. B. `/subjects/{id}/grid`, ohne
+konkrete Nummern oder Inhalte), die Nachricht und der Zeitpunkt, nicht wer sie geschickt
+hat. Eine Ansicht dafür gibt es in Notenfuchs bewusst nicht; lies sie direkt aus der
+Datenbank:
+
+```bash
+docker compose exec postgres psql -U notenfuchs -c \
+  "SELECT created_at, page, message FROM feedback ORDER BY created_at DESC"
+```
+
 ### Für die Entwicklung: aus dem Quellcode ausführen
 
 Nur nötig, wenn du am Code von Notenfuchs arbeitest - für die normale Nutzung nicht

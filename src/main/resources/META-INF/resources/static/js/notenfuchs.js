@@ -1073,3 +1073,61 @@ document.addEventListener("change", function (ev) {
         window.location.href = "/subjects/" + select.value + (select.dataset.tabPath || "");
     }
 });
+
+/**
+ * "Fehler melden" in the header of every page. Sends only the path; the server reduces it to the
+ * kind of page (ids removed) before storing it.
+ */
+(function () {
+    "use strict";
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var dialog = document.getElementById("feedback-dialog");
+        var openButton = document.querySelector(".feedback-open");
+        if (!dialog || !openButton) {
+            return;
+        }
+        var form = dialog.querySelector("form");
+        var sendButton = dialog.querySelector(".feedback-send");
+        var thanks = dialog.querySelector(".feedback-thanks");
+        var errorBox = dialog.querySelector(".feedback-error");
+
+        openButton.addEventListener("click", function () {
+            form.reset();
+            thanks.hidden = true;
+            errorBox.hidden = true;
+            sendButton.hidden = false;
+            dialog.showModal();
+            form.elements.message.focus();
+        });
+
+        dialog.querySelector(".feedback-close").addEventListener("click", function () {
+            dialog.close();
+        });
+
+        form.addEventListener("submit", function (ev) {
+            ev.preventDefault();
+            var body = new URLSearchParams();
+            body.set("page", window.location.pathname);
+            body.set("message", form.elements.message.value);
+            fetch("/feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body.toString()
+            })
+                .then(function (resp) {
+                    if (!resp.ok) {
+                        throw new Error("HTTP " + resp.status);
+                    }
+                    form.reset();
+                    thanks.hidden = false;
+                    errorBox.hidden = true;
+                    sendButton.hidden = true;
+                })
+                .catch(function () {
+                    errorBox.textContent = "Nicht gesendet. Bitte versuchen Sie es noch einmal.";
+                    errorBox.hidden = false;
+                });
+        });
+    });
+})();

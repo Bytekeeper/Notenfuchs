@@ -8,6 +8,7 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.SelectOption;
+import de.notenfuchs.domain.Feedback;
 import de.notenfuchs.domain.Teacher;
 import de.notenfuchs.web.LocalAuthTestProfile;
 import io.quarkiverse.playwright.InjectPlaywright;
@@ -171,6 +172,16 @@ class WalkthroughIT {
         clickLink("Jonas Keller");
         assertThat(page.locator("h2").first()).containsText("Jonas Keller");
         shot("alltag-schuelerseite");
+
+        clickButton("Fehler melden");
+        page.locator("#feedbackMessage").fill("Beim Drucken fehlt die Seitenzahl.");
+        shot("alltag-fehler-melden");
+        page.locator("#feedback-dialog").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Senden")).click();
+        assertThat(page.locator(".feedback-thanks")).isVisible();
+        record();
+        String storedPage = QuarkusTransaction.requiringNew().call(() -> Feedback.<Feedback>find(
+                "message", "Beim Drucken fehlt die Seitenzahl.").firstResult().page);
+        assertEquals("/subjects/{id}/grid/students/{id}", storedPage);
 
         checkGuide("02-alltag.md");
     }

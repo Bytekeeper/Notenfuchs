@@ -48,3 +48,13 @@ selbst und klicken auf **„Berechnen“**. Mit **„Drucken“** nehmen Sie die
 Elterngespräch mit.
 
 ![Seite eines Schülers im Fach](bilder/alltag-schuelerseite.png)
+
+## Fehler melden
+
+Klappt etwas nicht oder fehlt Ihnen etwas, klicken Sie oben rechts auf **„Fehler melden“**,
+beschreiben es und klicken auf **„Senden“**. Mitgeschickt wird nur, auf welcher Art von
+Seite Sie gerade sind (zum Beispiel „Notentabelle eines Fachs“), nicht was darauf steht.
+Wer Notenfuchs betreibt, kann die Meldungen lesen; Ihr Name wird nicht gespeichert.
+
+![Fenster zum Melden eines Fehlers](bilder/alltag-fehler-melden.png)
+
