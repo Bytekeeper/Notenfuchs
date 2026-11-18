@@ -1,0 +1,11 @@
+<div class="breadcrumbs"><a href="/classes">Übersicht</a> / {schoolClass.name}</div>
+<h1>{schoolClass.name} <small style="color: var(--color-text-muted); font-weight: 400;">({schoolClass.schoolYear})</small></h1>
+<nav class="tabs">
+    <a href="/classes/{schoolClass.id}" {#if activeTab == 'main'}class="active" aria-current="page"{/if}>Fächer &amp; Schüler</a>
+    <a href="/classes/{schoolClass.id}/behavior-grid" {#if activeTab == 'behavior'}class="active" aria-current="page"{/if}>Verhaltensnoten</a>
+    {#if isClassAdmin}
+    <a href="/classes/{schoolClass.id}/overview" {#if activeTab == 'overview'}class="active" aria-current="page"{/if}>Notenübersicht</a>
+    <a href="/classes/{schoolClass.id}/teachers" {#if activeTab == 'teachers'}class="active" aria-current="page"{/if}>Lehrkräfte</a>
+    <a href="/classes/{schoolClass.id}/settings" {#if activeTab == 'settings'}class="active" aria-current="page"{/if}>Einstellungen</a>
+    {/if}
+</nav>

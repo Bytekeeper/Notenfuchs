@@ -23,11 +23,12 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * HTTP-level coverage for the read-only "Fachlehrer mit Klassenzugriff" section on the class page
+ * HTTP-level coverage for the read-only "Fachlehrer mit Klassenzugriff" section on the class's "Lehrkräfte" tab
  * ({@link ClassUiResource#transitiveTeachers}) - surfaces which teachers can see the whole class
  * (roster, Verhaltensnoten) purely by teaching one of its Subjects, holding no {@link ClassTeacher}
  * row of their own, since {@link SubjectTeacher} additions are self-service and never need the
@@ -44,7 +45,7 @@ class TransitiveTeacherIT {
     private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
 
     @Test
-    void classDetail_listsSubjectTeacherWithNoClassTeacherRow() throws Exception {
+    void teachersPage_listsSubjectTeacherWithNoClassTeacherRow() throws Exception {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Transitiv-Klasse-" + unique, "2025/26");
         Long subjectId = createSubject(classId, "Transitiv-Fach-" + unique);
@@ -52,28 +53,28 @@ class TransitiveTeacherIT {
         seedTeacher("colleague-transitiv-" + unique, colleagueLabel);
         post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", "colleague-transitiv-" + unique));
 
-        String html = get("/classes/" + classId).body();
+        String html = get("/classes/" + classId + "/teachers").body();
 
         assertTrue(html.contains("Fachlehrer mit Klassenzugriff"));
         assertTrue(html.contains(colleagueLabel));
     }
 
     @Test
-    void classDetail_omitsDevUserWhoHasBothAClassTeacherRowAndTeachesTheSubject() throws Exception {
+    void teachersPage_omitsDevUserWhoHasBothAClassTeacherRowAndTeachesTheSubject() throws Exception {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Transitiv-Admin-Klasse-" + unique, "2025/26");
         // dev-user creates the class (ClassTeacher ADMIN row) and the Fach (SubjectTeacher row) -
         // holding a ClassTeacher row means dev-user must not show up as "transitive".
         createSubject(classId, "Transitiv-Admin-Fach-" + unique);
 
-        String html = get("/classes/" + classId).body();
+        String html = get("/classes/" + classId + "/teachers").body();
 
         assertTrue(html.contains("Fachlehrer mit Klassenzugriff"));
         assertTrue(html.contains("Keine."));
     }
 
     @Test
-    void classDetail_hidesSectionForNonAdminViewer() throws Exception {
+    void teachersPage_isNotFoundAndTabHiddenForNonAdminViewer() throws Exception {
         String unique = Long.toString(System.nanoTime());
         Long classId = QuarkusTransaction.requiringNew().call(() -> {
             SchoolClass schoolClass = new SchoolClass();
@@ -88,7 +89,7 @@ class TransitiveTeacherIT {
             subject.roundingMode = RoundingMode.COMMERCIAL;
             subject.persist();
             // dev-user teaches this Subject but holds no ClassTeacher row, so it has class access
-            // without being an admin - the new section must not render for it at all.
+            // without being an admin - the tab must neither be reachable nor linked.
             SubjectTeacher subjectTeacher = new SubjectTeacher();
             subjectTeacher.subject = subject;
             subjectTeacher.teacherSubject = "dev-user";
@@ -96,9 +97,8 @@ class TransitiveTeacherIT {
             return schoolClass.id;
         });
 
-        String html = get("/classes/" + classId).body();
-
-        assertFalse(html.contains("Fachlehrer mit Klassenzugriff"));
+        assertEquals(404, get("/classes/" + classId + "/teachers").statusCode());
+        assertFalse(get("/classes/" + classId).body().contains("/classes/" + classId + "/teachers"));
     }
 
     private String seedTeacher(String subject, String email) {

@@ -1,5 +1,7 @@
 package de.notenfuchs.domain;
 
+import java.time.LocalDate;
+
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -31,6 +33,18 @@ public class Student extends PanacheEntity {
     public String displayName;
 
     /** The name to actually show in UI/exports - {@link #displayName} if set, otherwise {@link #name}. */
+    /**
+     * The day the student left the class ("ausgetreten"), or null while still in it. A student
+     * who left keeps their grades and is shown read-only, but no longer counts in column
+     * averages or "offen" counts.
+     */
+    @Column(name = "left_on")
+    public LocalDate leftOn;
+
+    public boolean hasLeft() {
+        return leftOn != null;
+    }
+
     public String effectiveName() {
         return displayName != null && !displayName.isBlank() ? displayName : name;
     }

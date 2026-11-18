@@ -82,7 +82,9 @@ cp .env.example .env
    Clients -> New Client, setze die Callback-URL auf
    `<deine Notenfuchs-URL>/auth-callback` (standardmäßig
    `http://localhost:8080/auth-callback`) und die Logout-Callback-URL auf
-   `<deine Notenfuchs-URL>/`, klappe dann "Advanced options" auf und setze das Feld
+   `<deine Notenfuchs-URL>/` und die **Launch URL** auf `<deine Notenfuchs-URL>/`
+   (damit Notenfuchs in Pocket ID unter "My apps" mit einem Öffnen-Knopf erscheint),
+   klappe dann "Advanced options" auf und setze das Feld
    **Client ID** exakt auf `notenfuchs` (passend zur fest codierten `OIDC_CLIENT_ID` in
    `docker-compose.oidc.yml`). Beim Speichern wird ein Client Secret erzeugt - kopiere
    es als `OIDC_CLIENT_SECRET` in die `.env` und führe dann `docker compose up -d app`
@@ -95,11 +97,20 @@ cp .env.example .env
    eine Einzellehrkraft-Instanz oder einen kleinen, vertrauenswürdigen
    Haushalt/Kollegium in Ordnung) oder lege eine Gruppe an/weise eine zu, um den
    Zugriff auf genau die Lehrkräfte zu beschränken, die Notenfuchs nutzen sollen.
-7. **Einen Registrierungslink verschicken.** Erzeuge auf der Users-Seite über
+7. **Pocket ID auf Notenfuchs weiterleiten lassen.** Nach der Anmeldung bei Pocket ID
+   selbst - also auch direkt nach der Registrierung - landet man auf Pocket IDs
+   Startseite. Trage in `.env` bei `NOTENFUCHS_APP_URL` deine Notenfuchs-URL ein
+   (Standard: `http://localhost:8080`) und führe `docker compose up -d pocket-id` aus;
+   `docker-compose.oidc.yml` setzt damit Pocket IDs Startseite (`HOME_PAGE_URL`) auf
+   Notenfuchs. Neue Kolleginnen und Kollegen kommen dann nach der Registrierung direkt in
+   Notenfuchs an. (Pocket ID liest seine Einstellungen hier aus der Compose-Datei, nicht
+   aus der Admin-UI, weil dort `UI_CONFIG_DISABLED=true` gesetzt ist.)
+8. **Einen Registrierungslink verschicken.** Erzeuge auf der Users-Seite über
    "Create signup token" einen Einmal-Link und gib ihn an die Person weiter, die
    Notenfuchs tatsächlich nutzen soll (z. B. dich selbst oder eine Kollegin/einen
    Kollegen), damit sie direkt ein eigenes Passkey-Konto anlegen kann - der
-   Admin-Login muss nie geteilt werden.
+   Admin-Login muss nie geteilt werden. Ohne Schritt 7 landet sie danach auf ihrer
+   Pocket-ID-Kontoseite und kommt über "My apps" -> Notenfuchs weiter.
 
 **Weitere Geräte freischalten.** Über den Link "Konto" oben rechts in Notenfuchs
 gelangt eine Lehrkraft zu ihrer Pocket-ID-Kontoseite und kann dort für das aktuelle
@@ -642,13 +653,26 @@ tastaturgesteuerte Tabellen-Navigation des Noteneingabe-Rasters) - kein React/SP
 kein Node-Build-Schritt.
 
 - `/` leitet auf `/classes` weiter
-- `/classes` - Klassen auflisten/anlegen/löschen
-- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten
+- `/classes` - Übersicht: "Meine Fächer" sowie Klassen auflisten/anlegen/löschen
+- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten (wer die Klasse
+  unterjährig verlässt, wird als „ausgetreten“ markiert statt gelöscht: die Noten
+  bleiben erhalten und erscheinen nur noch lesend unter den Notentabellen); weitere Reiter der
+  Klasse: `/behavior-grid` (Verhaltensnoten), und nur für Klassen-Admins `/overview`
+  (Notenübersicht), `/teachers` (Lehrkräfte) und `/settings` (Einstellungen)
 - `/subjects/{id}` - die Notenkategorien und Leistungen eines Fachs verwalten
+  (Reiter "Leistungen & Gewichtung"); `/subjects/{id}/teachers` - die Lehrkräfte
+  des Fachs
 - `/subjects/{id}/grid` - das Noteneingabe-Raster: Schüler als Zeilen, Leistungen als
   Spalten (gruppiert nach Kategorie), jede Zelle speichert bei Blur/Verlassen
   automatisch über einen kleinen `fetch()`-Aufruf, mit einer live berechneten
-  Durchschnittsspalte pro Schüler (`GradeService`)
+  Durchschnittsspalte pro Schüler (`GradeService`). Neue Leistungen lassen sich direkt
+  hier anlegen (+ neben der Kategorie), bestehende über ihren Spaltenkopf ändern oder
+  löschen. Fehlende Noten von Leistungen, deren Datum erreicht ist, werden markiert.
+  `e` / `u` in einer Zelle vermerkt „abwesend entschuldigt / unentschuldigt“ – allein
+  (zählt dann nicht als fehlend) oder neben der Note (z. B. `6 u`); die Note selbst
+  ändert sich dadurch nie. Ein Klick auf einen Schülernamen öffnet seine Seite im Fach
+  (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte und
+  „Was braucht … in der nächsten Leistung?“ – druckbar, z. B. fürs Elterngespräch
 - `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
   herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
   möchten

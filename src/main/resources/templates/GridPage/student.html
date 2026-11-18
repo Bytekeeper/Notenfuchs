@@ -1,0 +1,76 @@
+{#include base}
+{#title}{student.effectiveName} – {subject.name}{/title}
+
+{#include SubjectPage/subjectHeader activeTab='grid' /}
+<div class="student-page-heading">
+    <h2>{student.effectiveName}{#if student.leftOn} <small class="hint">(ausgetreten am {student.leftOn})</small>{/if}</h2>
+    <div class="no-print">
+        <a href="/subjects/{subject.id}/grid">← zurück zur Notenerfassung</a>
+        <button type="button" class="secondary" onclick="window.print()">Drucken</button>
+    </div>
+</div>
+
+<div class="card">
+    <table class="entity-list student-averages">
+        <thead><tr><th>Zeitraum</th><th>Note</th><th>Ø</th></tr></thead>
+        <tbody>
+            {#for a in averages}
+            <tr><td>{a.label}</td><td><strong>{a.grade ?: '–'}</strong></td><td>{a.rawAverage ?: '–'}</td></tr>
+            {/for}
+        </tbody>
+    </table>
+</div>
+
+<h3>Leistungen</h3>
+{#if leistungen.isEmpty}
+    <p class="hint">In diesem Fach gibt es noch keine Leistungen.</p>
+{#else}
+<div class="card">
+    <table class="entity-list">
+        <thead><tr><th>Kategorie</th><th>Leistung</th><th>Datum</th><th>Faktor</th><th>Note</th></tr></thead>
+        <tbody>
+            {#for l in leistungen}
+            <tr>
+                <td>{l.categoryName}</td>
+                <td>{l.name}</td>
+                <td>{l.date ?: '–'}</td>
+                <td>{l.factor}</td>
+                <td>{l.gradeText}{#if l.absenceLabel} <span class="hint">({l.absenceLabel})</span>{/if}</td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
+</div>
+{/if}
+
+{#if nextCategory}
+<h3>Was braucht {student.effectiveName} in der nächsten Leistung?</h3>
+<form method="get" class="inline-form no-print">
+    <div class="form-field">
+        <label for="nextCategory">Kategorie</label>
+        <select id="nextCategory" name="category">
+            {#for c in categories}
+                <option value="{c.id}" {#if c.id == nextCategory.id}selected{/if}>{c.name} ({c.weightPercent.stripTrailingZeros.toPlainString}%)</option>
+            {/for}
+        </select>
+    </div>
+    <div class="form-field">
+        <label for="nextFactor">Faktor</label>
+        <input type="number" id="nextFactor" name="factor" step="0.01" min="0.01" value="{nextFactor}">
+    </div>
+    <button type="submit">Berechnen</button>
+</form>
+<p class="hint">Für eine weitere Leistung in „{nextCategory.name}“ mit Faktor {nextFactor}: die schlechteste Note, mit der die jeweilige Endnote noch erreicht wird. Gerechnet wie alle Durchschnitte hier, einschließlich der Rundung des Fachs.</p>
+<div class="card">
+    <table class="entity-list">
+        <thead><tr><th>Endnote</th>{#if currentHalfName}<th>{currentHalfName}</th>{/if}<th>Jahr</th></tr></thead>
+        <tbody>
+            {#for r in requirements}
+            <tr><td>{r.targetGrade}</td>{#if currentHalfName}<td>{r.currentHalf}</td>{/if}<td>{r.year}</td></tr>
+            {/for}
+        </tbody>
+    </table>
+</div>
+{/if}
+
+{/include}

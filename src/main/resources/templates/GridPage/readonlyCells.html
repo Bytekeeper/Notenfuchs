@@ -1,0 +1,3 @@
+{#for cell in cells}
+<td class="grade-cell readonly-cell{#if cell.categoryStart} category-start{/if}{#if cell.absence} grade-cell-absent{/if}">{#if cell.assessmentId}{cell.inputValue}{#if cell.derivedGradeDisplay} → {cell.derivedGradeDisplay}{/if}{/if}</td>
+{/for}

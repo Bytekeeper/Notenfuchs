@@ -79,12 +79,20 @@ public class ClassUiResource {
     Template detailTemplate;
 
     @Inject
+    @Location("ClassPage/teachers.html")
+    Template teachersTemplate;
+
+    @Inject
+    @Location("ClassPage/settings.html")
+    Template settingsTemplate;
+
+    @Inject
     @Location("ClassPage/rosterImportPreview.html")
     Template rosterImportPreviewTemplate;
 
     @Inject
-    @Location("fragments/classList.html")
-    Template classListFragment;
+    @Location("fragments/home.html")
+    Template homeFragment;
 
     @Inject
     @Location("fragments/subjectList.html")
@@ -110,9 +118,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
         String subject = currentUser.effectiveSubject();
-        return currentUser.withUser(listTemplate
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject)));
+        return currentUser.withUser(withHomeData(listTemplate.instance(), subject));
     }
 
     @GET
@@ -131,15 +137,38 @@ public class ClassUiResource {
                 .data("predecessorClass", classWithPredecessorFetched(id).predecessorClass)
                 .data("subjects", subjects)
                 .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
-                .data("students", students)
+                .data("students", students.stream().filter(s -> !s.hasLeft()).toList())
+                .data("leftStudents", students.stream().filter(Student::hasLeft).toList())
                 .data("gradeScales", gradeScales)
+                .data("categorySources", guard.listTaughtSubjects(currentSubject))
                 .data("rosterImportResult", rosterImportResult)
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
+                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject)));
+    }
+
+    @GET
+    @Path("/{id}/teachers")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance teachersPage(@PathParam("id") Long id) {
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentSubject);
+        return currentUser.withUser(teachersTemplate
+                .data("schoolClass", schoolClass)
                 .data("classTeachers", classTeachersWithResolvedLabels(id))
                 .data("availableTeachers", availableTeachers(id))
                 .data("transitiveTeachers", transitiveTeachers(id))
                 .data("currentUserSubject", currentSubject)
-                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
-                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject)));
+                .data("isClassAdmin", true));
+    }
+
+    @GET
+    @Path("/{id}/settings")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance settingsPage(@PathParam("id") Long id) {
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
+        return currentUser.withUser(settingsTemplate
+                .data("schoolClass", schoolClass)
+                .data("isClassAdmin", true));
     }
 
     /**
@@ -186,17 +215,11 @@ public class ClassUiResource {
             subjectCopyTeacher.teacherSubject = currentSubject;
             subjectCopyTeacher.persist();
 
-            List<GradeCategory> sourceCategories = GradeCategory.list("subject.id", sourceSubject.id);
-            for (GradeCategory sourceCategory : sourceCategories) {
-                GradeCategory categoryCopy = new GradeCategory();
-                categoryCopy.subject = subjectCopy;
-                categoryCopy.name = sourceCategory.name;
-                categoryCopy.weightPercent = sourceCategory.weightPercent;
-                categoryCopy.persist();
-            }
+            copyCategories(sourceSubject.id, subjectCopy);
         }
 
-        List<Student> sourceStudents = Student.list("schoolClass.id", id);
+        // Students who left stay with the old class; the new year starts with those still in it.
+        List<Student> sourceStudents = Student.list("schoolClass.id = ?1 and leftOn is null", id);
         for (Student sourceStudent : sourceStudents) {
             Student studentCopy = new Student();
             studentCopy.schoolClass = copy;
@@ -235,9 +258,7 @@ public class ClassUiResource {
         owner.role = ClassTeacherRole.ADMIN;
         owner.persist();
 
-        return classListFragment
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+        return withHomeData(homeFragment.instance(), subject);
     }
 
     @DELETE
@@ -248,9 +269,7 @@ public class ClassUiResource {
         String subject = currentUser.effectiveSubject();
         SchoolClass entity = guard.requireClassAdmin(id, subject);
         entity.delete();
-        return classListFragment
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+        return withHomeData(homeFragment.instance(), subject);
     }
 
     @PATCH
@@ -268,9 +287,7 @@ public class ClassUiResource {
         if (schoolYear != null && !schoolYear.isBlank()) {
             entity.schoolYear = schoolYear;
         }
-        return classListFragment
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+        return withHomeData(homeFragment.instance(), subject);
     }
 
     /**
@@ -469,8 +486,7 @@ public class ClassUiResource {
         student.name = name;
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
         student.persist();
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
+        return studentListResponse(schoolClass);
     }
 
     @DELETE
@@ -482,8 +498,7 @@ public class ClassUiResource {
         SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
         Student student = guard.requireRosterManageStudent(studentId, subject);
         student.delete();
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
+        return studentListResponse(schoolClass);
     }
 
     @PATCH
@@ -501,8 +516,46 @@ public class ClassUiResource {
             student.name = name;
         }
         student.displayName = (displayName == null || displayName.isBlank()) ? null : displayName;
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
-        return studentListFragment.data("schoolClass", schoolClass).data("students", students).data("isClassAdmin", true);
+        return studentListResponse(schoolClass);
+    }
+
+    /**
+     * Marks a student as "ausgetreten" (left mid-year): their grades stay and are shown read-only,
+     * but they leave the editable tables, averages and "offen" counts. Unlike deleting, nothing is lost.
+     */
+    @POST
+    @Path("/{id}/students/{studentId}/leave")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance markStudentLeft(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
+        Student student = guard.requireRosterManageStudent(studentId, subject);
+        if (student.leftOn == null) {
+            student.leftOn = LocalDate.now();
+        }
+        return studentListResponse(schoolClass);
+    }
+
+    /** Undoes {@link #markStudentLeft}, e.g. after a mistake or when the student comes back. */
+    @POST
+    @Path("/{id}/students/{studentId}/rejoin")
+    @Produces(MediaType.TEXT_HTML)
+    @Transactional
+    public TemplateInstance markStudentRejoined(@PathParam("id") Long id, @PathParam("studentId") Long studentId) {
+        String subject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAdmin(id, subject);
+        Student student = guard.requireRosterManageStudent(studentId, subject);
+        student.leftOn = null;
+        return studentListResponse(schoolClass);
+    }
+
+    private TemplateInstance studentListResponse(SchoolClass schoolClass) {
+        List<Student> students = Student.list("schoolClass.id = ?1 order by name", schoolClass.id);
+        return studentListFragment.data("schoolClass", schoolClass)
+                .data("students", students.stream().filter(s -> !s.hasLeft()).toList())
+                .data("leftStudents", students.stream().filter(Student::hasLeft).toList())
+                .data("isClassAdmin", true);
     }
 
     /**
@@ -515,7 +568,7 @@ public class ClassUiResource {
     @Produces("text/csv; charset=UTF-8")
     public Response exportRoster(@PathParam("id") Long id) {
         SchoolClass schoolClass = guard.requireClassAccess(id, currentUser.effectiveSubject());
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", id);
+        List<Student> students = Student.list("schoolClass.id = ?1 and leftOn is null order by name", id);
         List<String> names = students.stream().map(s -> s.name).toList();
         byte[] csv = csvRosterService.format(names);
 
@@ -634,13 +687,17 @@ public class ClassUiResource {
     public TemplateInstance addSubject(@PathParam("id") Long id,
                                         @FormParam("name") String name,
                                         @FormParam("gradeScaleId") Long gradeScaleId,
-                                        @FormParam("roundingMode") String roundingMode) {
+                                        @FormParam("roundingMode") String roundingMode,
+                                        @FormParam("copyCategoriesFrom") String copyCategoriesFrom) {
         String currentSubject = currentUser.effectiveSubject();
         SchoolClass schoolClass = guard.requireClassTeacher(id, currentSubject);
         GradeScale gradeScale = GradeScale.findById(gradeScaleId);
         if (gradeScale == null) {
             throw new NotFoundException("GradeScale " + gradeScaleId + " not found");
         }
+        // Only a Fach the viewer teaches can be a source: they'd otherwise copy a setup they can't see.
+        Subject categorySource = copyCategoriesFrom == null || copyCategoriesFrom.isBlank() ? null
+                : guard.requireTeachesSubject(parseId(copyCategoriesFrom), currentSubject);
         Subject subject = new Subject();
         subject.schoolClass = schoolClass;
         subject.name = name;
@@ -654,6 +711,9 @@ public class ClassUiResource {
         teacher.subject = subject;
         teacher.teacherSubject = currentSubject;
         teacher.persist();
+        if (categorySource != null) {
+            copyCategories(categorySource.id, subject);
+        }
 
         List<Subject> subjects = subjectsWithGradeScale(id);
         attachTeacherLabels(subjects);
@@ -661,6 +721,26 @@ public class ClassUiResource {
                 .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
                 .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
                 .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject));
+    }
+
+    private static Long parseId(String raw) {
+        try {
+            return Long.valueOf(raw.strip());
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Ungültige Auswahl");
+        }
+    }
+
+    /** Categories and weights only - Leistungen and grades always start fresh. */
+    private static void copyCategories(Long sourceSubjectId, Subject target) {
+        List<GradeCategory> sourceCategories = GradeCategory.list("subject.id = ?1 order by id", sourceSubjectId);
+        for (GradeCategory sourceCategory : sourceCategories) {
+            GradeCategory categoryCopy = new GradeCategory();
+            categoryCopy.subject = target;
+            categoryCopy.name = sourceCategory.name;
+            categoryCopy.weightPercent = sourceCategory.weightPercent;
+            categoryCopy.persist();
+        }
     }
 
     @DELETE
@@ -721,9 +801,37 @@ public class ClassUiResource {
         return Subject.find("from Subject s join fetch s.gradeScale where s.schoolClass.id = ?1", schoolClassId).list();
     }
 
+    private TemplateInstance withHomeData(TemplateInstance template, String subject) {
+        List<Subject> mySubjects = newestYearOnly(guard.listTaughtSubjects(subject));
+        return template
+                .data("mySubjects", mySubjects)
+                .data("openGradesBySubject", openGradeCounts(mySubjects))
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
+                .data("adminClassIds", adminClassIds(subject));
+    }
+
+    /** Per Fach, a label like "5 Noten offen"; only Fächer with something missing are in the map. */
+    private Map<Long, String> openGradeCounts(List<Subject> subjects) {
+        Map<Long, String> labels = new HashMap<>();
+        OpenGrades.openGradeCounts(subjects).forEach((subjectId, missing) ->
+                labels.put(subjectId, missing + (missing == 1 ? " Note offen" : " Noten offen")));
+        return labels;
+    }
+
+    /** Older years pile up after every "Ins neue Schuljahr übernehmen", and only the current one matters day to day. */
+    private List<Subject> newestYearOnly(List<Subject> subjectsNewestYearFirst) {
+        if (subjectsNewestYearFirst.isEmpty()) {
+            return subjectsNewestYearFirst;
+        }
+        String newestYear = subjectsNewestYearFirst.get(0).schoolClass.schoolYear;
+        return subjectsNewestYearFirst.stream()
+                .filter(s -> s.schoolClass.schoolYear.equals(newestYear))
+                .toList();
+    }
+
     /**
      * Ids of the classes the given teacher is an ADMIN-tier {@link ClassTeacher} on - used by
-     * {@code fragments/classList.html} to hide Ändern/Löschen for classes the viewer sees in
+     * {@code fragments/home.html} to hide Ändern/Löschen for classes the viewer sees in
      * their list (via {@link OwnershipGuard#listAccessibleClasses}) but isn't an admin of, since
      * both would otherwise 404 via {@link OwnershipGuard#requireClassAdmin}.
      */
@@ -837,7 +945,7 @@ public class ClassUiResource {
     /**
      * Buckets an already {@code schoolYear desc}-sorted class list (see
      * {@link OwnershipGuard#listAccessibleClasses}) into consecutive same-year groups, so
-     * {@code fragments/classList.html} can render a year heading per group instead of one
+     * {@code fragments/home.html} can render a year heading per group instead of one
      * long undifferentiated grid - a class a year adds up over a teaching career.
      */
     private List<YearGroup> groupByYear(List<SchoolClass> classes) {

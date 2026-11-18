@@ -68,6 +68,7 @@ class ClassDuplicationE2EIT {
         assertThat(studentRow(studentName)).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -78,12 +79,9 @@ class ClassDuplicationE2EIT {
         assertThat(categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .isVisible();
 
-        // Back to the class detail page (breadcrumb), where the duplicate action lives behind
-        // the "Klasseneinstellungen" disclosure - force it open rather than clicking summary (a
-        // toggle), since new classes now default to halfYearGradeDisplay=HALF, which auto-opens
-        // the disclosure already (a click would then close it instead).
+        // Back to the class (breadcrumb), where the duplicate action lives on the "Einstellungen" tab.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
-        page.locator(".settings-disclosure").evaluate("el => el.open = true");
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
 
         page.locator("#newClassName").fill(newClassName);
         page.locator("#newSchoolYear").fill(newSchoolYear);
@@ -99,6 +97,7 @@ class ClassDuplicationE2EIT {
 
         // Fresh start: the copied subject's category has no Leistungen.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator newCategoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(newCategoryCard.locator("table.entity-list tbody tr.empty-row")).isVisible();
         assertThat(newCategoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
@@ -116,6 +115,7 @@ class ClassDuplicationE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
         assertThat(studentRow(studentName)).hasCount(1);
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator sourceCategoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(sourceCategoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .isVisible();

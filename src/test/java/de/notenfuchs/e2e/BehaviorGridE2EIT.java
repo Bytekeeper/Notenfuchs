@@ -88,12 +88,7 @@ class BehaviorGridE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectB))).isVisible();
 
-        // "Verhaltensnoten erfassen" lives behind the "Klasseneinstellungen" disclosure (see
-        // ClassPage/detail.html) - force it open rather than clicking summary (a toggle), since
-        // new classes now default to halfYearGradeDisplay=HALF, which auto-opens the disclosure
-        // already (a click would then close it instead).
-        page.locator(".settings-disclosure").evaluate("el => el.open = true");
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Verhaltensnoten erfassen")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Verhaltensnoten")).click();
 
         Locator row0 = page.locator("table.behavior-grid-root tbody tr").nth(0); // student A
         Locator row1 = page.locator("table.behavior-grid-root tbody tr").nth(1); // student B
@@ -106,6 +101,8 @@ class BehaviorGridE2EIT {
         Locator cellB_Fach1 = page.locator("input.grade-input[data-row='1'][data-col='0']");
 
         assertThat(row0Average).hasText("–");
+        // Two students x two Fächer, nothing entered yet: every cell is marked as missing.
+        assertThat(page.locator("table.behavior-grid-root td.grade-cell-open")).hasCount(4);
 
         // Student A gets a 2 in FachA -> row average = 2, not borderline. Live JS updates use the
         // save endpoint's trailing-zero-stripped JSON value (like the grade grid's own cell-save
@@ -116,6 +113,7 @@ class BehaviorGridE2EIT {
         assertThat(row0Average.locator(".behavior-average-raw")).hasText("2");
         assertThat(row0Average).not().hasClass(Pattern.compile(".*borderline.*"));
         assertThat(fach1Footer.locator(".behavior-subject-average-final")).hasText("2");
+        assertThat(page.locator("table.behavior-grid-root td.grade-cell-open")).hasCount(3);
 
         // Keyboard nav: Tab from FachA's cell must land on FachB's cell, same row.
         cellA_Fach1.click();

@@ -1,5 +1,6 @@
 package de.notenfuchs.web;
 
+import de.notenfuchs.domain.Absence;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
@@ -22,6 +23,7 @@ import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
@@ -95,6 +97,9 @@ public class GradeGridResource {
     OwnershipGuard guard;
 
     @Inject
+    SubjectUiResource subjectUi;
+
+    @Inject
     @Location("GridPage/grid.html")
     Template gridTemplate;
 
@@ -107,14 +112,21 @@ public class GradeGridResource {
     public TemplateInstance grid(@PathParam("id") Long id) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
+        // Lets the empty state offer "+ Leistung" per category before any column exists.
+        List<GradeCategory> subjectCategories = GradeCategory.list("subject.id = ?1 order by id", id);
+        Map<Long, String> bandSpecs = bandSpecs(id);
 
         if (cutoff == null) {
             GridData data = loadGridData(subject);
             return currentUser.withUser(gridTemplate
                     .data("subject", subject)
+                    .data("subjectCategories", subjectCategories)
+                    .data("switchSubjects", subjectUi.switchSubjects(subject))
+                    .data("bandSpecs", bandSpecs)
                     .data("categories", data.categoryColumns())
                     .data("students", data.students())
                     .data("rows", data.rows())
+                    .data("leftRows", data.leftRows())
                     .data("categoryFooters", data.categoryFooters())
                     .data("maxCol", data.maxCol())
                     .data("maxRow", data.maxRow())
@@ -124,6 +136,10 @@ public class GradeGridResource {
         HalfYearGridData data = loadHalfYearGridData(subject, cutoff);
         return currentUser.withUser(gridHalfYearTemplate
                 .data("subject", subject)
+                .data("subjectCategories", subjectCategories)
+                .data("switchSubjects", subjectUi.switchSubjects(subject))
+                .data("bandSpecs", bandSpecs)
+                .data("isClassAdmin", guard.isAdmin(subject.schoolClass, currentUser.effectiveSubject()))
                 .data("cutoff", cutoff)
                 .data("undatedColumns", data.undatedColumns())
                 .data("undatedTotalCols", data.undatedTotalCols())
@@ -133,12 +149,191 @@ public class GradeGridResource {
                 .data("h2HeaderColspan", data.h2HeaderColspan())
                 .data("students", data.students())
                 .data("rows", data.rows())
+                .data("leftRows", data.leftRows())
                 .data("undatedFooters", data.undatedFooters())
                 .data("h1Footers", data.h1Footers())
                 .data("h2Footers", data.h2Footers())
                 .data("maxCol", data.maxCol())
                 .data("maxRow", data.maxRow())
                 .data("gridEmpty", data.gridEmpty()));
+    }
+
+    /**
+     * Adds a Leistung from the grade table. A plain form POST answered with a redirect (not htmx):
+     * the new column changes the whole table layout, so re-rendering the page is simpler than
+     * patching it. {@code focus} tells the page which column to put the cursor in.
+     */
+    @POST
+    @Path("/assessments")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response addAssessment(@PathParam("id") Long id,
+                                  @FormParam("categoryId") Long categoryId,
+                                  @FormParam("name") String name,
+                                  @FormParam("date") LocalDate date,
+                                  @FormParam("factor") BigDecimal factor,
+                                  @FormParam("pointsBased") String pointsBasedRaw,
+                                  @FormParam("roundingMode") String roundingModeRaw) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
+        if (!category.subject.id.equals(id)) {
+            throw new NotFoundException("GradeCategory " + categoryId + " not found");
+        }
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Name fehlt");
+        }
+        Assessment assessment = subjectUi.createAssessment(category, subject.gradeScale, name.strip(), date, factor,
+                pointsBasedRaw, roundingModeRaw);
+        return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+    }
+
+    @POST
+    @Path("/assessments/{assessmentId}")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response updateAssessment(@PathParam("id") Long id,
+                                     @PathParam("assessmentId") Long assessmentId,
+                                     @FormParam("name") String name,
+                                     @FormParam("date") LocalDate date,
+                                     @FormParam("factor") BigDecimal factor,
+                                     @FormParam("pointsBased") String pointsBasedRaw,
+                                     @FormParam("roundingMode") String roundingModeRaw,
+                                     @FormParam("bandPoints") List<BigDecimal> bandPoints,
+                                     @FormParam("bandGrades") List<BigDecimal> bandGrades) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
+        boolean wasPointsBased = assessment.pointsBased;
+        // Checked before anything changes, so a bad Notenschlüssel can't leave half an edit behind.
+        List<PointsGradeBandData> bands = bandPoints == null || bandPoints.isEmpty() ? null
+                : parseBands(bandPoints, bandGrades, subject.gradeScale);
+        subjectUi.updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
+        // The dialog only shows the band editor for a Leistung that was already points-based; a
+        // fresh switch to points gets the default bands from updateAssessment instead.
+        if (bands != null && wasPointsBased && assessment.pointsBased) {
+            PointsGradeBand.delete("assessment.id", assessment.id);
+            for (PointsGradeBandData data : bands) {
+                PointsGradeBand band = new PointsGradeBand();
+                band.assessment = assessment;
+                band.points = data.points();
+                band.gradeValue = data.gradeValue();
+                band.persist();
+            }
+        }
+        return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+    }
+
+    /**
+     * Notenspiegel for a Notenschlüssel the teacher is still editing: how many students would get
+     * each whole grade, and the average, using the same conversion and rounding as the grid.
+     * Nothing is saved.
+     */
+    @POST
+    @Path("/assessments/{assessmentId}/band-preview")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.APPLICATION_JSON)
+    public BandPreview bandPreview(@PathParam("id") Long id,
+                                   @PathParam("assessmentId") Long assessmentId,
+                                   @FormParam("bandPoints") List<BigDecimal> bandPoints,
+                                   @FormParam("bandGrades") List<BigDecimal> bandGrades) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
+        List<PointsGradeBandData> bands = parseBands(bandPoints, bandGrades, subject.gradeScale);
+        GradeScale scale = subject.gradeScale;
+        Map<Integer, Integer> countByGrade = new HashMap<>();
+        List<BigDecimal> derived = new ArrayList<>();
+        for (Grade grade : Grade.<Grade>list("assessment.id = ?1 and points is not null", assessment.id)) {
+            BigDecimal value = pointsConversionService.convert(grade.points, bands, scale, assessment.roundingMode);
+            derived.add(value);
+            Integer whole = gradeService.calculateAssessmentAverage(List.of(value), scale, subject.roundingMode).finalGrade();
+            countByGrade.merge(whole, 1, Integer::sum);
+        }
+        int best = scale.lowerIsBetter ? scale.min.intValue() : scale.max.intValue();
+        int worst = scale.lowerIsBetter ? scale.max.intValue() : scale.min.intValue();
+        int step = best <= worst ? 1 : -1;
+        List<BandPreview.GradeCount> distribution = new ArrayList<>();
+        for (int g = best; g != worst + step; g += step) {
+            distribution.add(new BandPreview.GradeCount(g, countByGrade.getOrDefault(g, 0)));
+        }
+        BigDecimal average = gradeService.calculateAssessmentAverage(derived, scale, subject.roundingMode).rawAverage();
+        return new BandPreview(distribution, average != null ? plain(average) : null);
+    }
+
+    public record BandPreview(List<GradeCount> distribution, String average) {
+        public record GradeCount(int grade, int count) {
+        }
+    }
+
+    private static List<PointsGradeBandData> parseBands(List<BigDecimal> points, List<BigDecimal> grades, GradeScale scale) {
+        if (points == null || grades == null || points.isEmpty() || points.size() != grades.size()) {
+            throw new BadRequestException("Der Notenschlüssel braucht mindestens eine vollständige Stufe");
+        }
+        List<PointsGradeBandData> bands = new ArrayList<>();
+        for (int i = 0; i < points.size(); i++) {
+            BigDecimal p = points.get(i);
+            BigDecimal g = grades.get(i);
+            if (p == null || g == null || p.signum() < 0 || g.compareTo(scale.min) < 0 || g.compareTo(scale.max) > 0) {
+                throw new BadRequestException("Ungültige Stufe im Notenschlüssel");
+            }
+            bands.add(new PointsGradeBandData(p, g));
+        }
+        return bands;
+    }
+
+    @POST
+    @Path("/assessments/{assessmentId}/delete")
+    @Transactional
+    public Response deleteAssessment(@PathParam("id") Long id, @PathParam("assessmentId") Long assessmentId) {
+        guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        requireAssessmentOfSubject(assessmentId, id).delete();
+        return Redirects.seeOther("/subjects/" + id + "/grid").build();
+    }
+
+    /**
+     * One-click starter for a Fach without categories: Schriftlich 50 % / Mündlich 50 %, the most
+     * common split. Does nothing if categories already exist, so a double submit can't duplicate them.
+     */
+    @POST
+    @Path("/starter-categories")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response addStarterCategories(@PathParam("id") Long id, @FormParam("returnTo") String returnTo) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        if (GradeCategory.count("subject.id", id) == 0) {
+            for (String name : List.of("Schriftlich", "Mündlich")) {
+                GradeCategory category = new GradeCategory();
+                category.subject = subject;
+                category.name = name;
+                category.weightPercent = new BigDecimal("50");
+                category.persist();
+            }
+        }
+        String target = "setup".equals(returnTo) ? "/subjects/" + id : "/subjects/" + id + "/grid";
+        return Redirects.seeOther(target).build();
+    }
+
+    /** Each points-based Leistung's Notenschlüssel as "60:1;20:6" (best first), read by the grid's edit dialog. */
+    private static Map<Long, String> bandSpecs(Long subjectId) {
+        Map<Long, StringBuilder> specs = new HashMap<>();
+        for (PointsGradeBand band : PointsGradeBand.<PointsGradeBand>list(
+                "assessment.category.subject.id = ?1 order by points desc", subjectId)) {
+            StringBuilder spec = specs.computeIfAbsent(band.assessment.id, k -> new StringBuilder());
+            if (!spec.isEmpty()) {
+                spec.append(';');
+            }
+            spec.append(plain(band.points)).append(':').append(plain(band.gradeValue));
+        }
+        Map<Long, String> result = new HashMap<>();
+        specs.forEach((assessmentId, spec) -> result.put(assessmentId, spec.toString()));
+        return result;
+    }
+
+    private Assessment requireAssessmentOfSubject(Long assessmentId, Long subjectId) {
+        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentUser.effectiveSubject());
+        if (!assessment.category.subject.id.equals(subjectId)) {
+            throw new NotFoundException("Assessment " + assessmentId + " not found");
+        }
+        return assessment;
     }
 
     @GET
@@ -163,7 +358,9 @@ public class GradeGridResource {
 
     private GridData loadGridData(Subject subject) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> allStudents = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> students = allStudents.stream().filter(s -> !s.hasLeft()).toList();
+        List<Student> leftStudents = allStudents.stream().filter(Student::hasLeft).toList();
 
         List<CategoryColumns> categoryColumns = new ArrayList<>();
         List<Assessment> allAssessments = new ArrayList<>();
@@ -176,9 +373,22 @@ public class GradeGridResource {
         Map<Long, List<PointsGradeBandData>> bandsByAssessment = bandsByAssessment(allAssessments);
         Map<GradeKey, Grade> grades = gradesByKey(Grade.list("assessment.category.subject.id", subject.id));
 
+        // Footers come from the active students only; students who left are shown, not counted.
         BlockBuild build = buildBlockCells(categoryColumns, students, subject, bandsByAssessment, grades, 0);
-        List<SubjectAverageResult> averages = subjectAveragesForBlock(categoryColumns, students, subject, grades);
+        List<RowView> rows = rowViews(categoryColumns, students, subject, grades, build);
+        List<RowView> leftRows = rowViews(categoryColumns, leftStudents, subject, grades,
+                buildBlockCells(categoryColumns, leftStudents, subject, bandsByAssessment, grades, 0));
 
+        int maxCol = Math.max(0, totalColumns(categoryColumns) - 1);
+        int maxRow = Math.max(0, rows.size() - 1);
+        boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
+
+        return new GridData(categoryColumns, students, rows, leftRows, build.footers(), maxCol, maxRow, gridEmpty);
+    }
+
+    private List<RowView> rowViews(List<CategoryColumns> columns, List<Student> students, Subject subject,
+                                   Map<GradeKey, Grade> grades, BlockBuild build) {
+        List<SubjectAverageResult> averages = subjectAveragesForBlock(columns, students, subject, grades);
         List<RowView> rows = new ArrayList<>();
         for (int i = 0; i < students.size(); i++) {
             Student student = students.get(i);
@@ -186,12 +396,7 @@ public class GradeGridResource {
             rows.add(new RowView(i, new StudentView(student.id, student.effectiveName()),
                     build.cellsByStudent().get(i), average.rawAverage(), average.finalGrade()));
         }
-
-        int maxCol = Math.max(0, totalColumns(categoryColumns) - 1);
-        int maxRow = Math.max(0, rows.size() - 1);
-        boolean gridEmpty = categoryColumns.isEmpty() || allAssessments.isEmpty();
-
-        return new GridData(categoryColumns, students, rows, build.footers(), maxCol, maxRow, gridEmpty);
+        return rows;
     }
 
     /**
@@ -205,7 +410,9 @@ public class GradeGridResource {
      */
     private HalfYearGridData loadHalfYearGridData(Subject subject, LocalDate cutoff) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
-        List<Student> students = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> allStudents = Student.list("schoolClass.id = ?1 order by name", subject.schoolClass.id);
+        List<Student> students = allStudents.stream().filter(s -> !s.hasLeft()).toList();
+        List<Student> leftStudents = allStudents.stream().filter(Student::hasLeft).toList();
 
         List<CategoryColumns> allColumns = new ArrayList<>();
         List<Assessment> allAssessments = new ArrayList<>();
@@ -220,6 +427,32 @@ public class GradeGridResource {
         Map<Long, List<PointsGradeBandData>> bandsByAssessment = bandsByAssessment(allAssessments);
         Map<GradeKey, Grade> grades = gradesByKey(Grade.list("assessment.category.subject.id", subject.id));
 
+        HalfYearBuild active = buildHalfYearRows(split, allColumns, students, subject, bandsByAssessment, grades);
+        List<HalfYearRowView> leftRows =
+                buildHalfYearRows(split, allColumns, leftStudents, subject, bandsByAssessment, grades).rows();
+        BlockBuild undatedBuild = active.undated();
+        BlockBuild h1Build = active.h1();
+        BlockBuild h2Build = active.h2();
+        List<HalfYearRowView> rows = active.rows();
+
+        int undatedTotalCols = totalColumns(split.undated());
+        int h1TotalCols = totalColumns(split.h1());
+        int h2TotalCols = totalColumns(split.h2());
+        int maxCol = Math.max(0, h2Build.nextColIndex() - 1);
+        int maxRow = Math.max(0, students.size() - 1);
+        boolean gridEmpty = allColumns.isEmpty() || allAssessments.isEmpty();
+
+        return new HalfYearGridData(split.undated(), undatedTotalCols, split.h1(), h1TotalCols + 1,
+                split.h2(), h2TotalCols + 1, students, rows, leftRows,
+                undatedBuild.footers(), h1Build.footers(), h2Build.footers(), maxCol, maxRow, gridEmpty);
+    }
+
+    private record HalfYearBuild(List<HalfYearRowView> rows, BlockBuild undated, BlockBuild h1, BlockBuild h2) {
+    }
+
+    private HalfYearBuild buildHalfYearRows(HalfSplit split, List<CategoryColumns> allColumns, List<Student> students,
+                                            Subject subject, Map<Long, List<PointsGradeBandData>> bandsByAssessment,
+                                            Map<GradeKey, Grade> grades) {
         BlockBuild undatedBuild = buildBlockCells(split.undated(), students, subject, bandsByAssessment, grades, 0);
         BlockBuild h1Build = buildBlockCells(split.h1(), students, subject, bandsByAssessment, grades, undatedBuild.nextColIndex());
         BlockBuild h2Build = buildBlockCells(split.h2(), students, subject, bandsByAssessment, grades, h1Build.nextColIndex());
@@ -242,17 +475,7 @@ public class GradeGridResource {
                     displayLabel(subject, h2Avg),
                     jahrAvg.rawAverage(), jahrAvg.finalGrade()));
         }
-
-        int undatedTotalCols = totalColumns(split.undated());
-        int h1TotalCols = totalColumns(split.h1());
-        int h2TotalCols = totalColumns(split.h2());
-        int maxCol = Math.max(0, h2Build.nextColIndex() - 1);
-        int maxRow = Math.max(0, students.size() - 1);
-        boolean gridEmpty = allColumns.isEmpty() || allAssessments.isEmpty();
-
-        return new HalfYearGridData(split.undated(), undatedTotalCols, split.h1(), h1TotalCols + 1,
-                split.h2(), h2TotalCols + 1, students, rows,
-                undatedBuild.footers(), h1Build.footers(), h2Build.footers(), maxCol, maxRow, gridEmpty);
+        return new HalfYearBuild(rows, undatedBuild, h1Build, h2Build);
     }
 
     private static int totalColumns(List<CategoryColumns> columns) {
@@ -303,6 +526,7 @@ public class GradeGridResource {
                                         Map<Long, List<PointsGradeBandData>> bandsByAssessment,
                                         Map<GradeKey, Grade> grades, int startColIndex) {
         int totalCols = totalColumns(blockColumns);
+        LocalDate today = LocalDate.now();
         List<List<BigDecimal>> columnValues = new ArrayList<>();
         for (int i = 0; i < totalCols; i++) {
             columnValues.add(new ArrayList<>());
@@ -315,7 +539,7 @@ public class GradeGridResource {
             int localIndex = 0;
             for (CategoryColumns cc : blockColumns) {
                 if (cc.assessments().isEmpty()) {
-                    cells.add(new CellView(colIndex, null, true, null, false, null));
+                    cells.add(new CellView(colIndex, null, true, null, null, false, null, false, false));
                     colIndex++;
                     continue;
                 }
@@ -333,13 +557,15 @@ public class GradeGridResource {
                             columnValues.get(localIndex).add(derived);
                         }
                     } else {
-                        displayValue = grade != null ? plain(grade.value) : null;
-                        if (grade != null) {
+                        displayValue = grade != null && grade.value != null ? plain(grade.value) : null;
+                        if (grade != null && grade.value != null) {
                             columnValues.get(localIndex).add(grade.value);
                         }
                     }
-                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue,
-                            assessment.pointsBased, derivedDisplay));
+                    Absence absence = grade != null ? grade.absence : null;
+                    boolean due = OpenGrades.isDue(assessment, today);
+                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue, absence,
+                            assessment.pointsBased, derivedDisplay, due, due && grade == null));
                     categoryStart = false;
                     colIndex++;
                     localIndex++;
@@ -356,8 +582,9 @@ public class GradeGridResource {
                 columnAverages.add(new ColumnAverageView(null, null, null));
             } else {
                 for (Assessment assessment : cc.assessments()) {
+                    List<BigDecimal> values = columnValues.get(footerColIndex);
                     SubjectAverageResult columnAverage = gradeService.calculateAssessmentAverage(
-                            columnValues.get(footerColIndex), subject.gradeScale, subject.roundingMode);
+                            values, subject.gradeScale, subject.roundingMode);
                     columnAverages.add(new ColumnAverageView(assessment.id,
                             columnAverage.rawAverage(), columnAverage.finalGrade()));
                     footerColIndex++;
@@ -405,7 +632,7 @@ public class GradeGridResource {
      * - "Jahr" never goes through this, it always stays the plain {@code finalGrade} (see
      * {@link HalfYearGradeDisplayService}).
      */
-    private String displayLabel(Subject subject, SubjectAverageResult average) {
+    String displayLabel(Subject subject, SubjectAverageResult average) {
         return halfYearGradeDisplayService.label(average.rawAverage(), average.finalGrade(),
                 subject.schoolClass.halfYearGradeDisplay, subject.schoolClass.halfYearTendencyThreshold,
                 subject.gradeScale);
@@ -427,15 +654,37 @@ public class GradeGridResource {
         if (!assessment.category.subject.id.equals(subject.id) || !student.schoolClass.id.equals(subject.schoolClass.id)) {
             throw new NotFoundException();
         }
+        if (student.hasLeft()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Schüler ist ausgetreten").build();
+        }
 
         Grade existing = Grade.find("assessment.id = ?1 and student.id = ?2", assessmentId, studentId).firstResult();
 
         String trimmed = rawValue == null ? "" : rawValue.trim();
+        // An absence letter may stand alone or next to the number, before or after it.
+        Absence absence = null;
+        if (!trimmed.isEmpty() && Absence.fromCode(trimmed.substring(trimmed.length() - 1)) != null) {
+            absence = Absence.fromCode(trimmed.substring(trimmed.length() - 1));
+            trimmed = trimmed.substring(0, trimmed.length() - 1).trim();
+        } else if (!trimmed.isEmpty() && Absence.fromCode(trimmed.substring(0, 1)) != null) {
+            absence = Absence.fromCode(trimmed.substring(0, 1));
+            trimmed = trimmed.substring(1).trim();
+        }
         if (trimmed.isEmpty()) {
-            if (existing != null) {
-                existing.delete();
+            if (absence == null) {
+                if (existing != null) {
+                    existing.delete();
+                }
+            } else {
+                Grade grade = existing != null ? existing : newGrade(assessment, student);
+                grade.value = null;
+                grade.points = null;
+                grade.absence = absence;
+                if (existing == null) {
+                    grade.persist();
+                }
             }
-            return Response.ok(averagePayload(subject, student, assessment, null)).build();
+            return Response.ok(averagePayload(subject, student, assessment, null, absence)).build();
         }
 
         BigDecimal enteredValue;
@@ -457,11 +706,11 @@ public class GradeGridResource {
             if (existing != null) {
                 existing.points = enteredValue;
                 existing.value = null;
+                existing.absence = absence;
             } else {
-                Grade grade = new Grade();
-                grade.assessment = assessment;
-                grade.student = student;
+                Grade grade = newGrade(assessment, student);
                 grade.points = enteredValue;
+                grade.absence = absence;
                 grade.persist();
             }
         } else {
@@ -475,16 +724,23 @@ public class GradeGridResource {
             if (existing != null) {
                 existing.value = enteredValue;
                 existing.points = null;
+                existing.absence = absence;
             } else {
-                Grade grade = new Grade();
-                grade.assessment = assessment;
-                grade.student = student;
+                Grade grade = newGrade(assessment, student);
                 grade.value = enteredValue;
+                grade.absence = absence;
                 grade.persist();
             }
         }
 
-        return Response.ok(averagePayload(subject, student, assessment, enteredValue)).build();
+        return Response.ok(averagePayload(subject, student, assessment, enteredValue, absence)).build();
+    }
+
+    private static Grade newGrade(Assessment assessment, Student student) {
+        Grade grade = new Grade();
+        grade.assessment = assessment;
+        grade.student = student;
+        return grade;
     }
 
     /**
@@ -495,7 +751,7 @@ public class GradeGridResource {
      * see {@code updateAverageRow}'s {@code data-scope} handling in {@code notenfuchs.js}.
      */
     private CellSaveResponse averagePayload(Subject subject, Student student, Assessment assessment,
-                                             BigDecimal enteredValue) {
+                                             BigDecimal enteredValue, Absence absence) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subject.id);
         List<CategoryColumns> allColumns = new ArrayList<>();
         for (GradeCategory category : categories) {
@@ -515,7 +771,7 @@ public class GradeGridResource {
             h2Average = subjectAveragesForBlock(split.h2(), singleStudent, subject, grades).get(0);
         }
 
-        List<Grade> assessmentGrades = Grade.list("assessment.id", assessment.id);
+        List<Grade> assessmentGrades = Grade.list("assessment.id = ?1 and student.leftOn is null", assessment.id);
         List<BigDecimal> assessmentValues = assessmentGrades.stream()
                 .map(g -> effectiveGradeValue(g, assessment, subject.gradeScale))
                 .filter(java.util.Objects::nonNull)
@@ -523,7 +779,7 @@ public class GradeGridResource {
         SubjectAverageResult assessmentAverage = gradeService.calculateAssessmentAverage(
                 assessmentValues, subject.gradeScale, subject.roundingMode);
 
-        String displayValue = enteredValue != null ? plain(enteredValue) : "";
+        String displayValue = cellText(enteredValue != null ? plain(enteredValue) : null, absence);
         String derivedGradeDisplay = null;
         if (assessment.pointsBased && enteredValue != null) {
             BigDecimal derived = pointsConversionService.convert(enteredValue,
@@ -551,7 +807,7 @@ public class GradeGridResource {
      * {@link Grade#points} via {@link PointsConversionService} for a points-based one - never a
      * stored/frozen number, so editing the points or the bands is reflected immediately.
      */
-    private BigDecimal effectiveGradeValue(Grade grade, Assessment assessment, GradeScale scale) {
+    BigDecimal effectiveGradeValue(Grade grade, Assessment assessment, GradeScale scale) {
         if (assessment.pointsBased) {
             if (grade.points == null) {
                 return null;
@@ -582,7 +838,7 @@ public class GradeGridResource {
      * one {@code Grade.find} per cell - both the HTML grid and the Halbjahr split view otherwise
      * re-query the same rows once for the cell display and again for the average calculation.
      */
-    private static Map<GradeKey, Grade> gradesByKey(List<Grade> grades) {
+    static Map<GradeKey, Grade> gradesByKey(List<Grade> grades) {
         Map<GradeKey, Grade> byKey = new HashMap<>();
         for (Grade grade : grades) {
             byKey.put(new GradeKey(grade.assessment.id, grade.student.id), grade);
@@ -590,7 +846,7 @@ public class GradeGridResource {
         return byKey;
     }
 
-    private static String plain(BigDecimal value) {
+    static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
     }
 
@@ -650,16 +906,16 @@ public class GradeGridResource {
             sheet.addMergedRegion(new CellRangeAddress(0, 1, avgFinalCol, avgFinalCol));
 
             int rowNum = 2;
-            for (RowView row : data.rows()) {
+            // Students who left come last, marked, since their grades may still be needed for a report.
+            List<RowView> exportRows = new ArrayList<>(data.rows());
+            exportRows.addAll(data.leftRows());
+            for (RowView row : exportRows) {
                 Row xlsxRow = sheet.createRow(rowNum++);
-                xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
+                xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
                 List<CellView> cells = row.cells();
                 for (int i = 0; i < cells.size(); i++) {
                     CellView cell = cells.get(i);
-                    String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
-                    if (exportValue != null) {
-                        xlsxRow.createCell(1 + i).setCellValue(new BigDecimal(exportValue).doubleValue());
-                    }
+                    writeCell(xlsxRow, 1 + i, cell);
                 }
                 if (row.rawAverage() != null) {
                     xlsxRow.createCell(avgRawCol).setCellValue(row.rawAverage().doubleValue());
@@ -754,9 +1010,11 @@ public class GradeGridResource {
             writeAverageHeader(sheet, categoryRow, jahrAvgRawCol, jahrAvgFinalCol, headerStyle);
 
             int rowNum = 3;
-            for (HalfYearRowView row : data.rows()) {
+            List<HalfYearRowView> exportRows = new ArrayList<>(data.rows());
+            exportRows.addAll(data.leftRows());
+            for (HalfYearRowView row : exportRows) {
                 Row xlsxRow = sheet.createRow(rowNum++);
-                xlsxRow.createCell(studentCol).setCellValue(row.student().effectiveName());
+                xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
                 writeCells(xlsxRow, row.undatedCells(), undatedStartCol);
                 writeCells(xlsxRow, row.h1Cells(), h1StartCol);
                 writeAverageWithLabel(xlsxRow, h1AvgRawCol, h1AvgFinalCol, row.h1RawAverage(), row.h1DisplayLabel());
@@ -818,11 +1076,17 @@ public class GradeGridResource {
 
     private void writeCells(Row xlsxRow, List<CellView> cells, int startCol) {
         for (int i = 0; i < cells.size(); i++) {
-            CellView cell = cells.get(i);
-            String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
-            if (exportValue != null) {
-                xlsxRow.createCell(startCol + i).setCellValue(new BigDecimal(exportValue).doubleValue());
-            }
+            writeCell(xlsxRow, startCol + i, cells.get(i));
+        }
+    }
+
+    /** A grade stays a number so Excel can calculate with it; an absence without a grade becomes its letter. */
+    private static void writeCell(Row xlsxRow, int col, CellView cell) {
+        String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
+        if (exportValue != null) {
+            xlsxRow.createCell(col).setCellValue(new BigDecimal(exportValue).doubleValue());
+        } else if (cell.absence() != null) {
+            xlsxRow.createCell(col).setCellValue(cell.absence().code);
         }
     }
 
@@ -868,6 +1132,10 @@ public class GradeGridResource {
         }
     }
 
+    private static String exportName(StudentView student, boolean left) {
+        return left ? student.effectiveName() + " (ausgetreten)" : student.effectiveName();
+    }
+
     private static void setHeaderCell(Row row, int col, String value, CellStyle style) {
         Cell cell = row.createCell(col);
         cell.setCellValue(value);
@@ -885,12 +1153,13 @@ public class GradeGridResource {
     // ---- View models for the Qute template (and the .xlsx export, which reuses them) ----
 
     /** Lookup key for {@link #gradesByKey}, indexing a subject's grades by (assessment, student). */
-    private record GradeKey(Long assessmentId, Long studentId) {
+    record GradeKey(Long assessmentId, Long studentId) {
     }
 
     /** Everything needed to render either the HTML grid or the .xlsx export - see {@link #loadGridData(Subject)}. */
     private record GridData(List<CategoryColumns> categoryColumns, List<Student> students, List<RowView> rows,
-                             List<CategoryFooter> categoryFooters, int maxCol, int maxRow, boolean gridEmpty) {
+                             List<RowView> leftRows, List<CategoryFooter> categoryFooters, int maxCol, int maxRow,
+                             boolean gridEmpty) {
     }
 
     public record CategoryColumns(GradeCategory category, List<Assessment> assessments) {
@@ -909,8 +1178,20 @@ public class GradeGridResource {
      * @param derivedGradeDisplay only set for a points-based assessment with a grade entered -
      *                            the grade derived live from displayValue via the Notenschlüssel
      */
-    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue,
-                            boolean pointsBased, String derivedGradeDisplay) {
+    /** {@code displayValue} is the number only (the xlsx export parses it); {@link #inputValue} adds the absence letter. */
+    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue, Absence absence,
+                            boolean pointsBased, String derivedGradeDisplay, boolean due, boolean open) {
+        public String inputValue() {
+            return cellText(displayValue, absence);
+        }
+    }
+
+    /** What a grade cell shows and accepts back: "2.3", "6 u", "e" or "". */
+    static String cellText(String number, Absence absence) {
+        if (absence == null) {
+            return number != null ? number : "";
+        }
+        return number != null ? number + " " + absence.code : absence.code;
     }
 
     public record RowView(int rowIndex, StudentView student, List<CellView> cells,
@@ -951,7 +1232,7 @@ public class GradeGridResource {
                                      List<CategoryColumns> h1Columns, int h1HeaderColspan,
                                      List<CategoryColumns> h2Columns, int h2HeaderColspan,
                                      List<Student> students, List<HalfYearRowView> rows,
-                                     List<CategoryFooter> undatedFooters, List<CategoryFooter> h1Footers,
+                                     List<HalfYearRowView> leftRows, List<CategoryFooter> undatedFooters, List<CategoryFooter> h1Footers,
                                      List<CategoryFooter> h2Footers, int maxCol, int maxRow, boolean gridEmpty) {
     }
 

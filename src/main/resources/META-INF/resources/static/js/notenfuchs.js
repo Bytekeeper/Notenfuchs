@@ -144,8 +144,9 @@
             const rawValue = input.value;
             const normalized = normalizeValue(rawValue);
 
+            // Start from what the page was rendered with, so clearing a pre-filled cell is a change.
             if (input.dataset.lastSaved === undefined) {
-                input.dataset.lastSaved = "";
+                input.dataset.lastSaved = normalizeValue(input.defaultValue);
             }
             if (normalized === input.dataset.lastSaved) {
                 // nothing changed since last save/load
@@ -196,6 +197,7 @@
                             input.value = data.displayValue;
                         }
                         updateDerivedGrade(input, data);
+                        updateOpenState(input);
                     }
                 })
                 .catch(function (err) {
@@ -243,6 +245,15 @@
             const display = data && data.derivedGradeDisplay ? data.derivedGradeDisplay : "";
             if (indicator) indicator.textContent = display;
             if (arrow) arrow.textContent = display ? "→" : "";
+        }
+
+        // Only cells of a Leistung whose date has come carry data-due; see GradeGridResource#isDue.
+        function updateOpenState(input) {
+            const cell = input.closest("td.grade-cell");
+            if (!cell) return;
+            cell.classList.toggle("grade-cell-absent", /^[eu]|[eu]$/i.test(input.value.trim()));
+            if (cell.dataset.due !== "true") return;
+            cell.classList.toggle("grade-cell-open", input.value.trim() === "");
         }
 
         function updateAssessmentAverage(data) {
@@ -404,8 +415,9 @@
             const rawValue = input.value;
             const normalized = normalizeValue(rawValue);
 
+            // Start from what the page was rendered with, so clearing a pre-filled cell is a change.
             if (input.dataset.lastSaved === undefined) {
-                input.dataset.lastSaved = "";
+                input.dataset.lastSaved = normalizeValue(input.defaultValue);
             }
             if (normalized === input.dataset.lastSaved) {
                 // nothing changed since last save/load
@@ -439,6 +451,7 @@
                     if (data && typeof data.displayValue === "string") {
                         input.value = data.displayValue;
                     }
+                    input.closest("td").classList.toggle("grade-cell-open", input.value.trim() === "");
                     updateStudentAverage(studentId, data);
                     updateSubjectAverage(data);
                 })
@@ -813,3 +826,194 @@
         }
     });
 })();
+
+/**
+ * Add/edit a Leistung straight from the grade table: "+" in a category header opens the dialog
+ * empty, clicking a column header opens it filled in. Saving is a plain form POST; the server
+ * redirects back with ?focus=<assessmentId>, and the cursor lands in that column's first cell.
+ */
+(function () {
+    "use strict";
+
+    function today() {
+        var d = new Date();
+        var pad = function (n) { return String(n).padStart(2, "0"); };
+        return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    }
+
+    function initAssessmentDialog(dialog) {
+        var form = dialog.querySelector("form");
+        var baseUrl = dialog.dataset.baseUrl;
+        var title = dialog.querySelector(".assessment-dialog-title");
+        var categoryLabel = dialog.querySelector(".assessment-dialog-category");
+        var deleteButton = dialog.querySelector(".assessment-dialog-delete");
+        var pointsWarning = dialog.querySelector(".assessment-dialog-points-warning");
+        var bandsEditor = dialog.querySelector(".assessment-dialog-bands");
+        var bandRows = bandsEditor.querySelector("tbody");
+        var bandRowTemplate = dialog.querySelector(".band-row-template");
+        var preview = dialog.querySelector(".assessment-dialog-preview");
+        var pointsBox = form.elements.pointsBased;
+        var originalPointsBased = null;
+        var previewUrl = null;
+        var previewTimer = null;
+
+        function addBandRow(points, grade) {
+            var row = bandRowTemplate.content.firstElementChild.cloneNode(true);
+            row.querySelector('[name="bandPoints"]').value = points || "";
+            row.querySelector('[name="bandGrades"]').value = grade || "";
+            bandRows.appendChild(row);
+        }
+
+        // Hidden inputs would still be submitted (and checked), so the editor's are disabled while hidden.
+        function showBandsEditor(show) {
+            bandsEditor.hidden = !show;
+            bandsEditor.querySelectorAll("input").forEach(function (input) { input.disabled = !show; });
+            if (show) {
+                schedulePreview();
+            }
+        }
+
+        function schedulePreview() {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(loadPreview, 250);
+        }
+
+        function loadPreview() {
+            if (!previewUrl || bandsEditor.hidden) return;
+            var body = new URLSearchParams();
+            var complete = true;
+            bandRows.querySelectorAll("tr").forEach(function (row) {
+                var points = row.querySelector('[name="bandPoints"]').value;
+                var grade = row.querySelector('[name="bandGrades"]').value;
+                if (points === "" || grade === "") complete = false;
+                body.append("bandPoints", points);
+                body.append("bandGrades", grade);
+            });
+            if (!complete) return;
+            fetch(previewUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body.toString()
+            })
+                .then(function (resp) { return resp.ok ? resp.json() : null; })
+                .then(function (data) {
+                    if (!data) {
+                        preview.textContent = "Notenschlüssel unvollständig oder ungültig.";
+                    } else if (data.average === null) {
+                        preview.textContent = "Notenspiegel: noch keine Punkte eingetragen.";
+                    } else {
+                        preview.textContent = "Notenspiegel: " + data.distribution
+                            .map(function (d) { return d.grade + ": " + d.count; })
+                            .join(" · ") + " · Ø " + data.average;
+                    }
+                });
+        }
+
+        function open(data) {
+            var editing = Boolean(data.assessmentId);
+            form.reset();
+            form.action = editing ? baseUrl + "/" + data.assessmentId : baseUrl;
+            form.elements.categoryId.value = data.categoryId || "";
+            title.textContent = editing ? "Leistung bearbeiten" : "Neue Leistung";
+            categoryLabel.textContent = "Kategorie: " + data.categoryName;
+            form.elements.name.value = data.name || "";
+            form.elements.date.value = editing ? (data.date || "") : today();
+            form.elements.factor.value = data.factor || "1.0";
+            pointsBox.checked = data.pointsBased === "true";
+            form.elements.roundingMode.value = data.roundingMode || "IN_FAVOR_OF_STUDENT";
+            originalPointsBased = editing ? pointsBox.checked : null;
+            deleteButton.hidden = !editing;
+            deleteButton.formAction = editing ? baseUrl + "/" + data.assessmentId + "/delete" : "";
+            deleteButton.dataset.name = data.name || "";
+            previewUrl = editing ? baseUrl + "/" + data.assessmentId + "/band-preview" : null;
+            bandRows.innerHTML = "";
+            preview.textContent = "";
+            (data.bands || "").split(";").filter(Boolean).forEach(function (band) {
+                var parts = band.split(":");
+                addBandRow(parts[0], parts[1]);
+            });
+            showBandsEditor(editing && pointsBox.checked);
+            pointsWarning.hidden = true;
+            dialog.showModal();
+            form.elements.name.focus();
+        }
+
+        document.addEventListener("click", function (ev) {
+            var add = ev.target.closest(".column-add");
+            if (add) {
+                open({ categoryId: add.dataset.categoryId, categoryName: add.dataset.categoryName });
+                return;
+            }
+            var edit = ev.target.closest(".column-edit");
+            if (edit) {
+                open(edit.dataset);
+            }
+        });
+
+        pointsBox.addEventListener("change", function () {
+            pointsWarning.hidden = originalPointsBased === null || pointsBox.checked === originalPointsBased;
+            // Only an existing points-based Leistung has bands to edit; a new switch gets default bands.
+            showBandsEditor(originalPointsBased === true && pointsBox.checked);
+        });
+
+        dialog.querySelector(".assessment-dialog-add-band").addEventListener("click", function () {
+            addBandRow("", "");
+            showBandsEditor(true);
+            bandRows.lastElementChild.querySelector("input").focus();
+        });
+
+        bandsEditor.addEventListener("click", function (ev) {
+            var remove = ev.target.closest(".band-remove");
+            if (remove && bandRows.children.length > 1) {
+                remove.closest("tr").remove();
+                schedulePreview();
+            }
+        });
+
+        bandsEditor.addEventListener("input", schedulePreview);
+
+        deleteButton.addEventListener("click", function (ev) {
+            var message = "Leistung '" + deleteButton.dataset.name + "' wirklich löschen? Das löscht auch alle zugehörigen Noten.";
+            if (!window.confirm(message)) {
+                ev.preventDefault();
+            }
+        });
+
+        dialog.querySelector(".assessment-dialog-cancel").addEventListener("click", function () {
+            dialog.close();
+        });
+    }
+
+    function focusRequestedColumn() {
+        var params = new URLSearchParams(window.location.search);
+        var assessmentId = params.get("focus");
+        if (!assessmentId) {
+            return;
+        }
+        // Drop the parameter so a later reload doesn't jump back to this column.
+        window.history.replaceState(null, "", window.location.pathname);
+        var input = document.querySelector(
+            '.grade-grid-root input[data-row="0"][data-assessment-id="' + CSS.escape(assessmentId) + '"]');
+        if (input) {
+            input.scrollIntoView({ block: "nearest", inline: "center" });
+            input.focus();
+            input.select();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var dialog = document.getElementById("assessment-dialog");
+        if (dialog) {
+            initAssessmentDialog(dialog);
+        }
+        focusRequestedColumn();
+    });
+})();
+
+/** Fach header: switching keeps the current tab (Notenerfassung, Leistungen & Gewichtung, Lehrkräfte). */
+document.addEventListener("change", function (ev) {
+    const select = ev.target.closest(".subject-switcher select");
+    if (select) {
+        window.location.href = "/subjects/" + select.value + (select.dataset.tabPath || "");
+    }
+});

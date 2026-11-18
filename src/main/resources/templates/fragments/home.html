@@ -1,4 +1,20 @@
-<div id="class-list-fragment">
+<div id="home-fragment">
+    {#if !mySubjects.isEmpty}
+        <h2>Meine Fächer</h2>
+        <div class="class-grid">
+            {#for s in mySubjects}
+                <a class="class-card" href="/subjects/{s.id}/grid">
+                    <span class="class-name">{s.schoolClass.name} – {s.name}</span>
+                    <span class="class-year">{s.schoolClass.schoolYear}</span>
+                    {#let open=openGradesBySubject.get(s.id)}
+                    {#if open}<span class="open-badge">{open}</span>{/if}
+                    {/let}
+                </a>
+            {/for}
+        </div>
+    {/if}
+
+    <h2>Meine Klassen</h2>
     {#if yearGroups.isEmpty}
         <p class="hint">Noch keine Klassen angelegt.</p>
     {#else}
@@ -14,12 +30,12 @@
                                 <div class="class-year">{c.schoolYear}</div>
                                 <div class="card-actions">
                                     <button type="button" class="rename-toggle">Ändern</button>
-                                    <form hx-delete="/classes/{c.id}" hx-target="#class-list-fragment" hx-swap="outerHTML" hx-confirm="Klasse '{c.name}' wirklich löschen? Das löscht auch alle Schüler, Fächer und Noten dieser Klasse.">
+                                    <form hx-delete="/classes/{c.id}" hx-target="#home-fragment" hx-swap="outerHTML" hx-confirm="Klasse '{c.name}' wirklich löschen? Das löscht auch alle Schüler, Fächer und Noten dieser Klasse.">
                                         <button type="submit" class="delete-btn">Löschen</button>
                                     </form>
                                 </div>
                             </div>
-                            <form class="rename-form" hx-patch="/classes/{c.id}/rename" hx-target="#class-list-fragment" hx-swap="outerHTML">
+                            <form class="rename-form" hx-patch="/classes/{c.id}/rename" hx-target="#home-fragment" hx-swap="outerHTML">
                                 <input type="text" name="name" value="{c.name}" required>
                                 <input type="text" name="schoolYear" value="{c.schoolYear}" data-original="{c.schoolYear}" required>
                                 <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>

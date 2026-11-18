@@ -90,6 +90,43 @@ class ClassOverviewIT {
     }
 
     @Test
+    void overview_marksAtRiskGradesAndCountsWhatIsStillMissing() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Risk-Klasse-" + unique, "2025/26");
+        Long subjectId = createSubject(classId, "Risk-Fach-" + unique);
+        Long weakId = createStudent(classId, "Risk-Schwach-" + unique);
+        createStudent(classId, "Risk-Ohne-" + unique);
+
+        // One due Leistung: the first student has a 5 (at risk on DE 1-6), the second nothing yet.
+        QuarkusTransaction.requiringNew().run(() -> {
+            GradeCategory category = new GradeCategory();
+            category.subject = Subject.<Subject>findById(subjectId);
+            category.name = "Schriftlich";
+            category.weightPercent = new BigDecimal("100");
+            category.persist();
+            Assessment assessment = new Assessment();
+            assessment.category = category;
+            assessment.name = "Klassenarbeit 1";
+            assessment.factor = BigDecimal.ONE;
+            assessment.date = java.time.LocalDate.now().minusDays(1);
+            assessment.persist();
+            Grade grade = new Grade();
+            grade.assessment = assessment;
+            grade.student = Student.<Student>findById(weakId);
+            grade.value = new BigDecimal("5");
+            grade.persist();
+        });
+
+        String html = get("/classes/" + classId + "/overview").body();
+
+        assertTrue(html.contains("average-cell at-risk"), html);
+        assertTrue(html.contains("<strong>1</strong> Schüler ist in mindestens einem Fach gefährdet"));
+        // Footer: one grade and two Verhaltensnoten still missing in the one Fach.
+        assertTrue(html.contains("status-open\">1</td>"), html);
+        assertTrue(html.contains("status-open\">2</td>"), html);
+    }
+
+    @Test
     void overview_classLevelFachlehrer_isRejected() throws Exception {
         String unique = Long.toString(System.nanoTime());
         Long classId = QuarkusTransaction.requiringNew().call(() -> {

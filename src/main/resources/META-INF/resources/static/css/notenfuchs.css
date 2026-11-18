@@ -84,6 +84,23 @@ h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--color-text-muted); 
 }
 .breadcrumbs a { color: var(--color-text-muted); text-decoration: underline; }
 
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    margin: 0 0 1rem;
+}
+.tabs a {
+    padding: 0.5rem 0;
+    margin-bottom: -1px;
+    color: var(--color-text-muted);
+    border-bottom: 2px solid transparent;
+}
+.tabs a:hover { color: var(--color-text); text-decoration: none; }
+.tabs a.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+.tabs a.tabs-aside { margin-left: auto; }
+
 .card {
     background: var(--color-surface);
     border-radius: var(--radius);
@@ -227,7 +244,7 @@ button.danger:hover { background: var(--color-error); color: white; }
     margin-top: 0;
 }
 
-.rename-toggle, .rename-save, .rename-cancel {
+.rename-toggle, .rename-save, .rename-cancel, .row-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -241,7 +258,7 @@ button.danger:hover { background: var(--color-error); color: white; }
     cursor: pointer;
     white-space: nowrap;
 }
-.rename-toggle:hover, .rename-save:hover, .rename-cancel:hover { background: var(--color-tonal-hover); }
+.rename-toggle:hover, .rename-save:hover, .rename-cancel:hover, .row-btn:hover { background: var(--color-tonal-hover); }
 
 .hint {
     font-size: 0.85rem;
@@ -273,6 +290,9 @@ button.danger:hover { background: var(--color-error); color: white; }
 .class-card .class-name { font-weight: 600; font-size: 1.05rem; }
 .class-card .class-name:hover { text-decoration: none; color: var(--color-primary-dark); }
 .class-card .class-year { color: var(--color-text-muted); font-size: 0.85rem; }
+a.class-card:hover { text-decoration: none; }
+a.class-card .class-name, a.class-card .class-year { display: block; }
+a.class-card:hover .class-name { color: var(--color-primary-dark); }
 
 .year-heading {
     font-size: 0.72rem;
@@ -282,7 +302,7 @@ button.danger:hover { background: var(--color-error); color: white; }
     color: var(--color-text-muted);
     margin: 1.5rem 0 0.6rem;
 }
-.year-heading:first-child { margin-top: 0; }
+.year-heading:first-child, h2 + .year-heading { margin-top: 0; }
 
 .card-actions, .row-actions {
     display: flex;
@@ -607,4 +627,108 @@ td.average-cell.borderline {
 
 td.average-cell.borderline .behavior-average-raw {
     color: #8f6a00;
+}
+
+/* Add/edit a Leistung from the grade table (GridPage/assessmentDialog.html). */
+table.grade-grid th .column-add {
+    margin-left: 0.4rem;
+    padding: 0 0.45rem;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    background: var(--color-surface);
+    color: var(--color-primary);
+    border-radius: var(--radius);
+}
+table.grade-grid th .column-add:hover { background: var(--color-primary); color: white; }
+table.grade-grid th .column-edit {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: underline dotted var(--color-text-muted);
+    text-underline-offset: 3px;
+    border-radius: 0;
+}
+table.grade-grid th .column-edit:hover { color: var(--color-primary); }
+.empty-grid-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.assessment-dialog {
+    border: none;
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    width: min(26rem, calc(100vw - 2rem));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+.assessment-dialog::backdrop { background: rgba(0, 0, 0, 0.3); }
+.assessment-dialog h2 { margin: 0 0 0.25rem; }
+.assessment-dialog .form-field { margin-bottom: 0.75rem; }
+.assessment-dialog .form-field input[type="text"],
+.assessment-dialog .form-field input[type="date"],
+.assessment-dialog .form-field input[type="number"],
+.assessment-dialog .form-field select { width: 100%; box-sizing: border-box; }
+.assessment-dialog-actions { display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; }
+.assessment-dialog-actions .assessment-dialog-delete { margin-left: auto; }
+
+/* Missing grades: an empty cell of a Leistung whose date has come. */
+table.grade-grid td.grade-cell-open { background: #fff6e5; }
+table.grade-grid td.grade-cell-open input { border-color: #e0b56a; }
+.class-card .open-badge {
+    display: inline-block;
+    margin-top: 0.35rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius);
+    background: #fff6e5;
+    color: var(--color-primary-dark);
+    font-size: 0.8rem;
+}
+/* Absence mark (e/u): a cool tint so it never reads like the amber "missing" highlight. */
+table.grade-grid td.grade-cell-absent { background: #e7eef8; }
+table.grade-grid td.grade-cell-absent input {
+    background: #f3f7fc;
+    border-color: #a9bedb;
+    font-style: italic;
+    color: #3d5a80;
+}
+
+/* Notenübersicht: at-risk final grades and what is still missing per Fach. */
+table.grade-grid td.at-risk { background: var(--color-error-bg); }
+table.grade-grid td.at-risk .average-final { color: var(--color-error); }
+table.grade-grid td.at-risk-count { color: var(--color-error); font-weight: 600; }
+table.grade-grid td.status-cell { color: var(--color-success); }
+table.grade-grid td.status-cell.status-open { color: var(--color-primary-dark); font-weight: 600; }
+.overview-summary { margin: 0 0 0.75rem; }
+
+/* Fach header with the "Fach wechseln" switcher on the right. */
+.subject-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.subject-switcher { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted); }
+.assessment-dialog h3 { margin: 0.5rem 0 0.25rem; font-size: 1rem; }
+.bands-editor { width: 100%; border-collapse: collapse; margin-bottom: 0.5rem; }
+.bands-editor th { text-align: left; font-size: 0.8rem; color: var(--color-text-muted); font-weight: 500; }
+.bands-editor td { padding: 0.15rem 0.25rem 0.15rem 0; }
+.bands-editor input { width: 100%; box-sizing: border-box; }
+.assessment-dialog-preview { margin-top: 0.5rem; }
+
+/* Student page in a Fach (GridPage/student.html). */
+table.grade-grid td.student-cell a { color: inherit; }
+table.grade-grid td.student-cell a:hover { color: var(--color-primary); }
+.student-page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.student-page-heading .no-print { display: flex; align-items: center; gap: 1rem; }
+.student-averages { max-width: 28rem; }
+@media print {
+    .app-header, .breadcrumbs, .tabs, .subject-switcher, .no-print { display: none !important; }
+    body { background: white; }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+}
+
+/* Students who left the class: read-only rows below the active ones. */
+table.grade-grid tbody.left-students td { color: var(--color-text-muted); }
+table.grade-grid tbody.left-students td.readonly-cell { text-align: center; font-size: 0.9rem; }
+table.grade-grid tr.left-heading td {
+    padding-top: 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-top: 2px solid var(--color-border);
 }

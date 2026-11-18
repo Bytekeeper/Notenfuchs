@@ -80,10 +80,12 @@ public class BehaviorGridResource {
                 .data("schoolClass", schoolClass)
                 .data("subjects", data.subjects())
                 .data("rows", data.rows())
+                .data("leftRows", data.leftRows())
                 .data("subjectFooters", data.subjectFooters())
                 .data("maxCol", data.maxCol())
                 .data("maxRow", data.maxRow())
-                .data("gridEmpty", data.gridEmpty()));
+                .data("gridEmpty", data.gridEmpty())
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject)));
     }
 
     private GridData loadGridData(SchoolClass schoolClass, String currentSubject) {
@@ -102,6 +104,7 @@ public class BehaviorGridResource {
         }
 
         List<RowView> rows = new ArrayList<>();
+        List<RowView> leftRows = new ArrayList<>();
         int rowIndex = 0;
         for (Student student : students) {
             List<CellView> cells = new ArrayList<>();
@@ -112,16 +115,24 @@ public class BehaviorGridResource {
                 String displayValue = grade != null ? plain(grade.value) : null;
                 if (grade != null) {
                     studentValues.add(grade.value);
-                    columnValues.get(colIndex).add(grade.value);
+                    // A student who left is shown read-only but not counted in the Fach average.
+                    if (!student.hasLeft()) {
+                        columnValues.get(colIndex).add(grade.value);
+                    }
                 }
                 cells.add(new CellView(colIndex, subject.id, displayValue, guard.teachesSubject(subject, currentSubject)));
                 colIndex++;
             }
             BigDecimal rowAverage = behaviorGradeService.average(studentValues);
             boolean borderline = behaviorGradeService.isBorderline(rowAverage);
-            rows.add(new RowView(rowIndex, new StudentView(student.id, student.effectiveName()),
-                    cells, rowAverage, borderline));
-            rowIndex++;
+            RowView row = new RowView(rowIndex, new StudentView(student.id, student.effectiveName()),
+                    cells, rowAverage, borderline);
+            if (student.hasLeft()) {
+                leftRows.add(row);
+            } else {
+                rows.add(row);
+                rowIndex++;
+            }
         }
 
         List<SubjectFooter> subjectFooters = new ArrayList<>();
@@ -133,10 +144,10 @@ public class BehaviorGridResource {
         }
 
         int maxCol = Math.max(0, subjects.size() - 1);
-        int maxRow = Math.max(0, students.size() - 1);
+        int maxRow = Math.max(0, rows.size() - 1);
         boolean gridEmpty = subjects.isEmpty();
 
-        return new GridData(subjects, rows, subjectFooters, maxCol, maxRow, gridEmpty);
+        return new GridData(subjects, rows, leftRows, subjectFooters, maxCol, maxRow, gridEmpty);
     }
 
     @POST
@@ -154,6 +165,9 @@ public class BehaviorGridResource {
         Subject subject = guard.requireTeachesSubject(subjectId, currentSubject);
         if (!student.schoolClass.id.equals(schoolClass.id) || !subject.schoolClass.id.equals(schoolClass.id)) {
             throw new NotFoundException();
+        }
+        if (student.hasLeft()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Schüler ist ausgetreten").build();
         }
 
         BehaviorGrade existing = BehaviorGrade.find("student.id = ?1 and subject.id = ?2",
@@ -203,7 +217,7 @@ public class BehaviorGridResource {
      * {@link BehaviorGradeService}).
      */
     private CellSaveResponse cellSaveResponse(Student student, Subject subject, BigDecimal enteredValue) {
-        List<BehaviorGrade> subjectGrades = BehaviorGrade.list("subject.id", subject.id);
+        List<BehaviorGrade> subjectGrades = BehaviorGrade.list("subject.id = ?1 and student.leftOn is null", subject.id);
         List<BigDecimal> subjectValues = subjectGrades.stream().map(g -> g.value).toList();
         SubjectAverageResult subjectAverage = gradeService.calculateAssessmentAverage(
                 subjectValues, subject.gradeScale, subject.roundingMode);
@@ -231,7 +245,7 @@ public class BehaviorGridResource {
     private record GradeKey(Long subjectId, Long studentId) {
     }
 
-    private record GridData(List<Subject> subjects, List<RowView> rows,
+    private record GridData(List<Subject> subjects, List<RowView> rows, List<RowView> leftRows,
                              List<SubjectFooter> subjectFooters, int maxCol, int maxRow, boolean gridEmpty) {
     }
 

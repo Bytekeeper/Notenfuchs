@@ -61,7 +61,12 @@ services:
       INTERNAL_APP_URL: http://pocket-id:1411
       ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY}
       ALLOW_USER_SIGNUPS: withToken
+      # With UI_CONFIG_DISABLED, Pocket ID takes its settings from here, not its admin UI.
       UI_CONFIG_DISABLED: "true"
+      # Where Pocket ID sends people after they sign in to it, which includes right after
+      # signing up with a signup token - so new teachers land in Notenfuchs, not on their
+      # Pocket ID account page.
+      HOME_PAGE_URL: ${NOTENFUCHS_APP_URL:-http://localhost:8080}/
       TRUST_PROXY: ${TRUST_PROXY:-false}
     ports:
       # This overlay assumes Pocket ID sits behind your own reverse proxy

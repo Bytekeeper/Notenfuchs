@@ -67,6 +67,10 @@ public class SubjectUiResource {
     Template detailTemplate;
 
     @Inject
+    @Location("SubjectPage/teachers.html")
+    Template teachersTemplate;
+
+    @Inject
     @Location("fragments/categoryList.html")
     Template categoryListFragment;
 
@@ -82,9 +86,20 @@ public class SubjectUiResource {
         CategoryListData data = categoryListData(id);
         return currentUser.withUser(detailTemplate
                 .data("subject", subject)
+                .data("switchSubjects", switchSubjects(subject))
                 .data("categories", data.categories())
                 .data("weightSum", data.weightSum())
-                .data("weightSumWarning", data.weightSumWarning())
+                .data("weightSumWarning", data.weightSumWarning()));
+    }
+
+    @GET
+    @Path("/{id}/teachers")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance teachersPage(@PathParam("id") Long id) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        return currentUser.withUser(teachersTemplate
+                .data("subject", subject)
+                .data("switchSubjects", switchSubjects(subject))
                 .data("subjectTeachers", subjectTeachersWithResolvedLabels(id))
                 .data("availableTeachers", availableTeachers(id))
                 .data("currentUserSubject", currentUser.effectiveSubject()));
@@ -266,6 +281,18 @@ public class SubjectUiResource {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
+        createAssessment(category, subject.gradeScale, name, date, factor, pointsBasedRaw, roundingModeRaw);
+        return categoryFragment(subject);
+    }
+
+    /** Shared with {@code GradeGridResource}: the Fach header's switcher lists the viewer's Fächer of the same year. */
+    List<Subject> switchSubjects(Subject subject) {
+        return guard.listTaughtSubjectsInYear(currentUser.effectiveSubject(), subject.schoolClass.schoolYear);
+    }
+
+    /** Shared with the grade table ({@code GradeGridResource}) so both create a Leistung the same way. */
+    Assessment createAssessment(GradeCategory category, GradeScale scale, String name, LocalDate date,
+                                BigDecimal factor, String pointsBasedRaw, String roundingModeRaw) {
         boolean pointsBased = isChecked(pointsBasedRaw);
         Assessment assessment = new Assessment();
         assessment.category = category;
@@ -276,9 +303,9 @@ public class SubjectUiResource {
         assessment.roundingMode = parseRoundingMode(roundingModeRaw);
         assessment.persist();
         if (pointsBased) {
-            seedDefaultBands(assessment, subject.gradeScale);
+            seedDefaultBands(assessment, scale);
         }
-        return categoryFragment(subject);
+        return assessment;
     }
 
     @DELETE
@@ -323,6 +350,13 @@ public class SubjectUiResource {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
+        updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
+        return categoryFragment(subject);
+    }
+
+    /** Shared with the grade table ({@code GradeGridResource}); see {@link #renameAssessment} for the rules. */
+    void updateAssessment(Assessment assessment, GradeScale scale, String name, BigDecimal factor,
+                          String pointsBasedRaw, String roundingModeRaw, LocalDate date) {
         if (name != null && !name.isBlank()) {
             assessment.name = name;
         }
@@ -331,15 +365,16 @@ public class SubjectUiResource {
         }
         boolean pointsBased = isChecked(pointsBasedRaw);
         if (pointsBased != assessment.pointsBased) {
-            Grade.delete("assessment.id", assessment.id);
+            // A grade entered in one mode means nothing in the other; an absence still happened.
+            Grade.delete("assessment.id = ?1 and absence is null", assessment.id);
+            Grade.update("value = null, points = null where assessment.id = ?1", assessment.id);
         }
         assessment.pointsBased = pointsBased;
         assessment.roundingMode = parseRoundingMode(roundingModeRaw);
         if (pointsBased && PointsGradeBand.count("assessment.id", assessment.id) == 0) {
-            seedDefaultBands(assessment, subject.gradeScale);
+            seedDefaultBands(assessment, scale);
         }
         assessment.date = date;
-        return categoryFragment(subject);
     }
 
     @POST

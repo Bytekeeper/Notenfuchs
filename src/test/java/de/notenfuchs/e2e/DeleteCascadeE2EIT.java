@@ -67,6 +67,7 @@ class DeleteCascadeE2EIT {
         page.locator("#roundingMode").selectOption("COMMERCIAL");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
@@ -83,7 +84,7 @@ class DeleteCascadeE2EIT {
         cell0.fill("2");
         cell0.evaluate("el => el.blur()");
 
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator row = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName))
                 .locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
 
@@ -121,6 +122,7 @@ class DeleteCascadeE2EIT {
         page.locator("#roundingMode").selectOption("COMMERCIAL");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
@@ -135,7 +137,7 @@ class DeleteCascadeE2EIT {
         cell0.fill("2");
         cell0.evaluate("el => el.blur()");
 
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator card = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
 
         page.onDialog(dialog -> dialog.accept());

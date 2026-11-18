@@ -113,15 +113,14 @@ class ReadmeScreenshotIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Demo-Klasse 8b").setExact(true)).click();
         assertThat(page.getByRole(AriaRole.HEADING, new Page.GetByRoleOptions().setName("Demo-Klasse 8b"))).isVisible();
 
-        // Viewport-only (not full-page): the further-down admin sections (Verhaltensnoten,
-        // Notenübersicht, Klasseneinstellungen, Lehrkräfte) are real but would clutter a
-        // README "hero" screenshot - this crops to the Fächer/Schüler management view above
-        // the fold, like a product screenshot rather than an exhaustive page dump.
+        // Viewport-only (not full-page): crops to the Fächer/Schüler view above the fold, like a
+        // product screenshot rather than an exhaustive page dump.
         screenshotViewport("class-detail");
 
         setHalfYearCutoff(HALF_YEAR_CUTOFF);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Mathematik")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         setAssessmentDate("Klassenarbeit 1", KLASSENARBEIT_1_DATE);
         setAssessmentDate("Mitarbeit 1. Halbjahr", MITARBEIT_DATE);
         setAssessmentDate("Klassenarbeit 2 (Punkte)", KLASSENARBEIT_2_DATE);
@@ -133,10 +132,12 @@ class ReadmeScreenshotIT {
     }
 
     private void setHalfYearCutoff(String isoDate) {
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
         page.locator("#half-year-cutoff-fragment .rename-toggle").click();
         page.locator("#half-year-cutoff-fragment input[name='halfYearCutoff']").fill(isoDate);
         page.locator("#half-year-cutoff-fragment .rename-save").click();
         assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText(isoDate);
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Fächer & Schüler")).click();
     }
 
     private void setAssessmentDate(String assessmentName, String isoDate) {

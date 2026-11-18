@@ -65,14 +65,15 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        // Set the Halbjahr cutoff via the rename-wrap form on the class detail page.
-        openSettingsDisclosure(page);
+        // Set the Halbjahr cutoff via the rename-wrap form on the class's settings tab.
+        openClassTab(page, "Einstellungen");
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
         cutoffWrap.locator(".rename-save").click();
         assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
 
+        openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
@@ -82,6 +83,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -174,12 +176,14 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        openSettingsDisclosure(page);
+        openClassTab(page, "Einstellungen");
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
         cutoffWrap.locator(".rename-save").click();
+        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
 
+        openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
@@ -189,6 +193,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
         // KatA and KatC each get one assessment in both halves; KatB only gets an H1 one, so
         // its H2 slot is the empty placeholder sitting between KatA's and KatC's real H2 cells.
@@ -223,16 +228,9 @@ class GradeGridHalfYearE2EIT {
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='5']")).hasValue("4");
     }
 
-    /**
-     * Ensures the class detail page's "Klasseneinstellungen" {@code <details>} is open -
-     * force-sets the DOM property rather than clicking {@code summary} (a toggle), since
-     * {@code ClassPage/detail.html} auto-opens it whenever {@code halfYearCutoff} is set or
-     * {@code halfYearGradeDisplay != WHOLE} (e.g. every newly created class, which now defaults
-     * to {@code HALF} - see {@code SchoolClass#halfYearGradeDisplay}), so a click here could just
-     * as easily close it as open it depending on that state.
-     */
-    private static void openSettingsDisclosure(Page page) {
-        page.locator(".settings-disclosure").evaluate("el => el.open = true");
+    /** The Halbjahr settings live on the class's "Einstellungen" tab, students and Fächer on the first one. */
+    private static void openClassTab(Page page, String tabName) {
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName(tabName)).click();
     }
 
     /**
@@ -290,7 +288,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        openSettingsDisclosure(page);
+        openClassTab(page, "Einstellungen");
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
@@ -313,6 +311,7 @@ class GradeGridHalfYearE2EIT {
         displayWrap.locator(".rename-save").click();
         assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten");
 
+        openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
@@ -322,6 +321,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -343,6 +343,7 @@ class GradeGridHalfYearE2EIT {
 
         // Switch back to whole grades with a +/-0.1 tendency band, then re-render the grid fresh.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        openClassTab(page, "Einstellungen");
         Locator displayWrap2 = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap2.locator(".rename-toggle").click();
         displayWrap2.locator("select[name='halfYearGradeDisplay']").selectOption("WHOLE");
@@ -355,7 +356,9 @@ class GradeGridHalfYearE2EIT {
         displayWrap2.locator(".rename-save").click();
         assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Ganze Noten (± 0.10 Tendenz)");
 
+        openClassTab(page, "Fächer & Schüler");
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
         // 2.6 rounds to the whole grade 3 (COMMERCIAL) and sits >0.1 below it on the DE 1-6
@@ -367,13 +370,16 @@ class GradeGridHalfYearE2EIT {
         // Switch to HALF while keeping the same 0.1 threshold - it's no longer forced back to
         // null (see ClassUiResource#updateHalfYearGradeDisplay).
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        openClassTab(page, "Einstellungen");
         Locator displayWrap3 = page.locator("#half-year-grade-display-fragment .rename-wrap");
         displayWrap3.locator(".rename-toggle").click();
         displayWrap3.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
         displayWrap3.locator(".rename-save").click();
         assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten (± 0.10 Tendenz)");
 
+        openClassTab(page, "Fächer & Schüler");
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
         // Same 2.6 grade as above (finalGrade 3, COMMERCIAL): HALF+0.1 refines the "+" tendency
@@ -415,7 +421,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        openSettingsDisclosure(page);
+        openClassTab(page, "Einstellungen");
         Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
@@ -426,7 +432,9 @@ class GradeGridHalfYearE2EIT {
         displayWrap.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
         displayWrap.locator("input[name='tendencyThreshold']").fill("0.10");
         displayWrap.locator(".rename-save").click();
+        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).containsText("Halbe Noten");
 
+        openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
@@ -436,6 +444,7 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

@@ -1,6 +1,6 @@
 <div id="student-list-fragment">
     {#if students.isEmpty}
-        <p class="hint">Noch keine Schüler angelegt.</p>
+        <p class="hint">{#if leftStudents.isEmpty}Noch keine Schüler angelegt.{#else}Alle Schüler sind ausgetreten.{/if}</p>
     {#else}
         <table class="entity-list">
             <thead>
@@ -31,6 +31,36 @@
                             {#if isClassAdmin}
                             <div class="row-actions">
                                 <button type="button" class="rename-toggle" data-rename-target="student-rename-{st.id}">Ändern</button>
+                                <form hx-post="/classes/{schoolClass.id}/students/{st.id}/leave" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="'{st.name}' als ausgetreten markieren? Die Noten bleiben erhalten und werden nur noch lesend angezeigt.">
+                                    <button type="submit" class="row-btn">Ausgetreten</button>
+                                </form>
+                                <form hx-delete="/classes/{schoolClass.id}/students/{st.id}" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="Schüler '{st.name}' wirklich löschen? Das löscht auch alle Noten dieses Schülers. Wer die Klasse verlassen hat, wird besser als ausgetreten markiert.">
+                                    <button type="submit" class="delete-btn">Löschen</button>
+                                </form>
+                            </div>
+                            {/if}
+                        </td>
+                    </tr>
+                {/for}
+            </tbody>
+        </table>
+    {/if}
+
+    {#if !leftStudents.isEmpty}
+        <h3>Ausgetreten</h3>
+        <p class="hint">Noten bleiben erhalten und erscheinen nur noch lesend unter den Notentabellen.</p>
+        <table class="entity-list left-student-list">
+            <tbody>
+                {#for st in leftStudents}
+                    <tr>
+                        <td>{st.name}</td>
+                        <td class="hint">seit {st.leftOn}</td>
+                        <td>
+                            {#if isClassAdmin}
+                            <div class="row-actions">
+                                <form hx-post="/classes/{schoolClass.id}/students/{st.id}/rejoin" hx-target="#student-list-fragment" hx-swap="outerHTML">
+                                    <button type="submit" class="row-btn">Wieder aufnehmen</button>
+                                </form>
                                 <form hx-delete="/classes/{schoolClass.id}/students/{st.id}" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="Schüler '{st.name}' wirklich löschen? Das löscht auch alle Noten dieses Schülers.">
                                     <button type="submit" class="delete-btn">Löschen</button>
                                 </form>
