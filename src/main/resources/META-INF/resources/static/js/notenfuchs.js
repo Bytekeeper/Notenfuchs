@@ -42,6 +42,22 @@
         // student (the shared H1/H2/Jahr average row several cells can all update).
         let studentSaveSeq = {};
 
+        // One save at a time: the server may process overlapping saves in any order, and each
+        // answer carries averages over the whole column, so an answer computed before a neighbor's
+        // save landed would overwrite a correct average with a stale one.
+        let saveChain = Promise.resolve();
+        function queueSave(body) {
+            const request = saveChain.then(function () {
+                return fetch(saveUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString()
+                });
+            });
+            saveChain = request.catch(function () {});
+            return request;
+        }
+
         function nextCellSeq(input) {
             const seq = (parseInt(input.dataset.saveRequestId || "0", 10) + 1).toString();
             input.dataset.saveRequestId = seq;
@@ -163,11 +179,7 @@
             body.set("assessmentId", assessmentId);
             body.set("value", normalized);
 
-            fetch(saveUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: body.toString()
-            })
+            queueSave(body)
                 .then(function (resp) {
                     if (!resp.ok) {
                         return resp.text().then(function (msg) {
@@ -369,6 +381,22 @@
 
         const saveUrl = root.dataset.saveUrl;
 
+        // One save at a time: the server may process overlapping saves in any order, and each
+        // answer carries averages over the whole column, so an answer computed before a neighbor's
+        // save landed would overwrite a correct average with a stale one.
+        let saveChain = Promise.resolve();
+        function queueSave(body) {
+            const request = saveChain.then(function () {
+                return fetch(saveUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString()
+                });
+            });
+            saveChain = request.catch(function () {});
+            return request;
+        }
+
         function cellAt(row, col) {
             return root.querySelector(
                 '.grade-input[data-row="' + row + '"][data-col="' + col + '"]'
@@ -431,11 +459,7 @@
             body.set("subjectId", subjectId);
             body.set("value", normalized);
 
-            fetch(saveUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: body.toString()
-            })
+            queueSave(body)
                 .then(function (resp) {
                     if (!resp.ok) {
                         return resp.text().then(function (msg) {

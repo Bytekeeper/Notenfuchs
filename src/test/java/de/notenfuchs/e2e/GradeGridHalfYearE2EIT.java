@@ -15,11 +15,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Browser-driven end-to-end coverage for the Halbjahr split view: setting a cutoff date on the
@@ -396,19 +396,14 @@ class GradeGridHalfYearE2EIT {
     }
 
     /**
-     * Regression test for a real bug report: {@code saveCell()} in notenfuchs.js had no
-     * protection against a save request's response arriving out of order - e.g. a fast edit
-     * (2.05, label plain "2") followed almost immediately by a slower one (2.2, label "2-")
-     * could have the OLDER response land after the newer one and win the DOM update, silently
-     * reverting the display to a stale value even though the backend's response for the actual
-     * current value (2.2) was correct all along. Uses {@code page.route()} plus a
-     * {@code CountDownLatch} to deterministically force the older request's response to arrive
-     * after the newer one - not relying on real network timing, which is exactly why the bug
-     * was hard to pin down by hand. See notenfuchs.js's {@code nextCellSeq}/{@code nextStudentSeq}
-     * for the fix.
+     * Regression test for two real bugs: an older save's answer arriving after a newer one used to
+     * overwrite the newer averages (a fast 2.05 then 2.2 could end on the stale "2" instead of
+     * "2-"), and overlapping saves could leave a column average computed before a neighbor's save
+     * landed. notenfuchs.js now sends one save at a time ({@code queueSave}); each answer is held
+     * back here so that overlapping requests would show up.
      */
     @Test
-    void savingCell_ignoresAnOutOfOrderStaleResponse() throws Exception {
+    void savingCells_sendsOneSaveAtATimeSoTheLastValueWins() throws Exception {
         String unique = Long.toString(System.nanoTime());
         String className = "E2E-Race-Klasse-" + unique;
         String studentName = "E2E-Race-Schueler-" + unique;
@@ -456,26 +451,21 @@ class GradeGridHalfYearE2EIT {
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
-        CountDownLatch newerResponseFulfilled = new CountDownLatch(1);
+        AtomicInteger inFlight = new AtomicInteger();
+        AtomicInteger maxInFlight = new AtomicInteger();
         page.route("**/grid/cell", route -> {
-            String body = route.request().postData();
-            boolean isOlderEdit = body != null && body.contains("value=2.05");
+            maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
             APIResponse response = route.fetch();
-            if (isOlderEdit) {
-                // Don't block this callback itself (that could starve the newer request's own
-                // route handler) - hand the delayed fulfill off to a background thread instead.
-                new Thread(() -> {
-                    try {
-                        newerResponseFulfilled.await(5, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    route.fulfill(new Route.FulfillOptions().setResponse(response));
-                }).start();
-            } else {
+            // Answer on a background thread, late, so a second request would overlap if one were sent.
+            new Thread(() -> {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                inFlight.decrementAndGet();
                 route.fulfill(new Route.FulfillOptions().setResponse(response));
-                newerResponseFulfilled.countDown();
-            }
+            }).start();
         });
 
         Locator h1Cell = page.locator("input.grade-input[data-row='0'][data-col='0']");
@@ -484,10 +474,8 @@ class GradeGridHalfYearE2EIT {
         h1Cell.fill("2.2");
         h1Cell.evaluate("el => el.blur()");
 
-        // The older (2.05) request's response is deliberately released only after the newer
-        // (2.2) one has already been fulfilled and applied - without the sequencing guard in
-        // notenfuchs.js, this stale response would win and silently drop the "-" suffix.
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2-");
         assertThat(h1Cell).hasValue("2.2");
+        assertEquals(1, maxInFlight.get());
     }
 }
