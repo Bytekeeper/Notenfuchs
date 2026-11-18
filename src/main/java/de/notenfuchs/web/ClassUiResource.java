@@ -605,12 +605,15 @@ public class ClassUiResource {
         }
 
         Set<String> seenNames = existingStudentNames(id);
+        // A returning student is taken back with "Wieder aufnehmen", not re-imported as a new row.
+        Set<String> leftNames = new HashSet<>(Student.<Student>list("schoolClass.id = ?1 and leftOn is not null", id)
+                .stream().map(st -> st.name).toList());
         List<RosterPreviewRow> rows = new ArrayList<>();
         int newCount = 0;
         int duplicateCount = 0;
         for (String name : parsed.names()) {
             boolean duplicate = !seenNames.add(name);
-            rows.add(new RosterPreviewRow(name, duplicate));
+            rows.add(new RosterPreviewRow(name, duplicate, duplicate && leftNames.contains(name)));
             if (duplicate) {
                 duplicateCount++;
             } else {
@@ -939,7 +942,7 @@ public class ClassUiResource {
     }
 
     /** One row of the roster import preview - see {@code ClassPage/rosterImportPreview.html}. */
-    public record RosterPreviewRow(String name, boolean duplicate) {
+    public record RosterPreviewRow(String name, boolean duplicate, boolean hasLeft) {
     }
 
     /**

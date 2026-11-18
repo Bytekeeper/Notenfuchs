@@ -2,6 +2,7 @@ package de.notenfuchs.e2e;
 
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Download;
+import com.microsoft.playwright.Dialog;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
@@ -129,6 +130,27 @@ class RosterImportExportE2EIT {
 
     private Locator studentRow(String name) {
         return page.locator("#student-list-fragment table tbody tr").filter(new Locator.FilterOptions().setHasText(name));
+    }
+
+    @Test
+    void importPreviewPointsAtRejoiningForAStudentWhoLeft() throws IOException {
+        String unique = Long.toString(System.nanoTime());
+        String leftName = "E2E-Weg-" + unique;
+        createClassWithStudent("E2E-Roster-Klasse-" + unique, leftName);
+        page.onceDialog(Dialog::accept);
+        studentRow(leftName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
+        assertThat(page.locator(".left-student-list")).containsText(leftName);
+
+        Path csvFile = Files.createTempFile("roster-import-left-" + unique, ".csv");
+        try {
+            Files.write(csvFile, ("Name\r\n" + leftName + "\r\n").getBytes(StandardCharsets.UTF_8));
+            page.locator("#rosterFile").setInputFiles(csvFile);
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Vorschau anzeigen")).click();
+
+            assertThat(page.locator("tr[data-status='duplicate']")).containsText("Wieder aufnehmen");
+        } finally {
+            Files.deleteIfExists(csvFile);
+        }
     }
 
     private void createClassWithStudent(String className, String studentName) {

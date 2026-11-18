@@ -63,6 +63,7 @@ class StudentLeftIT {
         // New grades are refused, and the column average now ignores Ben's 6.
         assertEquals(400, postCell(f, f.benId(), "5").statusCode());
         assertEquals("2", saveCell(f, f.annaId(), "2.0").get("assessmentRawAverage").asText());
+        assertFalse(get("/subjects/" + f.subjectId() + "/grid/students/" + f.benId()).body().contains("Was braucht"));
     }
 
     @Test
