@@ -683,7 +683,14 @@ table.grade-grid td.grade-cell-open input { border-color: #e0b56a; }
     color: var(--color-primary-dark);
     font-size: 0.8rem;
 }
-table.grade-grid td.grade-cell-absent input { font-style: italic; color: var(--color-text-muted); }
+/* Absence mark (e/u): a cool tint so it never reads like the amber "missing" highlight. */
+table.grade-grid td.grade-cell-absent { background: #e7eef8; }
+table.grade-grid td.grade-cell-absent input {
+    background: #f3f7fc;
+    border-color: #a9bedb;
+    font-style: italic;
+    color: #3d5a80;
+}
 
 /* Notenübersicht: at-risk final grades and what is still missing per Fach. */
 table.grade-grid td.at-risk { background: var(--color-error-bg); }

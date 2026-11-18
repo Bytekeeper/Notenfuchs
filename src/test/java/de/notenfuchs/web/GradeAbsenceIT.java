@@ -60,6 +60,7 @@ class GradeAbsenceIT {
 
         String html = get("/subjects/" + f.subjectId + "/grid").body();
         assertTrue(html.contains("value=\"e\""));
+        assertTrue(html.contains("grade-cell-absent"));
         // Ben has nothing yet, Anna is absent: only one cell counts as missing.
         assertEquals(1, html.split("grade-cell-open", -1).length - 1, html);
     }
