@@ -71,7 +71,8 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seed
 - **`OwnershipGuard` is the only gate.** Resolve every entity by id through its `require*` methods (never raw `findById`), list via its scoped queries (never `listAll()`), pass `CurrentUser.effectiveSubject()`. Foreign and unknown ids both 404. New class/subject-scoped entities get a new `require*` method. Endpoints that take two ids (e.g. Fach + Leistung) also check they belong together.
 - **Don't render dead controls.** Templates hide what the viewer can't do (`isClassAdmin`, `isClassTeacher`, `taughtSubjectIds`, `adminClassIds`), and every htmx fragment response must pass the same flags again (templates aren't type-checked, so nothing forces it).
 - **No email addresses.** OIDC requests only `profile`; teachers are shown by name (`name`, then `preferred_username`, then the subject). Don't add the `email` scope or store addresses; the Pocket ID overlay sets `REQUIRE_USER_EMAIL=false`.
-- **Feedback** ("Fehler melden" in `base.html`, `FeedbackResource`, table `feedback`) stores only the page type (`FeedbackResource#pageType` replaces ids server-side), the message and the time; never who sent it or anything shown on the page. Read via SQL (README); there is no page for it.
+- **Feedback** ("Fehler melden" in `base.html`, `FeedbackResource`, table `feedback`) stores only the page type (`FeedbackResource#pageType` replaces ids server-side), the message and the time; never who sent it or anything shown on the page. Instance admins read it at `/admin/feedback` (`AdminFeedbackResource`, 404 for everyone else).
+- **Instance admin** (`CurrentUser#isInstanceAdmin`, separate from the per-class ADMIN role): the local `lehrer` user, or with OIDC a member of `notenfuchs.admin-group` (`NOTENFUCHS_ADMIN_GROUP`, default `notenfuchs-admins`; the `groups` claim of the ID token becomes the roles, scope `groups` via `OIDC_SCOPES`). Without a login (%dev/%test) `notenfuchs.dev-instance-admin` decides; `AdminFeedbackNonAdminIT` turns it off.
 - Dev only: `DevTeacherSeeder` adds `dev-user` and a colleague; `/dev/identity` switches identity via a cookie that `CurrentUser` honors only in `%dev`.
 
 ## Gotchas
@@ -108,7 +109,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seed
 | School-year copy | `ClassDuplicationIT`, `ClassDuplicationE2EIT` |
 | Roster CSV | `CsvRosterServiceTest`, `RosterImportExportE2EIT` |
 | User guide flows | `WalkthroughIT` |
-| Feedback | `FeedbackPageTypeTest`, `FeedbackIT`, `WalkthroughIT` (Alltag) |
+| Feedback, instance admin | `FeedbackPageTypeTest`, `FeedbackIT`, `AdminFeedbackIT`, `AdminFeedbackNonAdminIT`, `CurrentUserTest`, `WalkthroughIT` (Alltag) |
 | Login | `LocalAuthConfigSourceTest`, `AuthConfigurationCheckTest`, `LoginIT`, `LoginE2EIT` |
 
 ## Deployment

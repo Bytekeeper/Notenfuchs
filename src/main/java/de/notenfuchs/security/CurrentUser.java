@@ -101,6 +101,14 @@ public class CurrentUser {
     @ConfigProperty(name = LocalAuthConfigSource.ACTIVE_PROPERTY, defaultValue = "false")
     boolean localAuthActive;
 
+    @Inject
+    @ConfigProperty(name = "notenfuchs.admin-group", defaultValue = "notenfuchs-admins")
+    String adminGroup;
+
+    @Inject
+    @ConfigProperty(name = "notenfuchs.dev-instance-admin", defaultValue = "false")
+    boolean devInstanceAdmin;
+
     // Provider-specific (Pocket ID, Keycloak, ... each use a different path) and not part of OIDC
     // discovery, so it can't be derived from the issuer URL.
     @Inject
@@ -173,6 +181,26 @@ public class CurrentUser {
         return localAuthActive;
     }
 
+    /** Whether the viewer runs this instance (e.g. may read teachers' feedback). */
+    public boolean isInstanceAdmin() {
+        boolean authenticated = isAuthenticated();
+        return instanceAdmin(localAuthActive, authenticated,
+                authenticated ? identity.getRoles() : java.util.Set.of(), adminGroup, devInstanceAdmin);
+    }
+
+    /**
+     * Local login has a single user, who is the one running the instance. With OIDC it's whoever
+     * the login provider puts into the admin group. Without any login (%dev/%test) it's a config
+     * switch, since there are no groups to read.
+     */
+    static boolean instanceAdmin(boolean localAuth, boolean authenticated, java.util.Set<String> roles,
+                                 String adminGroup, boolean devFallback) {
+        if (!authenticated) {
+            return devFallback;
+        }
+        return localAuth || roles.contains(adminGroup);
+    }
+
     /**
      * Best-effort human-readable name (e.g. for "logged in as X" UI): the "name" claim, then
      * "preferred_username" (both from the "profile" scope, UserInfo first, then the ID token),
@@ -206,6 +234,7 @@ public class CurrentUser {
                 .data("currentUserAuthenticated", isAuthenticated())
                 .data("currentUserDisplayName", displayName().orElse(""))
                 .data("localAuthActive", localAuthActive())
+                .data("currentUserInstanceAdmin", isInstanceAdmin())
                 .data("oidcAccountUrl", localAuthActive() ? "" : oidcAccountUrl.orElse(""))
                 .data("devIdentitySwitchActive", devIdentitySwitchActive)
                 .data("devEffectiveSubject", effectiveSubject());

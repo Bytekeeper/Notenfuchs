@@ -2,6 +2,8 @@ package de.notenfuchs.security;
 
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,5 +49,18 @@ class CurrentUserTest {
         // was never active.
 
         assertEquals(CurrentUser.DEV_USER_SUBJECT, currentUser.effectiveSubject());
+    }
+
+    @Test
+    void instanceAdmin_localUserOrAdminGroupOrDevSwitch() {
+        java.util.Set<String> none = java.util.Set.of();
+        // Local login: the single user runs the instance.
+        assertTrue(CurrentUser.instanceAdmin(true, true, none, "notenfuchs-admins", false));
+        // OIDC: only members of the admin group.
+        assertTrue(CurrentUser.instanceAdmin(false, true, java.util.Set.of("lehrer", "notenfuchs-admins"), "notenfuchs-admins", false));
+        assertFalse(CurrentUser.instanceAdmin(false, true, java.util.Set.of("lehrer"), "notenfuchs-admins", true));
+        // No login at all (%dev/%test): the config switch decides.
+        assertTrue(CurrentUser.instanceAdmin(false, false, none, "notenfuchs-admins", true));
+        assertFalse(CurrentUser.instanceAdmin(false, false, none, "notenfuchs-admins", false));
     }
 }

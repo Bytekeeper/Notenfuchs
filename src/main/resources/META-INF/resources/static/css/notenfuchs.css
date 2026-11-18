@@ -747,3 +747,5 @@ table.grade-grid tr.left-heading td {
 .user-info .feedback-open:hover { background: none; text-decoration: underline; }
 #feedback-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; }
 .feedback-thanks { color: var(--color-success); }
+.feedback-list .feedback-time { white-space: nowrap; }
+.feedback-list .feedback-message { white-space: pre-wrap; }

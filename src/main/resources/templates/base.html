@@ -13,6 +13,7 @@
         <a class="brand" href="/">🦊 Notenfuchs</a>
         <nav class="main-nav">
             <a href="/classes">Übersicht</a>
+            {#if currentUserInstanceAdmin}<a href="/admin/feedback">Rückmeldungen</a>{/if}
         </nav>
         <div class="user-info">
             <button type="button" class="feedback-open">Fehler melden</button>

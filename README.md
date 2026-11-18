@@ -228,18 +228,23 @@ standardkonformen Provider richten und `docker-compose.oidc.yml` komplett weglas
 kannst - siehe "Alternative: OIDC (externes SSO)" unter "Authentifizierung" weiter
 unten für die benötigten Umgebungsvariablen und eine Clerk-Anleitung.
 
-### Rückmeldungen der Lehrkräfte lesen
+### Admins und Rückmeldungen der Lehrkräfte
 
 Über „Fehler melden“ oben rechts auf jeder Seite können Lehrkräfte Fehler und Ideen
 schicken. Gespeichert werden nur die Art der Seite (z. B. `/subjects/{id}/grid`, ohne
 konkrete Nummern oder Inhalte), die Nachricht und der Zeitpunkt, nicht wer sie geschickt
-hat. Eine Ansicht dafür gibt es in Notenfuchs bewusst nicht; lies sie direkt aus der
-Datenbank:
+hat.
 
-```bash
-docker compose exec postgres psql -U notenfuchs -c \
-  "SELECT created_at, page, message FROM feedback ORDER BY created_at DESC"
-```
+Lesen können sie Admins unter **Rückmeldungen** in der Kopfzeile; dort lassen sie sich auch
+als erledigt löschen. Wer Admin ist:
+
+- **Lokale Anmeldung (Option A):** der eine Nutzer `lehrer`.
+- **Pocket ID (Option B):** wer in der Pocket-ID-Gruppe `notenfuchs-admins` ist. Lege die
+  Gruppe in Pocket ID unter „User Groups“ an und füge dich hinzu; den Namen änderst du mit
+  `NOTENFUCHS_ADMIN_GROUP` in der `.env`. Notenfuchs fragt dafür beim Anmelden den Scope
+  `groups` ab. Nach dem Hinzufügen einmal ab- und wieder anmelden.
+- **Anderer OIDC-Provider:** ebenso über eine Gruppe im Claim `groups`. Lehnt dein Provider
+  den Scope `groups` ab, setze `OIDC_SCOPES=profile`; Admins gibt es dann nicht.
 
 ### Für die Entwicklung: aus dem Quellcode ausführen
 
