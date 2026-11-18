@@ -144,8 +144,9 @@
             const rawValue = input.value;
             const normalized = normalizeValue(rawValue);
 
+            // Start from what the page was rendered with, so clearing a pre-filled cell is a change.
             if (input.dataset.lastSaved === undefined) {
-                input.dataset.lastSaved = "";
+                input.dataset.lastSaved = normalizeValue(input.defaultValue);
             }
             if (normalized === input.dataset.lastSaved) {
                 // nothing changed since last save/load
@@ -414,8 +415,9 @@
             const rawValue = input.value;
             const normalized = normalizeValue(rawValue);
 
+            // Start from what the page was rendered with, so clearing a pre-filled cell is a change.
             if (input.dataset.lastSaved === undefined) {
-                input.dataset.lastSaved = "";
+                input.dataset.lastSaved = normalizeValue(input.defaultValue);
             }
             if (normalized === input.dataset.lastSaved) {
                 // nothing changed since last save/load

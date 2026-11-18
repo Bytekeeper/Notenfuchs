@@ -100,6 +100,29 @@ class GradeGridE2EIT {
     }
 
     @Test
+    void clearingACellThatWasAlreadyFilledOnPageLoadDeletesTheGrade() {
+        // Regression: change detection started from "" instead of the rendered value, so clearing
+        // a grade that came with the page was never sent and the grade silently stayed.
+        setUpSubjectWithGrid(Long.toString(System.nanoTime()));
+        Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        cell0.fill("2");
+        cell0.evaluate("el => el.blur()");
+        assertThat(page.locator(".average-final")).hasText("2");
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+
+        page.reload();
+        Locator reloaded = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        assertThat(reloaded).hasValue("2");
+        reloaded.fill("");
+        reloaded.evaluate("el => el.blur()");
+        assertThat(page.locator(".average-final")).hasText("–");
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+
+        page.reload();
+        assertThat(page.locator("input.grade-input[data-row='0'][data-col='0']")).hasValue("");
+    }
+
+    @Test
     void secondCategoryWithNoAssessmentsYetDoesNotShiftAverageColumn() {
         // Regression test: a category created but not yet populated with any Leistung used to
         // render with colspan="0" (browser-coerced to 1) while contributing zero <td>s to the
