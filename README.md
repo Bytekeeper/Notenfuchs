@@ -82,7 +82,9 @@ cp .env.example .env
    Clients -> New Client, setze die Callback-URL auf
    `<deine Notenfuchs-URL>/auth-callback` (standardmäßig
    `http://localhost:8080/auth-callback`) und die Logout-Callback-URL auf
-   `<deine Notenfuchs-URL>/`, klappe dann "Advanced options" auf und setze das Feld
+   `<deine Notenfuchs-URL>/` und die **Launch URL** auf `<deine Notenfuchs-URL>/`
+   (damit Notenfuchs in Pocket ID unter "My apps" mit einem Öffnen-Knopf erscheint,
+   siehe Schritt 7), klappe dann "Advanced options" auf und setze das Feld
    **Client ID** exakt auf `notenfuchs` (passend zur fest codierten `OIDC_CLIENT_ID` in
    `docker-compose.oidc.yml`). Beim Speichern wird ein Client Secret erzeugt - kopiere
    es als `OIDC_CLIENT_SECRET` in die `.env` und führe dann `docker compose up -d app`
@@ -99,7 +101,11 @@ cp .env.example .env
    "Create signup token" einen Einmal-Link und gib ihn an die Person weiter, die
    Notenfuchs tatsächlich nutzen soll (z. B. dich selbst oder eine Kollegin/einen
    Kollegen), damit sie direkt ein eigenes Passkey-Konto anlegen kann - der
-   Admin-Login muss nie geteilt werden.
+   Admin-Login muss nie geteilt werden. Schicke die Notenfuchs-Adresse mit, z. B.
+   "Konto anlegen: `<Registrierungslink>`, danach Notenfuchs öffnen:
+   `<deine Notenfuchs-URL>`". Pocket ID leitet nach der Registrierung nämlich immer auf
+   die eigene Kontoseite weiter, nicht zu Notenfuchs. Von dort geht es über "My apps"
+   -> Notenfuchs weiter, oder einfach über die mitgeschickte Adresse.
 
 **Weitere Geräte freischalten.** Über den Link "Konto" oben rechts in Notenfuchs
 gelangt eine Lehrkraft zu ihrer Pocket-ID-Kontoseite und kann dort für das aktuelle
