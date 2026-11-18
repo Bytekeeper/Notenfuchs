@@ -91,6 +91,15 @@ public class OwnershipGuard {
                 teacherSubject);
     }
 
+    /** Subjects this teacher personally teaches, newest school year first, then class and subject name. */
+    public List<Subject> listTaughtSubjects(String teacherSubject) {
+        return Subject.list(
+                "select s from Subject s join fetch s.schoolClass c"
+                        + " where s.id in (select st.subject.id from SubjectTeacher st where st.teacherSubject = ?1)"
+                        + " order by c.schoolYear desc, c.name asc, s.name asc",
+                teacherSubject);
+    }
+
     /** Read-only class access: a {@link ClassTeacher} row of either role, or teaches at least one subject in it. */
     public SchoolClass requireClassAccess(Long classId, String currentSubject) {
         SchoolClass entity = SchoolClass.findById(classId);

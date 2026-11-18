@@ -236,7 +236,7 @@ class ClassTeacherIT {
      * The class list (/classes) shows every class the viewer has any kind of access to (via
      * {@link OwnershipGuard#listAccessibleClasses}), including classes where they're only a
      * {@code FACHLEHRER}-tier {@link ClassTeacher} - but {@link ClassUiResource#rename}/{@code
-     * #delete} are {@code requireClassAdmin}-gated, so {@code fragments/classList.html} must hide
+     * #delete} are {@code requireClassAdmin}-gated, so {@code fragments/home.html} must hide
      * Ändern/Löschen for those rows rather than offering a control that would 404.
      */
     @Test

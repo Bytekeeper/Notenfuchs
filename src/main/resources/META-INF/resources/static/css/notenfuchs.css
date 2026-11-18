@@ -273,6 +273,9 @@ button.danger:hover { background: var(--color-error); color: white; }
 .class-card .class-name { font-weight: 600; font-size: 1.05rem; }
 .class-card .class-name:hover { text-decoration: none; color: var(--color-primary-dark); }
 .class-card .class-year { color: var(--color-text-muted); font-size: 0.85rem; }
+a.class-card:hover { text-decoration: none; }
+a.class-card .class-name, a.class-card .class-year { display: block; }
+a.class-card:hover .class-name { color: var(--color-primary-dark); }
 
 .year-heading {
     font-size: 0.72rem;
@@ -282,7 +285,7 @@ button.danger:hover { background: var(--color-error); color: white; }
     color: var(--color-text-muted);
     margin: 1.5rem 0 0.6rem;
 }
-.year-heading:first-child { margin-top: 0; }
+.year-heading:first-child, h2 + .year-heading { margin-top: 0; }
 
 .card-actions, .row-actions {
     display: flex;

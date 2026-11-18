@@ -83,8 +83,8 @@ public class ClassUiResource {
     Template rosterImportPreviewTemplate;
 
     @Inject
-    @Location("fragments/classList.html")
-    Template classListFragment;
+    @Location("fragments/home.html")
+    Template homeFragment;
 
     @Inject
     @Location("fragments/subjectList.html")
@@ -110,9 +110,7 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance list() {
         String subject = currentUser.effectiveSubject();
-        return currentUser.withUser(listTemplate
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject)));
+        return currentUser.withUser(withHomeData(listTemplate.instance(), subject));
     }
 
     @GET
@@ -235,9 +233,7 @@ public class ClassUiResource {
         owner.role = ClassTeacherRole.ADMIN;
         owner.persist();
 
-        return classListFragment
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+        return withHomeData(homeFragment.instance(), subject);
     }
 
     @DELETE
@@ -248,9 +244,7 @@ public class ClassUiResource {
         String subject = currentUser.effectiveSubject();
         SchoolClass entity = guard.requireClassAdmin(id, subject);
         entity.delete();
-        return classListFragment
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+        return withHomeData(homeFragment.instance(), subject);
     }
 
     @PATCH
@@ -268,9 +262,7 @@ public class ClassUiResource {
         if (schoolYear != null && !schoolYear.isBlank()) {
             entity.schoolYear = schoolYear;
         }
-        return classListFragment
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+        return withHomeData(homeFragment.instance(), subject);
     }
 
     /**
@@ -721,9 +713,27 @@ public class ClassUiResource {
         return Subject.find("from Subject s join fetch s.gradeScale where s.schoolClass.id = ?1", schoolClassId).list();
     }
 
+    private TemplateInstance withHomeData(TemplateInstance template, String subject) {
+        return template
+                .data("mySubjects", newestYearOnly(guard.listTaughtSubjects(subject)))
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
+                .data("adminClassIds", adminClassIds(subject));
+    }
+
+    /** Older years pile up after every "Ins neue Schuljahr übernehmen", and only the current one matters day to day. */
+    private List<Subject> newestYearOnly(List<Subject> subjectsNewestYearFirst) {
+        if (subjectsNewestYearFirst.isEmpty()) {
+            return subjectsNewestYearFirst;
+        }
+        String newestYear = subjectsNewestYearFirst.get(0).schoolClass.schoolYear;
+        return subjectsNewestYearFirst.stream()
+                .filter(s -> s.schoolClass.schoolYear.equals(newestYear))
+                .toList();
+    }
+
     /**
      * Ids of the classes the given teacher is an ADMIN-tier {@link ClassTeacher} on - used by
-     * {@code fragments/classList.html} to hide Ändern/Löschen for classes the viewer sees in
+     * {@code fragments/home.html} to hide Ändern/Löschen for classes the viewer sees in
      * their list (via {@link OwnershipGuard#listAccessibleClasses}) but isn't an admin of, since
      * both would otherwise 404 via {@link OwnershipGuard#requireClassAdmin}.
      */
@@ -837,7 +847,7 @@ public class ClassUiResource {
     /**
      * Buckets an already {@code schoolYear desc}-sorted class list (see
      * {@link OwnershipGuard#listAccessibleClasses}) into consecutive same-year groups, so
-     * {@code fragments/classList.html} can render a year heading per group instead of one
+     * {@code fragments/home.html} can render a year heading per group instead of one
      * long undifferentiated grid - a class a year adds up over a teaching career.
      */
     private List<YearGroup> groupByYear(List<SchoolClass> classes) {
