@@ -13,16 +13,10 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,7 +34,7 @@ class StudentLeftIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
     private final ObjectMapper json = new ObjectMapper();
 
     @Test
@@ -49,13 +43,13 @@ class StudentLeftIT {
         saveCell(f, f.annaId(), "2");
         saveCell(f, f.benId(), "6");
 
-        HttpResponse<String> leave = post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
+        HttpResponse<String> leave = http.post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
         assertEquals(200, leave.statusCode(), leave.body());
         String classPage = leave.body();
 
         assertTrue(classPage.contains("Ausgetreten"));
         assertNotNull(leftOn(f.benId()));
-        String grid = get("/subjects/" + f.subjectId() + "/grid").body();
+        String grid = http.get("/subjects/" + f.subjectId() + "/grid").body();
         int start = grid.indexOf("left-students");
         String leftSection = grid.substring(start, grid.indexOf("</tbody>", start));
         assertTrue(leftSection.contains("Ben-"), grid);
@@ -63,22 +57,22 @@ class StudentLeftIT {
         // New grades are refused, and the column average now ignores Ben's 6.
         assertEquals(400, postCell(f, f.benId(), "5").statusCode());
         assertEquals("2", saveCell(f, f.annaId(), "2.0").get("assessmentRawAverage").asText());
-        assertFalse(get("/subjects/" + f.subjectId() + "/grid/students/" + f.benId()).body().contains("Was braucht"));
+        assertFalse(http.get("/subjects/" + f.subjectId() + "/grid/students/" + f.benId()).body().contains("Was braucht"));
     }
 
     @Test
     void leftStudent_isNotCountedAsMissing_andCanRejoin() throws Exception {
         Fixture f = fixture();
         saveCell(f, f.annaId(), "2");
-        post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
+        http.post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
 
         // Ben has no grade for the due Leistung, but he left: nothing is open in the Notenübersicht.
-        String overview = get("/classes/" + f.classId() + "/overview").body();
+        String overview = http.get("/classes/" + f.classId() + "/overview").body();
         String gradeRow = overview.substring(overview.indexOf(">Noten offen<"), overview.indexOf(">Verhaltensnoten offen<"));
         assertFalse(gradeRow.contains("status-open"), gradeRow);
-        assertFalse(get("/subjects/" + f.subjectId() + "/grid").body().contains("grade-cell-open"));
+        assertFalse(http.get("/subjects/" + f.subjectId() + "/grid").body().contains("grade-cell-open"));
 
-        post("/classes/" + f.classId() + "/students/" + f.benId() + "/rejoin", Map.of());
+        http.post("/classes/" + f.classId() + "/students/" + f.benId() + "/rejoin", Map.of());
         assertNull(leftOn(f.benId()));
         assertEquals(200, postCell(f, f.benId(), "3").statusCode());
     }
@@ -86,10 +80,10 @@ class StudentLeftIT {
     @Test
     void newSchoolYear_copiesOnlyStudentsStillInTheClass() throws Exception {
         Fixture f = fixture();
-        post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
+        http.post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
         String copyName = "Left-Kopie-" + System.nanoTime();
 
-        post("/classes/" + f.classId() + "/duplicate", Map.of("name", copyName, "schoolYear", "2026/27"));
+        http.post("/classes/" + f.classId() + "/duplicate", Map.of("name", copyName, "schoolYear", "2026/27"));
 
         Long copyId = SchoolClass.find("name", copyName).<SchoolClass>firstResult().id;
         assertEquals(1, Student.count("schoolClass.id", copyId));
@@ -101,17 +95,17 @@ class StudentLeftIT {
     private Fixture fixture() throws Exception {
         String unique = Long.toString(System.nanoTime());
         String className = "Left-Klasse-" + unique;
-        post("/classes", Map.of("name", className, "schoolYear", "2025/26"));
+        http.post("/classes", Map.of("name", className, "schoolYear", "2025/26"));
         Long classId = SchoolClass.find("name", className).<SchoolClass>firstResult().id;
         Long gradeScaleId = GradeScale.find("name", "DE 1-6").<GradeScale>firstResult().id;
-        post("/classes/" + classId + "/subjects",
+        http.post("/classes/" + classId + "/subjects",
                 Map.of("name", "Left-Fach-" + unique, "gradeScaleId", gradeScaleId.toString(), "roundingMode", "COMMERCIAL"));
         Long subjectId = Subject.find("name", "Left-Fach-" + unique).<Subject>firstResult().id;
-        post("/classes/" + classId + "/students", Map.of("name", "Anna-" + unique));
-        post("/classes/" + classId + "/students", Map.of("name", "Ben-" + unique));
-        post("/subjects/" + subjectId + "/categories", Map.of("name", "Kat-" + unique, "weightPercent", "100"));
+        http.post("/classes/" + classId + "/students", Map.of("name", "Anna-" + unique));
+        http.post("/classes/" + classId + "/students", Map.of("name", "Ben-" + unique));
+        http.post("/subjects/" + subjectId + "/categories", Map.of("name", "Kat-" + unique, "weightPercent", "100"));
         Long categoryId = GradeCategory.find("name", "Kat-" + unique).<GradeCategory>firstResult().id;
-        post("/subjects/" + subjectId + "/grid/assessments", Map.of("categoryId", categoryId.toString(), "name", "KA",
+        http.post("/subjects/" + subjectId + "/grid/assessments", Map.of("categoryId", categoryId.toString(), "name", "KA",
                 "date", LocalDate.now().minusDays(1).toString()));
         Long assessmentId = Assessment.find("category.id", categoryId).<Assessment>firstResult().id;
         Long annaId = Student.find("name", "Anna-" + unique).<Student>firstResult().id;
@@ -125,37 +119,14 @@ class StudentLeftIT {
     }
 
     private HttpResponse<String> postCell(Fixture f, Long studentId, String value) throws Exception {
-        return post("/subjects/" + f.subjectId() + "/grid/cell", Map.of(
+        return http.post("/subjects/" + f.subjectId() + "/grid/cell", Map.of(
                 "studentId", studentId.toString(), "assessmentId", f.assessmentId().toString(), "value", value));
     }
 
     private JsonNode saveCell(Fixture f, Long studentId, String value) throws Exception {
-        HttpResponse<String> response = post("/subjects/" + f.subjectId() + "/grid/cell", Map.of(
+        HttpResponse<String> response = http.post("/subjects/" + f.subjectId() + "/grid/cell", Map.of(
                 "studentId", studentId.toString(), "assessmentId", f.assessmentId().toString(), "value", value));
         assertEquals(200, response.statusCode(), response.body());
         return json.readTree(response.body());
-    }
-
-    private HttpResponse<String> get(String path) throws Exception {
-        return http.send(HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build(),
-                HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
-                        + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

@@ -9,16 +9,11 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,7 +39,7 @@ class ClassTeacherIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void addClassTeacher_knownColleagueNotYetOnClass_grantsAccess() throws Exception {
@@ -52,7 +47,7 @@ class ClassTeacherIT {
         Long classId = createClass("Teacher-Add-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-" + unique);
 
-        HttpResponse<String> response = post("/classes/" + classId + "/teachers",
+        HttpResponse<String> response = http.post("/classes/" + classId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
 
         assertEquals(200, response.statusCode());
@@ -64,7 +59,7 @@ class ClassTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Teacher-Unknown-Klasse-" + unique, "2025/26");
 
-        HttpResponse<String> response = post("/classes/" + classId + "/teachers",
+        HttpResponse<String> response = http.post("/classes/" + classId + "/teachers",
                 Map.of("teacherSubject", "never-logged-in-" + unique));
 
         assertEquals(400, response.statusCode());
@@ -76,9 +71,9 @@ class ClassTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Teacher-Duplicate-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-dup-" + unique);
-        assertEquals(200, post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject)).statusCode());
+        assertEquals(200, http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject)).statusCode());
 
-        HttpResponse<String> response = post("/classes/" + classId + "/teachers",
+        HttpResponse<String> response = http.post("/classes/" + classId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
 
         assertEquals(400, response.statusCode());
@@ -103,11 +98,11 @@ class ClassTeacherIT {
         Long foreignClassId = ids[0];
         Long foreignClassTeacherId = ids[1];
 
-        HttpResponse<String> addResponse = post("/classes/" + foreignClassId + "/teachers",
+        HttpResponse<String> addResponse = http.post("/classes/" + foreignClassId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
         assertEquals(404, addResponse.statusCode());
 
-        HttpResponse<String> removeResponse = delete("/classes/" + foreignClassId + "/teachers/" + foreignClassTeacherId);
+        HttpResponse<String> removeResponse = http.delete("/classes/" + foreignClassId + "/teachers/" + foreignClassTeacherId);
         assertEquals(404, removeResponse.statusCode());
     }
 
@@ -118,7 +113,7 @@ class ClassTeacherIT {
         ClassTeacher soleOwner = ClassTeacher.find("schoolClass.id", classId).firstResult();
         Long soleOwnerId = soleOwner.id;
 
-        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + soleOwnerId);
+        HttpResponse<String> response = http.delete("/classes/" + classId + "/teachers/" + soleOwnerId);
 
         assertEquals(400, response.statusCode());
         assertEquals(1, ClassTeacher.count("schoolClass.id", classId));
@@ -129,13 +124,13 @@ class ClassTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Teacher-RemoveOther-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-remove-" + unique);
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
         ClassTeacher colleagueClassTeacher = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
                 .firstResult();
         Long colleagueClassTeacherId = colleagueClassTeacher.id;
 
-        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + colleagueClassTeacherId);
+        HttpResponse<String> response = http.delete("/classes/" + classId + "/teachers/" + colleagueClassTeacherId);
 
         assertEquals(200, response.statusCode());
         assertTrue(response.headers().firstValue("HX-Redirect").isEmpty());
@@ -151,14 +146,14 @@ class ClassTeacherIT {
         String colleagueSubject = seedTeacher("colleague-self-" + unique);
         // Explicitly ADMIN, not the default FACHLEHRER - this test is about self-removal while
         // another admin remains, not the last-admin guardrail (see the dedicated test for that).
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject, "role", "ADMIN"));
+        http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject, "role", "ADMIN"));
         // dev-user is the class's creator/owner (see CurrentUser#effectiveSubject in %test).
         ClassTeacher ownSelfClassTeacher = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, "dev-user")
                 .firstResult();
         Long ownSelfClassTeacherId = ownSelfClassTeacher.id;
 
-        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + ownSelfClassTeacherId);
+        HttpResponse<String> response = http.delete("/classes/" + classId + "/teachers/" + ownSelfClassTeacherId);
 
         assertEquals(200, response.statusCode());
         assertEquals("/classes", response.headers().firstValue("HX-Redirect").orElse(null));
@@ -173,7 +168,7 @@ class ClassTeacherIT {
         Long classId = createClass("Teacher-DefaultRole-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-defaultrole-" + unique);
 
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
 
         ClassTeacher colleagueClassTeacher = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
@@ -187,7 +182,7 @@ class ClassTeacherIT {
         Long classId = createClass("Teacher-ExplicitAdmin-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-explicitadmin-" + unique);
 
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject, "role", "ADMIN"));
+        http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject, "role", "ADMIN"));
 
         ClassTeacher colleagueClassTeacher = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
@@ -201,13 +196,13 @@ class ClassTeacherIT {
         Long classId = createClass("Teacher-LastAdminWithFachlehrer-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-lastadmin-" + unique);
         // Defaults to FACHLEHRER - does not count toward the admin guardrail.
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
         // dev-user is the class's sole ADMIN (creator).
         ClassTeacher soleAdmin = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, "dev-user")
                 .firstResult();
 
-        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + soleAdmin.id);
+        HttpResponse<String> response = http.delete("/classes/" + classId + "/teachers/" + soleAdmin.id);
 
         assertEquals(400, response.statusCode());
         assertEquals(2, ClassTeacher.count("schoolClass.id", classId));
@@ -218,7 +213,7 @@ class ClassTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Teacher-RemoveFachlehrer-Klasse-" + unique, "2025/26");
         String colleagueSubject = seedTeacher("colleague-removefachlehrer-" + unique);
-        post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        http.post("/classes/" + classId + "/teachers", Map.of("teacherSubject", colleagueSubject));
         ClassTeacher colleagueClassTeacher = ClassTeacher
                 .find("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject)
                 .firstResult();
@@ -226,7 +221,7 @@ class ClassTeacherIT {
 
         // Only one ADMIN exists (dev-user) alongside this FACHLEHRER row, yet removing the
         // FACHLEHRER row is never gated by the admin count - that guardrail only protects ADMIN rows.
-        HttpResponse<String> response = delete("/classes/" + classId + "/teachers/" + colleagueClassTeacher.id);
+        HttpResponse<String> response = http.delete("/classes/" + classId + "/teachers/" + colleagueClassTeacher.id);
 
         assertEquals(200, response.statusCode());
         assertEquals(1, ClassTeacher.count("schoolClass.id", classId));
@@ -261,7 +256,7 @@ class ClassTeacherIT {
             return foreign.id;
         });
 
-        String html = get("/classes").body();
+        String html = http.get("/classes").body();
 
         assertTrue(html.contains("List-Admin-Klasse-" + unique));
         assertTrue(html.contains("hx-delete=\"/classes/" + adminClassId + "\""));
@@ -283,42 +278,8 @@ class ClassTeacherIT {
     }
 
     private Long createClass(String name, String schoolYear) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", schoolYear));
+        http.post("/classes", Map.of("name", name, "schoolYear", schoolYear));
         SchoolClass created = SchoolClass.find("name", name).firstResult();
         return created.id;
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> get(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> delete(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .DELETE()
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

@@ -15,15 +15,9 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,7 +37,7 @@ class BehaviorGridIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
     private final ObjectMapper json = new ObjectMapper();
 
     @Test
@@ -116,7 +110,7 @@ class BehaviorGridIT {
         Long studentId = createStudent(classId, "VN-Schueler-Invalid-" + unique);
         Long subjectId = createSubject(classId, "VN-Fach-Invalid-" + unique, gradeScale.id);
 
-        HttpResponse<String> response = post("/classes/" + classId + "/behavior-grid/cell", Map.of(
+        HttpResponse<String> response = http.post("/classes/" + classId + "/behavior-grid/cell", Map.of(
                 "studentId", String.valueOf(studentId),
                 "subjectId", String.valueOf(subjectId),
                 "value", "7"));
@@ -142,11 +136,11 @@ class BehaviorGridIT {
             return foreign.id;
         });
 
-        HttpResponse<String> response = post("/classes/" + foreignClassId + "/behavior-grid/cell", Map.of(
+        HttpResponse<String> response = http.post("/classes/" + foreignClassId + "/behavior-grid/cell", Map.of(
                 "studentId", "1", "subjectId", "1", "value", "2"));
         assertEquals(404, response.statusCode());
 
-        HttpResponse<String> pageResponse = get("/classes/" + foreignClassId + "/behavior-grid");
+        HttpResponse<String> pageResponse = http.get("/classes/" + foreignClassId + "/behavior-grid");
         assertEquals(404, pageResponse.statusCode());
     }
 
@@ -163,7 +157,7 @@ class BehaviorGridIT {
 
         // Both classA and classB are owned by the same (dev-user) teacher, but the student
         // belongs to A and the subject belongs to B - must still 404, not silently cross-link them.
-        HttpResponse<String> response = post("/classes/" + classAId + "/behavior-grid/cell", Map.of(
+        HttpResponse<String> response = http.post("/classes/" + classAId + "/behavior-grid/cell", Map.of(
                 "studentId", String.valueOf(studentInA),
                 "subjectId", String.valueOf(subjectInB),
                 "value", "2"));
@@ -180,7 +174,7 @@ class BehaviorGridIT {
         Long subjectId = createSubject(classId, "VN-Cascade-Fach-" + unique, gradeScale.id);
         saveCellAndParse(classId, studentId, subjectId, "2");
 
-        HttpResponse<String> deleteResponse = delete("/classes/" + classId + "/subjects/" + subjectId);
+        HttpResponse<String> deleteResponse = http.delete("/classes/" + classId + "/subjects/" + subjectId);
         assertEquals(200, deleteResponse.statusCode());
 
         Long remaining = QuarkusTransaction.requiringNew().call(
@@ -199,7 +193,7 @@ class BehaviorGridIT {
         createStudent(classId, studentName);
         createSubject(classId, subjectName, gradeScale.id);
 
-        String html = get("/classes/" + classId + "/behavior-grid").body();
+        String html = http.get("/classes/" + classId + "/behavior-grid").body();
         assertTrue(html.contains(studentName));
         assertTrue(html.contains(subjectName));
         assertTrue(html.contains("data-max-row=\"0\""));
@@ -240,14 +234,14 @@ class BehaviorGridIT {
             teacher.persist();
         });
 
-        String html = get("/classes/" + classId + "/behavior-grid").body();
+        String html = http.get("/classes/" + classId + "/behavior-grid").body();
         assertTrue(html.contains(otherFachName));
         assertTrue(html.contains("grade-input-readonly"));
         assertTrue(html.contains("readonly"));
     }
 
     private JsonNode saveCellAndParse(Long classId, Long studentId, Long subjectId, String value) throws Exception {
-        HttpResponse<String> response = post("/classes/" + classId + "/behavior-grid/cell", Map.of(
+        HttpResponse<String> response = http.post("/classes/" + classId + "/behavior-grid/cell", Map.of(
                 "studentId", String.valueOf(studentId),
                 "subjectId", String.valueOf(subjectId),
                 "value", value));
@@ -256,53 +250,18 @@ class BehaviorGridIT {
     }
 
     private Long createClass(String name, String schoolYear) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", schoolYear));
+        http.post("/classes", Map.of("name", name, "schoolYear", schoolYear));
         return SchoolClass.find("name", name).<SchoolClass>firstResult().id;
     }
 
     private Long createSubject(Long classId, String name, Long gradeScaleId) throws Exception {
-        post("/classes/" + classId + "/subjects",
+        http.post("/classes/" + classId + "/subjects",
                 Map.of("name", name, "gradeScaleId", String.valueOf(gradeScaleId), "roundingMode", "COMMERCIAL"));
         return Subject.find("name", name).<Subject>firstResult().id;
     }
 
     private Long createStudent(Long classId, String name) throws Exception {
-        post("/classes/" + classId + "/students", Map.of("name", name, "displayName", ""));
+        http.post("/classes/" + classId + "/students", Map.of("name", name, "displayName", ""));
         return Student.find("name", name).<Student>firstResult().id;
-    }
-
-    private HttpResponse<String> get(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        return send("POST", path, form);
-    }
-
-    private HttpResponse<String> delete(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).DELETE().build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> send(String method, String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .method(method, HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

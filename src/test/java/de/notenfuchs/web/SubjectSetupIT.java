@@ -13,16 +13,10 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -36,7 +30,7 @@ class SubjectSetupIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void newFach_copiesCategoriesButNotLeistungen() throws Exception {
@@ -45,7 +39,7 @@ class SubjectSetupIT {
         Long sourceId = createSubject(classId, "Setup-Quelle-" + unique, null);
         Long categoryId = createCategory(sourceId, "Klausuren", "60");
         createCategory(sourceId, "Mitarbeit", "40");
-        post("/subjects/" + sourceId + "/grid/assessments", Map.of("categoryId", categoryId.toString(), "name", "KA1"));
+        http.post("/subjects/" + sourceId + "/grid/assessments", Map.of("categoryId", categoryId.toString(), "name", "KA1"));
 
         Long copyId = createSubject(classId, "Setup-Kopie-" + unique, sourceId);
 
@@ -61,7 +55,7 @@ class SubjectSetupIT {
         Long classId = createClass("Setup-Klasse2-" + unique);
         Long foreignId = seedSubjectTaughtByColleague(classId, "Setup-Fremd-" + unique);
 
-        HttpResponse<String> response = post("/classes/" + classId + "/subjects", subjectForm("Setup-Neu-" + unique, foreignId));
+        HttpResponse<String> response = http.post("/classes/" + classId + "/subjects", subjectForm("Setup-Neu-" + unique, foreignId));
 
         assertEquals(404, response.statusCode());
         assertEquals(0, Subject.count("name", "Setup-Neu-" + unique));
@@ -73,8 +67,8 @@ class SubjectSetupIT {
         Long classId = createClass("Setup-Klasse3-" + unique);
         Long subjectId = createSubject(classId, "Setup-Start-" + unique, null);
 
-        HttpResponse<String> first = post("/subjects/" + subjectId + "/grid/starter-categories", Map.of());
-        post("/subjects/" + subjectId + "/grid/starter-categories", Map.of("returnTo", "setup"));
+        HttpResponse<String> first = http.post("/subjects/" + subjectId + "/grid/starter-categories", Map.of());
+        http.post("/subjects/" + subjectId + "/grid/starter-categories", Map.of("returnTo", "setup"));
 
         assertEquals("/subjects/" + subjectId + "/grid", first.headers().firstValue("Location").orElseThrow());
         List<GradeCategory> categories = GradeCategory.list("subject.id = ?1 order by id", subjectId);
@@ -98,12 +92,12 @@ class SubjectSetupIT {
     }
 
     private Long createClass(String name) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", "2025/26"));
+        http.post("/classes", Map.of("name", name, "schoolYear", "2025/26"));
         return SchoolClass.find("name", name).<SchoolClass>firstResult().id;
     }
 
     private Long createSubject(Long classId, String name, Long copyCategoriesFrom) throws Exception {
-        post("/classes/" + classId + "/subjects", subjectForm(name, copyCategoriesFrom));
+        http.post("/classes/" + classId + "/subjects", subjectForm(name, copyCategoriesFrom));
         return Subject.find("name", name).<Subject>firstResult().id;
     }
 
@@ -114,28 +108,7 @@ class SubjectSetupIT {
     }
 
     private Long createCategory(Long subjectId, String name, String weight) throws Exception {
-        post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", weight));
+        http.post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", weight));
         return GradeCategory.find("subject.id = ?1 and name = ?2", subjectId, name).<GradeCategory>firstResult().id;
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

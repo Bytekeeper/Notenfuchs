@@ -12,16 +12,11 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,7 +39,7 @@ class SubjectTeacherIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void addSubjectTeacher_knownColleagueNotYetOnSubject_grantsAccess() throws Exception {
@@ -52,7 +47,7 @@ class SubjectTeacherIT {
         Long subjectId = createClassAndSubject("SubjTeacher-Add-Klasse-" + unique, "SubjTeacher-Add-Fach-" + unique);
         String colleagueSubject = seedTeacher("colleague-" + unique);
 
-        HttpResponse<String> response = post("/subjects/" + subjectId + "/teachers",
+        HttpResponse<String> response = http.post("/subjects/" + subjectId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
 
         assertEquals(200, response.statusCode());
@@ -64,7 +59,7 @@ class SubjectTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long subjectId = createClassAndSubject("SubjTeacher-Unknown-Klasse-" + unique, "SubjTeacher-Unknown-Fach-" + unique);
 
-        HttpResponse<String> response = post("/subjects/" + subjectId + "/teachers",
+        HttpResponse<String> response = http.post("/subjects/" + subjectId + "/teachers",
                 Map.of("teacherSubject", "never-logged-in-" + unique));
 
         assertEquals(400, response.statusCode());
@@ -76,9 +71,9 @@ class SubjectTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long subjectId = createClassAndSubject("SubjTeacher-Dup-Klasse-" + unique, "SubjTeacher-Dup-Fach-" + unique);
         String colleagueSubject = seedTeacher("colleague-dup-" + unique);
-        assertEquals(200, post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueSubject)).statusCode());
+        assertEquals(200, http.post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueSubject)).statusCode());
 
-        HttpResponse<String> response = post("/subjects/" + subjectId + "/teachers",
+        HttpResponse<String> response = http.post("/subjects/" + subjectId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
 
         assertEquals(400, response.statusCode());
@@ -113,11 +108,11 @@ class SubjectTeacherIT {
         Long foreignSubjectId = ids[0];
         Long foreignSubjectTeacherId = ids[1];
 
-        HttpResponse<String> addResponse = post("/subjects/" + foreignSubjectId + "/teachers",
+        HttpResponse<String> addResponse = http.post("/subjects/" + foreignSubjectId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
         assertEquals(404, addResponse.statusCode());
 
-        HttpResponse<String> removeResponse = delete("/subjects/" + foreignSubjectId + "/teachers/" + foreignSubjectTeacherId);
+        HttpResponse<String> removeResponse = http.delete("/subjects/" + foreignSubjectId + "/teachers/" + foreignSubjectTeacherId);
         assertEquals(404, removeResponse.statusCode());
     }
 
@@ -128,7 +123,7 @@ class SubjectTeacherIT {
         SubjectTeacher soleTeacher = SubjectTeacher.find("subject.id", subjectId).firstResult();
         Long soleTeacherId = soleTeacher.id;
 
-        HttpResponse<String> response = delete("/subjects/" + subjectId + "/teachers/" + soleTeacherId);
+        HttpResponse<String> response = http.delete("/subjects/" + subjectId + "/teachers/" + soleTeacherId);
 
         assertEquals(400, response.statusCode());
         assertEquals(1, SubjectTeacher.count("subject.id", subjectId));
@@ -139,13 +134,13 @@ class SubjectTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long subjectId = createClassAndSubject("SubjTeacher-RemoveOther-Klasse-" + unique, "SubjTeacher-RemoveOther-Fach-" + unique);
         String colleagueSubject = seedTeacher("colleague-remove-" + unique);
-        post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        http.post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueSubject));
         SubjectTeacher colleagueSubjectTeacher = SubjectTeacher
                 .find("subject.id = ?1 and teacherSubject = ?2", subjectId, colleagueSubject)
                 .firstResult();
         Long colleagueSubjectTeacherId = colleagueSubjectTeacher.id;
 
-        HttpResponse<String> response = delete("/subjects/" + subjectId + "/teachers/" + colleagueSubjectTeacherId);
+        HttpResponse<String> response = http.delete("/subjects/" + subjectId + "/teachers/" + colleagueSubjectTeacherId);
 
         assertEquals(200, response.statusCode());
         assertTrue(response.headers().firstValue("HX-Redirect").isEmpty());
@@ -158,19 +153,19 @@ class SubjectTeacherIT {
     void removeSubjectTeacher_self_redirectsToClassPage_whenOwnerStillHasClassAccess() throws Exception {
         String unique = Long.toString(System.nanoTime());
         String className = "SubjTeacher-SelfOwner-Klasse-" + unique;
-        post("/classes", Map.of("name", className, "schoolYear", "2025/26"));
+        http.post("/classes", Map.of("name", className, "schoolYear", "2025/26"));
         SchoolClass createdClass = SchoolClass.find("name", className).firstResult();
         Long classId = createdClass.id;
         Long subjectId = createSubject(classId, "SubjTeacher-SelfOwner-Fach-" + unique);
         String colleagueSubject = seedTeacher("colleague-selfowner-" + unique);
-        post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueSubject));
+        http.post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueSubject));
         // dev-user is the class's creator/owner (see CurrentUser#effectiveSubject in %test) as
         // well as one of the subject's two teachers.
         SubjectTeacher ownSelfSubjectTeacher = SubjectTeacher
                 .find("subject.id = ?1 and teacherSubject = ?2", subjectId, "dev-user")
                 .firstResult();
 
-        HttpResponse<String> response = delete("/subjects/" + subjectId + "/teachers/" + ownSelfSubjectTeacher.id);
+        HttpResponse<String> response = http.delete("/subjects/" + subjectId + "/teachers/" + ownSelfSubjectTeacher.id);
 
         assertEquals(200, response.statusCode());
         assertEquals("/classes/" + classId, response.headers().firstValue("HX-Redirect").orElse(null));
@@ -214,7 +209,7 @@ class SubjectTeacherIT {
                 .find("subject.id = ?1 and teacherSubject = ?2", subjectId, "dev-user")
                 .firstResult();
 
-        HttpResponse<String> response = delete("/subjects/" + subjectId + "/teachers/" + ownSelfSubjectTeacher.id);
+        HttpResponse<String> response = http.delete("/subjects/" + subjectId + "/teachers/" + ownSelfSubjectTeacher.id);
 
         assertEquals(200, response.statusCode());
         assertEquals("/classes", response.headers().firstValue("HX-Redirect").orElse(null));
@@ -250,7 +245,7 @@ class SubjectTeacherIT {
 
         // dev-user is neither the class owner nor its creator, but teaches this subject - self-
         // service means that alone must be enough to add another teacher to it.
-        HttpResponse<String> response = post("/subjects/" + subjectId + "/teachers",
+        HttpResponse<String> response = http.post("/subjects/" + subjectId + "/teachers",
                 Map.of("teacherSubject", colleagueSubject));
 
         assertEquals(200, response.statusCode());
@@ -289,7 +284,7 @@ class SubjectTeacherIT {
         Long colleagueSubjectTeacherId = ids[1];
 
         // dev-user removes the *colleague*, not itself - proving removal is equally self-service.
-        HttpResponse<String> response = delete("/subjects/" + subjectId + "/teachers/" + colleagueSubjectTeacherId);
+        HttpResponse<String> response = http.delete("/subjects/" + subjectId + "/teachers/" + colleagueSubjectTeacherId);
 
         assertEquals(200, response.statusCode());
         assertTrue(response.headers().firstValue("HX-Redirect").isEmpty());
@@ -310,47 +305,18 @@ class SubjectTeacherIT {
     }
 
     private Long createClassAndSubject(String className, String subjectName) throws Exception {
-        post("/classes", Map.of("name", className, "schoolYear", "2025/26"));
+        http.post("/classes", Map.of("name", className, "schoolYear", "2025/26"));
         SchoolClass createdClass = SchoolClass.find("name", className).firstResult();
         return createSubject(createdClass.id, subjectName);
     }
 
     private Long createSubject(Long classId, String subjectName) throws Exception {
         GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
-        post("/classes/" + classId + "/subjects", Map.of(
+        http.post("/classes/" + classId + "/subjects", Map.of(
                 "name", subjectName,
                 "gradeScaleId", String.valueOf(gradeScale.id),
                 "roundingMode", "COMMERCIAL"));
         Subject created = Subject.find("name", subjectName).firstResult();
         return created.id;
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> delete(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .DELETE()
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }
