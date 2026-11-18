@@ -99,12 +99,12 @@ cp .env.example .env
    Zugriff auf genau die Lehrkräfte zu beschränken, die Notenfuchs nutzen sollen.
 7. **Pocket ID auf Notenfuchs weiterleiten lassen.** Nach der Anmeldung bei Pocket ID
    selbst - also auch direkt nach der Registrierung - landet man auf Pocket IDs
-   Startseite, standardmäßig der eigenen Kontoseite. Setze diese Startseite
-   (`HOME_PAGE_URL`) auf `<deine Notenfuchs-URL>/`, dann kommen neue Kolleginnen und
-   Kollegen nach der Registrierung direkt in Notenfuchs an. Normalerweise stellst du das
-   in Pocket IDs Admin-Einstellungen ein; als Umgebungsvariable im Pocket-ID-Container
-   wirkt `HOME_PAGE_URL` nur zusammen mit `UI_CONFIG_DISABLED=true`, weil Pocket ID die
-   Einstellung sonst aus seiner Datenbank liest.
+   Startseite. Trage in `.env` bei `NOTENFUCHS_APP_URL` deine Notenfuchs-URL ein
+   (Standard: `http://localhost:8080`) und führe `docker compose up -d pocket-id` aus;
+   `docker-compose.oidc.yml` setzt damit Pocket IDs Startseite (`HOME_PAGE_URL`) auf
+   Notenfuchs. Neue Kolleginnen und Kollegen kommen dann nach der Registrierung direkt in
+   Notenfuchs an. (Pocket ID liest seine Einstellungen hier aus der Compose-Datei, nicht
+   aus der Admin-UI, weil dort `UI_CONFIG_DISABLED=true` gesetzt ist.)
 8. **Einen Registrierungslink verschicken.** Erzeuge auf der Users-Seite über
    "Create signup token" einen Einmal-Link und gib ihn an die Person weiter, die
    Notenfuchs tatsächlich nutzen soll (z. B. dich selbst oder eine Kollegin/einen
