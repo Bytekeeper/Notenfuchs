@@ -8,7 +8,7 @@
                 <div class="rename-wrap">
                     <div class="rename-view">
                         <div>
-                            <a href="/subjects/{s.id}">{s.name}</a>
+                            <a href="/subjects/{s.id}/grid">{s.name}</a>
                             <div class="subject-meta">
                                 {s.gradeScale.name} · {s.roundingMode}
                                 {#if s.primaryTeacherLabel}
@@ -29,7 +29,6 @@
                             </div>
                         </div>
                         <div class="row-actions">
-                            <a class="btn secondary" href="/subjects/{s.id}/grid">Noten</a>
                             <button type="button" class="rename-toggle">Ändern</button>
                             {#if isClassAdmin || isClassTeacher}
                             <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">

@@ -68,6 +68,7 @@ class ClassDuplicationE2EIT {
         assertThat(studentRow(studentName)).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -96,6 +97,7 @@ class ClassDuplicationE2EIT {
 
         // Fresh start: the copied subject's category has no Leistungen.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator newCategoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(newCategoryCard.locator("table.entity-list tbody tr.empty-row")).isVisible();
         assertThat(newCategoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
@@ -113,6 +115,7 @@ class ClassDuplicationE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
         assertThat(studentRow(studentName)).hasCount(1);
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator sourceCategoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(sourceCategoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .isVisible();

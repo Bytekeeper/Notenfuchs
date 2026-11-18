@@ -120,6 +120,7 @@ class ReadmeScreenshotIT {
         setHalfYearCutoff(HALF_YEAR_CUTOFF);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Mathematik")).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         setAssessmentDate("Klassenarbeit 1", KLASSENARBEIT_1_DATE);
         setAssessmentDate("Mitarbeit 1. Halbjahr", MITARBEIT_DATE);
         setAssessmentDate("Klassenarbeit 2 (Punkte)", KLASSENARBEIT_2_DATE);
