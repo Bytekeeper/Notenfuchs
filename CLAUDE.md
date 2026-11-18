@@ -12,7 +12,7 @@ Quarkus 3.40 · Java 17+ · Hibernate ORM Panache · quarkus-rest + Qute + htmx 
 ./mvnw test                      # unit tests, no DB
 ./mvnw verify                    # + HTTP-level and Playwright ITs (needs Docker)
 ./mvnw verify -Dit.test=X -Dtest=NONE -Dsurefire.failIfNoSpecifiedTests=false   # one IT class
-./mvnw verify -Dit.test=ReadmeScreenshotIT   # regenerate screenshots/ (excluded by default)
+./mvnw verify -Dit.test=WalkthroughIT -Dscreenshots=true   # regenerate guide + README images
 ./mvnw quarkus:dev               # needs `docker compose up -d postgres` first
 ```
 
@@ -26,7 +26,7 @@ Before calling it done, do both checks and report the result:
 1. **Best practices** against the rules below: access via `OwnershipGuard`, Flyway migration for schema changes, scale-agnostic grade logic that reuses `GradeService`, no controls rendered that the viewer can't use, comments say why, no dead code or debug output, no class growing into a grab bag (split by page or concern).
 2. **Coverage**: each new or changed behavior has a test where it can break: pure calculation → unit test, endpoint rules and access → HTTP-level IT, htmx/`notenfuchs.js` flows → Playwright IT. Real bugs get a regression test that fails without the fix. Never aim for 100 %; skip simple wiring, prefer a few telling samples.
 
-Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only real diffs), and update this file and the README.
+Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only real diffs), and update this file, the README and the user guide (`docs/anleitung/`).
 
 ## Code map (`src/main/java/de/notenfuchs/`)
 
@@ -82,7 +82,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seed
 - **HTTP-level ITs** use `web/TestHttp` (`private final TestHttp http = new TestHttp(() -> rootUrl);`, then `http.get/post/patch/delete/getBytes`); don't copy request helpers into test classes.
 - **ITs reuse one Hibernate session per test method:** an entity loaded earlier in the test stays cached after an HTTP request changed it. Re-read inside `QuarkusTransaction.requiringNew()`.
 - **Playwright:** each test creates uniquely named data (no DB reset). After an htmx submit, wait for the swap before the next fill. Wait for `NETWORKIDLE` before a reload that must see saved cells. `getByRole` names match substrings; use `setExact(true)` or a scoped locator (e.g. `.tabs`) when labels overlap ("Anlegen", "Noten…").
-- **`ReadmeScreenshotIT`** logs in with `LocalAuthTestProfile`, pins demo dates to fixed values, and writes byte-stable PNGs. Run it manually after visible UI changes.
+- **`WalkthroughIT` is the user guide's test.** One ordered test per journey, one German page per journey in `docs/anleitung/` (same order). Each journey checks its page both ways: every **„label“** quoted there must appear on a page it visited, and the page must reference exactly the images it takes. With `-Dscreenshots=true` (run the class alone) it writes `docs/anleitung/bilder/` and the README's `screenshots/`: fixed names and dates, CSS transitions off, a wait for the save flash, PNGs re-encoded so an unchanged UI gives byte-identical files. Keep values that change daily (e.g. "ausgetreten seit") out of images. When a UI change breaks it, update the guide text too.
 - **Roster CSV** must handle German Excel: `;` delimiter, Windows-1252 fallback; export is UTF-8 with BOM. Import is preview → confirm, stateless.
 - **versions-maven-plugin:** `processDependencyManagement=false` and the enforcer's Maven 3.9.0 floor keep its reports readable; `showVersionless=false` crashes the plugin, don't add it.
 
@@ -106,6 +106,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seed
 | Class export | `ClassExportIT` |
 | School-year copy | `ClassDuplicationIT`, `ClassDuplicationE2EIT` |
 | Roster CSV | `CsvRosterServiceTest`, `RosterImportExportE2EIT` |
+| User guide flows | `WalkthroughIT` |
 | Login | `LocalAuthConfigSourceTest`, `AuthConfigurationCheckTest`, `LoginIT`, `LoginE2EIT` |
 
 ## Deployment

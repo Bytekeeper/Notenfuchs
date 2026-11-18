@@ -16,6 +16,9 @@ Fach sowie gerundete Endnoten.
 
 (Alle gezeigten Namen sind frei erfunden und keine echten Schüler.)
 
+**[Anleitung für Lehrkräfte](docs/anleitung/README.md):** Notenfuchs Schritt für Schritt,
+vom Schuljahresbeginn bis zum Zeugnis.
+
 ## Notenfuchs betreiben
 
 Notenfuchs läuft als Docker-Container zusammen mit PostgreSQL. Das Einzige, was
@@ -297,24 +300,20 @@ Browser beteiligt), der `SchoolClass`/`Subject`-Zeilen mit unterschiedlichen
 `ClassTeacher`/`SubjectTeacher`-Eigentümern anlegt und die Mandantentrennung direkt
 gegen `OwnershipGuard` prüft - siehe "Datenzugriff pro Lehrkraft" oben.
 
-### Screenshots im README neu erzeugen
+### Screenshots und Anleitung neu erzeugen
 
-Die Bilder unter "Screenshots" oben sind nicht von Hand aufgenommen, sondern werden
-von `ReadmeScreenshotIT` (`src/test/java/de/notenfuchs/e2e`) generiert - es steuert
-die echte Oberfläche über einen Browser genau wie die anderen Playwright-ITs und
-schreibt dann verlustfreie, metadatenbereinigte PNGs nach `screenshots/`. Er ist vom
-Standardlauf `./mvnw verify` ausgeschlossen (siehe `pom.xml`), da es sich um einen
-manuellen, bei Bedarf auszuführenden Schritt handelt, nicht um einen Regressionstest -
-führe ihn explizit aus, wann immer sich die Oberfläche so weit ändert, dass die
-aktuellen Screenshots veraltet sind:
+Die Bilder oben und in der [Anleitung](docs/anleitung/README.md) sind nicht von Hand
+aufgenommen. `WalkthroughIT` (`src/test/java/de/notenfuchs/e2e`) klickt die Abläufe der
+Anleitung in der echten App durch und läuft bei jedem `./mvnw verify` als normaler Test mit.
+Dabei prüft er auch, dass jede in der Anleitung genannte Beschriftung (**„…“**) in der App
+noch vorkommt. Die Bilder schreibt er nur auf Wunsch, und dann allein gestartet:
 
 ```bash
-./mvnw verify -Dit.test=ReadmeScreenshotIT
+./mvnw verify -Dit.test=WalkthroughIT -Dscreenshots=true
 ```
 
-Prüfe danach `git diff --stat screenshots/` und committe nur, wenn sich tatsächlich
-etwas geändert hat - ein erneuter Lauf ohne sichtbare UI-Änderung erzeugt
-byteidentische Dateien, unabhängig davon, an welchem Tag er läuft.
+Ein Lauf ohne sichtbare Änderung erzeugt byteidentische Dateien; committe nur, was
+`git status` als geändert zeigt.
 
 ## Das Notenmodell
 
