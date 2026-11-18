@@ -83,7 +83,8 @@ public class BehaviorGridResource {
                 .data("subjectFooters", data.subjectFooters())
                 .data("maxCol", data.maxCol())
                 .data("maxRow", data.maxRow())
-                .data("gridEmpty", data.gridEmpty()));
+                .data("gridEmpty", data.gridEmpty())
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject)));
     }
 
     private GridData loadGridData(SchoolClass schoolClass, String currentSubject) {

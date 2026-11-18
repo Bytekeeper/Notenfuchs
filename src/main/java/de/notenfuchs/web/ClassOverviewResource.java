@@ -87,7 +87,8 @@ public class ClassOverviewResource {
                 .data("schoolClass", schoolClass)
                 .data("subjects", subjects)
                 .data("rows", rows)
-                .data("gridEmpty", subjects.isEmpty()));
+                .data("gridEmpty", subjects.isEmpty())
+                .data("isClassAdmin", true));
     }
 
     // ---- View models for the Qute template ----

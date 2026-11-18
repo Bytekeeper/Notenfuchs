@@ -79,6 +79,14 @@ public class ClassUiResource {
     Template detailTemplate;
 
     @Inject
+    @Location("ClassPage/teachers.html")
+    Template teachersTemplate;
+
+    @Inject
+    @Location("ClassPage/settings.html")
+    Template settingsTemplate;
+
+    @Inject
     @Location("ClassPage/rosterImportPreview.html")
     Template rosterImportPreviewTemplate;
 
@@ -132,12 +140,33 @@ public class ClassUiResource {
                 .data("students", students)
                 .data("gradeScales", gradeScales)
                 .data("rosterImportResult", rosterImportResult)
+                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
+                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject)));
+    }
+
+    @GET
+    @Path("/{id}/teachers")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance teachersPage(@PathParam("id") Long id) {
+        String currentSubject = currentUser.effectiveSubject();
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentSubject);
+        return currentUser.withUser(teachersTemplate
+                .data("schoolClass", schoolClass)
                 .data("classTeachers", classTeachersWithResolvedLabels(id))
                 .data("availableTeachers", availableTeachers(id))
                 .data("transitiveTeachers", transitiveTeachers(id))
                 .data("currentUserSubject", currentSubject)
-                .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
-                .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject)));
+                .data("isClassAdmin", true));
+    }
+
+    @GET
+    @Path("/{id}/settings")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance settingsPage(@PathParam("id") Long id) {
+        SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
+        return currentUser.withUser(settingsTemplate
+                .data("schoolClass", schoolClass)
+                .data("isClassAdmin", true));
     }
 
     /**

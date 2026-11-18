@@ -69,6 +69,7 @@ class ClassTeacherE2EIT {
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Lehrkräfte")).click();
 
         // Sole owner: shown as "(Sie)", no removal option.
         Locator teachersFragment = page.locator("#class-teachers-fragment");

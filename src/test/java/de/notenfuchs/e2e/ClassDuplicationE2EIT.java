@@ -78,12 +78,9 @@ class ClassDuplicationE2EIT {
         assertThat(categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .isVisible();
 
-        // Back to the class detail page (breadcrumb), where the duplicate action lives behind
-        // the "Klasseneinstellungen" disclosure - force it open rather than clicking summary (a
-        // toggle), since new classes now default to halfYearGradeDisplay=HALF, which auto-opens
-        // the disclosure already (a click would then close it instead).
+        // Back to the class (breadcrumb), where the duplicate action lives on the "Einstellungen" tab.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
-        page.locator(".settings-disclosure").evaluate("el => el.open = true");
+        page.locator(".class-tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
 
         page.locator("#newClassName").fill(newClassName);
         page.locator("#newSchoolYear").fill(newSchoolYear);

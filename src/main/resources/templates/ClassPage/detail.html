@@ -1,8 +1,7 @@
 {#include base}
 {#title}{schoolClass.name} – Notenfuchs{/title}
 
-<div class="breadcrumbs"><a href="/classes">Übersicht</a> / {schoolClass.name}</div>
-<h1>{schoolClass.name} <small style="color: var(--color-text-muted); font-weight: 400;">({schoolClass.schoolYear})</small></h1>
+{#include ClassPage/classHeader activeTab='main' /}
 {#if predecessorClass}
     <p class="hint">Nachfolger von <a href="/classes/{predecessorClass.id}">{predecessorClass.name}</a></p>
 {/if}
@@ -85,76 +84,5 @@
         </div>
     </section>
 </div>
-
-<h2>Verhaltensnoten</h2>
-<div class="card">
-    <p class="hint">Eine Verhaltensnote je Schüler und Fach - fließt nicht in die Fachnote ein, sondern erscheint als eigene Note auf dem Zeugnis.</p>
-    <p><a class="btn secondary" href="/classes/{schoolClass.id}/behavior-grid">Verhaltensnoten erfassen</a></p>
-</div>
-
-{#if isClassAdmin}
-<h2>Notenübersicht</h2>
-<div class="card">
-    <p class="hint">Endnoten aller Fächer für jeden Schüler - nur für Admins.</p>
-    <p><a class="btn secondary" href="/classes/{schoolClass.id}/overview">Notenübersicht anzeigen</a></p>
-</div>
-{/if}
-
-{#if isClassAdmin}
-<h2>Klasseneinstellungen</h2>
-<details class="settings-disclosure" {#if schoolClass.halfYearCutoff || schoolClass.halfYearGradeDisplay.name != 'WHOLE'}open{/if}>
-    <summary>Schuljahreswechsel, Halbjahr-Ansicht</summary>
-    <div class="settings-body">
-        <div class="card">
-            <h3 style="margin-top: 0;">Schuljahreswechsel</h3>
-            <p class="hint">Legt eine neue Klasse mit denselben Fächern, Kategorien und Schülern an (ohne Leistungen/Noten) - z. B. beim Übergang 8b → 9b. Diese Klasse bleibt unverändert und weiter bearbeitbar.</p>
-            <form class="inline-form" method="post" action="/classes/{schoolClass.id}/duplicate">
-                <div class="form-field">
-                    <label for="newClassName">Neuer Klassenname</label>
-                    <input type="text" id="newClassName" name="name" placeholder="z. B. 9b" required>
-                </div>
-                <div class="form-field">
-                    <label for="newSchoolYear">Neues Schuljahr</label>
-                    <input type="text" id="newSchoolYear" name="schoolYear" value="{schoolClass.schoolYear}" required>
-                </div>
-                <button type="submit">Ins neue Schuljahr übernehmen</button>
-            </form>
-        </div>
-
-        <div class="card">
-            <h3 style="margin-top: 0;">Halbjahr-Ansicht</h3>
-            <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
-            {#include fragments/halfYearCutoff /}
-            <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
-            {#include fragments/halfYearGradeDisplay /}
-        </div>
-    </div>
-</details>
-{/if}
-
-{#if isClassAdmin}
-<h2>Lehrkräfte</h2>
-{#include fragments/classTeachers /}
-
-<h2>Fachlehrer mit Klassenzugriff</h2>
-<div class="card">
-    <p class="hint">Diese Lehrkräfte sehen die ganze Klasse (Schülerliste, Verhaltensnoten), weil sie mindestens ein Fach dieser Klasse unterrichten - nicht weil sie als Lehrkraft der Klasse hinzugefügt wurden. Nur zur Information; verwaltet wird das beim jeweiligen Fach, nicht hier.</p>
-    {#if transitiveTeachers.isEmpty}
-        <p class="hint">Keine.</p>
-    {#else}
-        <table class="entity-list">
-            <thead><tr><th>Lehrkraft</th><th>Fach/Fächer</th></tr></thead>
-            <tbody>
-                {#for t in transitiveTeachers}
-                    <tr>
-                        <td>{t.label}</td>
-                        <td>{t.subjectNames}</td>
-                    </tr>
-                {/for}
-            </tbody>
-        </table>
-    {/if}
-</div>
-{/if}
 
 {/include}
