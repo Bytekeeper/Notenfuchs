@@ -3,6 +3,7 @@ package de.notenfuchs.web;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.PointsGradeBand;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Subject;
 import io.quarkus.test.common.http.TestHTTPResource;
@@ -68,6 +69,38 @@ class GridAssessmentIT {
         assertEquals(404, post("/subjects/" + subjectA + "/grid/assessments/" + assessmentB + "/delete", Map.of())
                 .statusCode());
         assertEquals("KA-B", Assessment.<Assessment>findById(assessmentB).name);
+    }
+
+    @Test
+    void notenschluessel_isReplacedWhole_andAnInvalidBandChangesNothing() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("GA-Klasse3-" + unique);
+        Long subjectId = createSubject(classId, "GA-Fach3-" + unique);
+        Long categoryId = createCategory(subjectId, "GA-Kat3-" + unique);
+        post("/subjects/" + subjectId + "/grid/assessments",
+                Map.of("categoryId", categoryId.toString(), "name", "Klausur", "pointsBased", "true"));
+        Long assessmentId = Assessment.find("category.id", categoryId).<Assessment>firstResult().id;
+        String url = "/subjects/" + subjectId + "/grid/assessments/" + assessmentId;
+
+        // Grade 7 is outside DE 1-6: rejected before the name change is applied either.
+        HttpResponse<String> invalid = post(url, "name=Umbenannt&factor=1&pointsBased=true"
+                + "&bandPoints=50&bandGrades=1&bandPoints=10&bandGrades=7");
+        assertEquals(400, invalid.statusCode());
+        assertEquals("Klausur", Assessment.<Assessment>findById(assessmentId).name);
+        assertEquals(2, PointsGradeBand.count("assessment.id", assessmentId));
+
+        post(url, "name=Klausur&factor=1&pointsBased=true"
+                + "&bandPoints=45&bandGrades=1&bandPoints=30&bandGrades=3&bandPoints=10&bandGrades=6");
+        assertEquals(3, PointsGradeBand.count("assessment.id", assessmentId));
+    }
+
+    private HttpResponse<String> post(String path, String rawBody) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl() + path))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(rawBody))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private Long createClass(String name) throws Exception {

@@ -114,6 +114,7 @@ public class GradeGridResource {
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
         // Lets the empty state offer "+ Leistung" per category before any column exists.
         List<GradeCategory> subjectCategories = GradeCategory.list("subject.id = ?1 order by id", id);
+        Map<Long, String> bandSpecs = bandSpecs(id);
 
         if (cutoff == null) {
             GridData data = loadGridData(subject);
@@ -121,6 +122,7 @@ public class GradeGridResource {
                     .data("subject", subject)
                     .data("subjectCategories", subjectCategories)
                     .data("switchSubjects", subjectUi.switchSubjects(subject))
+                    .data("bandSpecs", bandSpecs)
                     .data("categories", data.categoryColumns())
                     .data("students", data.students())
                     .data("rows", data.rows())
@@ -135,6 +137,7 @@ public class GradeGridResource {
                 .data("subject", subject)
                 .data("subjectCategories", subjectCategories)
                 .data("switchSubjects", subjectUi.switchSubjects(subject))
+                .data("bandSpecs", bandSpecs)
                 .data("isClassAdmin", guard.isAdmin(subject.schoolClass, currentUser.effectiveSubject()))
                 .data("cutoff", cutoff)
                 .data("undatedColumns", data.undatedColumns())
@@ -193,11 +196,86 @@ public class GradeGridResource {
                                      @FormParam("date") LocalDate date,
                                      @FormParam("factor") BigDecimal factor,
                                      @FormParam("pointsBased") String pointsBasedRaw,
-                                     @FormParam("roundingMode") String roundingModeRaw) {
+                                     @FormParam("roundingMode") String roundingModeRaw,
+                                     @FormParam("bandPoints") List<BigDecimal> bandPoints,
+                                     @FormParam("bandGrades") List<BigDecimal> bandGrades) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
+        boolean wasPointsBased = assessment.pointsBased;
+        // Checked before anything changes, so a bad Notenschlüssel can't leave half an edit behind.
+        List<PointsGradeBandData> bands = bandPoints == null || bandPoints.isEmpty() ? null
+                : parseBands(bandPoints, bandGrades, subject.gradeScale);
         subjectUi.updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
+        // The dialog only shows the band editor for a Leistung that was already points-based; a
+        // fresh switch to points gets the default bands from updateAssessment instead.
+        if (bands != null && wasPointsBased && assessment.pointsBased) {
+            PointsGradeBand.delete("assessment.id", assessment.id);
+            for (PointsGradeBandData data : bands) {
+                PointsGradeBand band = new PointsGradeBand();
+                band.assessment = assessment;
+                band.points = data.points();
+                band.gradeValue = data.gradeValue();
+                band.persist();
+            }
+        }
         return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+    }
+
+    /**
+     * Notenspiegel for a Notenschlüssel the teacher is still editing: how many students would get
+     * each whole grade, and the average, using the same conversion and rounding as the grid.
+     * Nothing is saved.
+     */
+    @POST
+    @Path("/assessments/{assessmentId}/band-preview")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.APPLICATION_JSON)
+    public BandPreview bandPreview(@PathParam("id") Long id,
+                                   @PathParam("assessmentId") Long assessmentId,
+                                   @FormParam("bandPoints") List<BigDecimal> bandPoints,
+                                   @FormParam("bandGrades") List<BigDecimal> bandGrades) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
+        List<PointsGradeBandData> bands = parseBands(bandPoints, bandGrades, subject.gradeScale);
+        GradeScale scale = subject.gradeScale;
+        Map<Integer, Integer> countByGrade = new HashMap<>();
+        List<BigDecimal> derived = new ArrayList<>();
+        for (Grade grade : Grade.<Grade>list("assessment.id = ?1 and points is not null", assessment.id)) {
+            BigDecimal value = pointsConversionService.convert(grade.points, bands, scale, assessment.roundingMode);
+            derived.add(value);
+            Integer whole = gradeService.calculateAssessmentAverage(List.of(value), scale, subject.roundingMode).finalGrade();
+            countByGrade.merge(whole, 1, Integer::sum);
+        }
+        int best = scale.lowerIsBetter ? scale.min.intValue() : scale.max.intValue();
+        int worst = scale.lowerIsBetter ? scale.max.intValue() : scale.min.intValue();
+        int step = best <= worst ? 1 : -1;
+        List<BandPreview.GradeCount> distribution = new ArrayList<>();
+        for (int g = best; g != worst + step; g += step) {
+            distribution.add(new BandPreview.GradeCount(g, countByGrade.getOrDefault(g, 0)));
+        }
+        BigDecimal average = gradeService.calculateAssessmentAverage(derived, scale, subject.roundingMode).rawAverage();
+        return new BandPreview(distribution, average != null ? plain(average) : null);
+    }
+
+    public record BandPreview(List<GradeCount> distribution, String average) {
+        public record GradeCount(int grade, int count) {
+        }
+    }
+
+    private static List<PointsGradeBandData> parseBands(List<BigDecimal> points, List<BigDecimal> grades, GradeScale scale) {
+        if (points == null || grades == null || points.isEmpty() || points.size() != grades.size()) {
+            throw new BadRequestException("Der Notenschlüssel braucht mindestens eine vollständige Stufe");
+        }
+        List<PointsGradeBandData> bands = new ArrayList<>();
+        for (int i = 0; i < points.size(); i++) {
+            BigDecimal p = points.get(i);
+            BigDecimal g = grades.get(i);
+            if (p == null || g == null || p.signum() < 0 || g.compareTo(scale.min) < 0 || g.compareTo(scale.max) > 0) {
+                throw new BadRequestException("Ungültige Stufe im Notenschlüssel");
+            }
+            bands.add(new PointsGradeBandData(p, g));
+        }
+        return bands;
     }
 
     @POST
@@ -232,6 +310,22 @@ public class GradeGridResource {
         return Redirects.seeOther(target).build();
     }
 
+    /** Each points-based Leistung's Notenschlüssel as "60:1;20:6" (best first), read by the grid's edit dialog. */
+    private static Map<Long, String> bandSpecs(Long subjectId) {
+        Map<Long, StringBuilder> specs = new HashMap<>();
+        for (PointsGradeBand band : PointsGradeBand.<PointsGradeBand>list(
+                "assessment.category.subject.id = ?1 order by points desc", subjectId)) {
+            StringBuilder spec = specs.computeIfAbsent(band.assessment.id, k -> new StringBuilder());
+            if (!spec.isEmpty()) {
+                spec.append(';');
+            }
+            spec.append(plain(band.points)).append(':').append(plain(band.gradeValue));
+        }
+        Map<Long, String> result = new HashMap<>();
+        specs.forEach((assessmentId, spec) -> result.put(assessmentId, spec.toString()));
+        return result;
+    }
+
     private Assessment requireAssessmentOfSubject(Long assessmentId, Long subjectId) {
         Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentUser.effectiveSubject());
         if (!assessment.category.subject.id.equals(subjectId)) {
@@ -246,8 +340,6 @@ public class GradeGridResource {
     public Response exportXlsx(@PathParam("id") Long id) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
-        // Lets the empty state offer "+ Leistung" per category before any column exists.
-        List<GradeCategory> subjectCategories = GradeCategory.list("subject.id = ?1 order by id", id);
 
         byte[] xlsx = cutoff == null
                 ? buildWorkbook(subject, loadGridData(subject))

@@ -850,9 +850,66 @@
         var categoryLabel = dialog.querySelector(".assessment-dialog-category");
         var deleteButton = dialog.querySelector(".assessment-dialog-delete");
         var pointsWarning = dialog.querySelector(".assessment-dialog-points-warning");
-        var bandsHint = dialog.querySelector(".assessment-dialog-bands");
+        var bandsEditor = dialog.querySelector(".assessment-dialog-bands");
+        var bandRows = bandsEditor.querySelector("tbody");
+        var bandRowTemplate = dialog.querySelector(".band-row-template");
+        var preview = dialog.querySelector(".assessment-dialog-preview");
         var pointsBox = form.elements.pointsBased;
         var originalPointsBased = null;
+        var previewUrl = null;
+        var previewTimer = null;
+
+        function addBandRow(points, grade) {
+            var row = bandRowTemplate.content.firstElementChild.cloneNode(true);
+            row.querySelector('[name="bandPoints"]').value = points || "";
+            row.querySelector('[name="bandGrades"]').value = grade || "";
+            bandRows.appendChild(row);
+        }
+
+        // Hidden inputs would still be submitted (and checked), so the editor's are disabled while hidden.
+        function showBandsEditor(show) {
+            bandsEditor.hidden = !show;
+            bandsEditor.querySelectorAll("input").forEach(function (input) { input.disabled = !show; });
+            if (show) {
+                schedulePreview();
+            }
+        }
+
+        function schedulePreview() {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(loadPreview, 250);
+        }
+
+        function loadPreview() {
+            if (!previewUrl || bandsEditor.hidden) return;
+            var body = new URLSearchParams();
+            var complete = true;
+            bandRows.querySelectorAll("tr").forEach(function (row) {
+                var points = row.querySelector('[name="bandPoints"]').value;
+                var grade = row.querySelector('[name="bandGrades"]').value;
+                if (points === "" || grade === "") complete = false;
+                body.append("bandPoints", points);
+                body.append("bandGrades", grade);
+            });
+            if (!complete) return;
+            fetch(previewUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body.toString()
+            })
+                .then(function (resp) { return resp.ok ? resp.json() : null; })
+                .then(function (data) {
+                    if (!data) {
+                        preview.textContent = "Notenschlüssel unvollständig oder ungültig.";
+                    } else if (data.average === null) {
+                        preview.textContent = "Notenspiegel: noch keine Punkte eingetragen.";
+                    } else {
+                        preview.textContent = "Notenspiegel: " + data.distribution
+                            .map(function (d) { return d.grade + ": " + d.count; })
+                            .join(" · ") + " · Ø " + data.average;
+                    }
+                });
+        }
 
         function open(data) {
             var editing = Boolean(data.assessmentId);
@@ -870,7 +927,14 @@
             deleteButton.hidden = !editing;
             deleteButton.formAction = editing ? baseUrl + "/" + data.assessmentId + "/delete" : "";
             deleteButton.dataset.name = data.name || "";
-            bandsHint.hidden = !(editing && pointsBox.checked);
+            previewUrl = editing ? baseUrl + "/" + data.assessmentId + "/band-preview" : null;
+            bandRows.innerHTML = "";
+            preview.textContent = "";
+            (data.bands || "").split(";").filter(Boolean).forEach(function (band) {
+                var parts = band.split(":");
+                addBandRow(parts[0], parts[1]);
+            });
+            showBandsEditor(editing && pointsBox.checked);
             pointsWarning.hidden = true;
             dialog.showModal();
             form.elements.name.focus();
@@ -890,7 +954,25 @@
 
         pointsBox.addEventListener("change", function () {
             pointsWarning.hidden = originalPointsBased === null || pointsBox.checked === originalPointsBased;
+            // Only an existing points-based Leistung has bands to edit; a new switch gets default bands.
+            showBandsEditor(originalPointsBased === true && pointsBox.checked);
         });
+
+        dialog.querySelector(".assessment-dialog-add-band").addEventListener("click", function () {
+            addBandRow("", "");
+            showBandsEditor(true);
+            bandRows.lastElementChild.querySelector("input").focus();
+        });
+
+        bandsEditor.addEventListener("click", function (ev) {
+            var remove = ev.target.closest(".band-remove");
+            if (remove && bandRows.children.length > 1) {
+                remove.closest("tr").remove();
+                schedulePreview();
+            }
+        });
+
+        bandsEditor.addEventListener("input", schedulePreview);
 
         deleteButton.addEventListener("click", function (ev) {
             var message = "Leistung '" + deleteButton.dataset.name + "' wirklich löschen? Das löscht auch alle zugehörigen Noten.";

@@ -94,6 +94,36 @@ class GradeGridAssessmentE2EIT {
         assertThat(page.locator(".average-final")).hasText("2");
     }
 
+    @Test
+    void notenschluesselCanBeEditedFromTheGradeTableWithALiveNotenspiegel() {
+        String unique = Long.toString(System.nanoTime());
+        String categoryName = "E2E-Kategorie-" + unique;
+        setUpSubjectWithEmptyCategory(unique, categoryName);
+        Locator dialog = page.locator("#assessment-dialog");
+
+        // A points-based Leistung starts with the default bands 60 -> 1 and 20 -> 6.
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("+ Leistung in " + categoryName)).click();
+        page.locator("#assessmentName").fill("Klausur");
+        page.locator("#assessmentPointsBased").check();
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
+        pointsCell.fill("50");
+        pointsCell.evaluate("el => el.blur()");
+        assertThat(page.locator(".derived-grade")).hasText("2.2");
+
+        page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("Klausur")).click();
+        Locator bandGrades = dialog.locator("input[name='bandGrades']");
+        assertThat(bandGrades).hasCount(2);
+        Locator preview = dialog.locator(".assessment-dialog-preview");
+        assertThat(preview).containsText("2: 1");
+
+        // 60 -> 2 instead of 1: the preview follows before anything is saved.
+        bandGrades.first().fill("2");
+        assertThat(preview).containsText("3: 1");
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(page.locator(".derived-grade")).hasText("3");
+    }
+
     private void setUpSubjectWithEmptyCategory(String unique, String categoryName) {
         String className = "E2E-Klasse-" + unique;
         String subjectName = "E2E-Fach-" + unique;

@@ -26,7 +26,22 @@
             </select>
         </div>
         <p class="hint assessment-dialog-points-warning" hidden>Beim Wechsel zwischen Punkten und Noten werden die bisherigen Einträge dieser Leistung gelöscht.</p>
-        <p class="hint assessment-dialog-bands" hidden>Den Notenschlüssel bearbeiten Sie unter <a href="/subjects/{subject.id}">Leistungen &amp; Gewichtung</a>.</p>
+        <div class="assessment-dialog-bands" hidden>
+            <h3>Notenschlüssel</h3>
+            <table class="bands-editor">
+                <thead><tr><th>ab Punkten</th><th>Note</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <button type="button" class="secondary assessment-dialog-add-band">+ Stufe</button>
+            <p class="hint assessment-dialog-preview" aria-live="polite"></p>
+        </div>
+        <template class="band-row-template">
+            <tr>
+                <td><input type="number" name="bandPoints" step="0.01" min="0" required aria-label="ab Punkten"></td>
+                <td><input type="number" name="bandGrades" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" required aria-label="Note"></td>
+                <td><button type="button" class="delete-btn band-remove" aria-label="Stufe entfernen">×</button></td>
+            </tr>
+        </template>
         <div class="assessment-dialog-actions">
             <button type="submit">Speichern</button>
             <button type="button" class="secondary assessment-dialog-cancel">Abbrechen</button>
