@@ -91,9 +91,12 @@ class WalkthroughIT {
         page = context.newPage();
         page.setViewportSize(1280, 900);
         // No fades or animations: a screenshot must not depend on how far one has progressed.
+        // The local user is always an instance admin; the guide shows a teacher's view, so the
+        // admin-only "Rückmeldungen" link is hidden in the images.
         page.addInitScript("document.addEventListener('DOMContentLoaded', () => {"
                 + " const style = document.createElement('style');"
-                + " style.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';"
+                + " style.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }"
+                + " a[href=\\'/admin/feedback\\'] { display: none !important; }';"
                 + " document.head.appendChild(style); });");
         page.navigate(baseUrl() + "login");
         page.locator("input[name='j_password']").fill(LocalAuthTestProfile.PASSWORD);
