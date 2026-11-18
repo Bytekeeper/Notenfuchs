@@ -1,8 +1,11 @@
 package de.notenfuchs.web;
 
+import de.notenfuchs.domain.Assessment;
+import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
+import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.domain.SubjectTeacher;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -17,6 +20,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -66,6 +70,34 @@ class MySubjectsIT {
 
         assertTrue(html.contains("Neu-Fach-" + unique));
         assertFalse(html.contains("Alt-Fach-" + unique));
+    }
+
+    @Test
+    void cardCountsMissingGradesOfLeistungenWhoseDateHasCome() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Offen-Klasse-" + unique, NEWEST_YEAR);
+        Long subjectId = createSubject(classId, "Offen-Fach-" + unique);
+        post("/classes/" + classId + "/students", Map.of("name", "Anna-" + unique));
+        post("/classes/" + classId + "/students", Map.of("name", "Ben-" + unique));
+        post("/subjects/" + subjectId + "/categories", Map.of("name", "Kat-" + unique, "weightPercent", "100"));
+        Long categoryId = GradeCategory.find("name", "Kat-" + unique).<GradeCategory>firstResult().id;
+        String yesterday = LocalDate.now().minusDays(1).toString();
+        String tomorrow = LocalDate.now().plusDays(1).toString();
+        post("/subjects/" + subjectId + "/grid/assessments",
+                Map.of("categoryId", categoryId.toString(), "name", "Vergangen-" + unique, "date", yesterday));
+        // Not due yet, and undated: neither counts as missing.
+        post("/subjects/" + subjectId + "/grid/assessments",
+                Map.of("categoryId", categoryId.toString(), "name", "Zukunft-" + unique, "date", tomorrow));
+        post("/subjects/" + subjectId + "/grid/assessments",
+                Map.of("categoryId", categoryId.toString(), "name", "Ohne-" + unique));
+        Long pastId = Assessment.find("name", "Vergangen-" + unique).<Assessment>firstResult().id;
+        Long annaId = Student.find("name", "Anna-" + unique).<Student>firstResult().id;
+        post("/subjects/" + subjectId + "/grid/cell",
+                Map.of("studentId", annaId.toString(), "assessmentId", pastId.toString(), "value", "2"));
+
+        String html = get("/classes").body();
+
+        assertTrue(html.contains("1 Note offen"), html);
     }
 
     private void seedSubjectTaughtByColleague(Long classId, String name, String colleagueSubject) {

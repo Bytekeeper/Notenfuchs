@@ -6,6 +6,9 @@
                 <a class="class-card" href="/subjects/{s.id}/grid">
                     <span class="class-name">{s.schoolClass.name} – {s.name}</span>
                     <span class="class-year">{s.schoolClass.schoolYear}</span>
+                    {#let open=openGradesBySubject.get(s.id)}
+                    {#if open}<span class="open-badge">{open}</span>{/if}
+                    {/let}
                 </a>
             {/for}
         </div>

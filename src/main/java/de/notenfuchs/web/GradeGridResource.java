@@ -401,6 +401,7 @@ public class GradeGridResource {
                                         Map<Long, List<PointsGradeBandData>> bandsByAssessment,
                                         Map<GradeKey, Grade> grades, int startColIndex) {
         int totalCols = totalColumns(blockColumns);
+        LocalDate today = LocalDate.now();
         List<List<BigDecimal>> columnValues = new ArrayList<>();
         for (int i = 0; i < totalCols; i++) {
             columnValues.add(new ArrayList<>());
@@ -413,7 +414,7 @@ public class GradeGridResource {
             int localIndex = 0;
             for (CategoryColumns cc : blockColumns) {
                 if (cc.assessments().isEmpty()) {
-                    cells.add(new CellView(colIndex, null, true, null, false, null));
+                    cells.add(new CellView(colIndex, null, true, null, false, null, false, false));
                     colIndex++;
                     continue;
                 }
@@ -436,8 +437,9 @@ public class GradeGridResource {
                             columnValues.get(localIndex).add(grade.value);
                         }
                     }
+                    boolean due = isDue(assessment, today);
                     cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue,
-                            assessment.pointsBased, derivedDisplay));
+                            assessment.pointsBased, derivedDisplay, due, due && displayValue == null));
                     categoryStart = false;
                     colIndex++;
                     localIndex++;
@@ -451,13 +453,15 @@ public class GradeGridResource {
         for (CategoryColumns cc : blockColumns) {
             List<ColumnAverageView> columnAverages = new ArrayList<>();
             if (cc.assessments().isEmpty()) {
-                columnAverages.add(new ColumnAverageView(null, null, null));
+                columnAverages.add(new ColumnAverageView(null, null, null, false, 0));
             } else {
                 for (Assessment assessment : cc.assessments()) {
+                    List<BigDecimal> values = columnValues.get(footerColIndex);
                     SubjectAverageResult columnAverage = gradeService.calculateAssessmentAverage(
-                            columnValues.get(footerColIndex), subject.gradeScale, subject.roundingMode);
+                            values, subject.gradeScale, subject.roundingMode);
                     columnAverages.add(new ColumnAverageView(assessment.id,
-                            columnAverage.rawAverage(), columnAverage.finalGrade()));
+                            columnAverage.rawAverage(), columnAverage.finalGrade(),
+                            isDue(assessment, today), students.size() - values.size()));
                     footerColIndex++;
                 }
             }
@@ -465,6 +469,11 @@ public class GradeGridResource {
         }
 
         return new BlockBuild(cellsByStudent, footers, startColIndex + totalCols);
+    }
+
+    /** A Leistung whose date has come; only then is an empty cell worth pointing out. Undated ones never are. */
+    static boolean isDue(Assessment assessment, LocalDate today) {
+        return assessment.date != null && !assessment.date.isAfter(today);
     }
 
     /**
@@ -1008,7 +1017,7 @@ public class GradeGridResource {
      *                            the grade derived live from displayValue via the Notenschlüssel
      */
     public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue,
-                            boolean pointsBased, String derivedGradeDisplay) {
+                            boolean pointsBased, String derivedGradeDisplay, boolean due, boolean open) {
     }
 
     public record RowView(int rowIndex, StudentView student, List<CellView> cells,
@@ -1016,7 +1025,8 @@ public class GradeGridResource {
     }
 
     /** Per-assessment ("Leistung") average across all students, shown in the grid footer. */
-    public record ColumnAverageView(Long assessmentId, BigDecimal rawAverage, Integer finalGrade) {
+    public record ColumnAverageView(Long assessmentId, BigDecimal rawAverage, Integer finalGrade,
+                                    boolean due, int openCount) {
     }
 
     public record CategoryFooter(GradeCategory category, List<ColumnAverageView> columnAverages) {

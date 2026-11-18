@@ -57,9 +57,14 @@ class GradeGridAssessmentE2EIT {
         // Back on the grid with the cursor already in the new column.
         Locator ka1Cell = page.locator("input.grade-input[data-row='0'][data-col='0']");
         assertThat(ka1Cell).isFocused();
+        // Dated today, so the empty cell counts as missing until a grade is in.
+        assertThat(page.locator("td.grade-cell-open")).hasCount(1);
+        assertThat(page.locator(".open-count")).hasText("1 offen");
         page.keyboard().type("2");
         ka1Cell.evaluate("el => el.blur()");
         assertThat(page.locator(".average-final")).hasText("2");
+        assertThat(page.locator("td.grade-cell-open")).hasCount(0);
+        assertThat(page.locator(".open-count")).hasText("");
 
         // Second Leistung via the "+" in the category header, counting double.
         page.locator("th.category-header .column-add").click();

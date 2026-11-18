@@ -92,7 +92,7 @@
                         <td class="student-cell">{row.student.effectiveName}</td>
                         {#if !undatedColumns.isEmpty}
                             {#for cell in row.undatedCells}
-                                <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                                <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}"{#if cell.due} data-due="true"{/if}>
                                     {#if cell.assessmentId}
                                         {#if cell.pointsBased}
                                         <span class="points-cell">
@@ -114,7 +114,7 @@
                             {/for}
                         {/if}
                         {#for cell in row.h1Cells}
-                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}"{#if cell.due} data-due="true"{/if}>
                                 {#if cell.assessmentId}
                                     {#if cell.pointsBased}
                                     <span class="points-cell">
@@ -139,7 +139,7 @@
                             <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="h1">{row.h1RawAverage ?: '–'}</span>
                         </td>
                         {#for cell in row.h2Cells}
-                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}">
+                            <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}"{#if cell.due} data-due="true"{/if}>
                                 {#if cell.assessmentId}
                                     {#if cell.pointsBased}
                                     <span class="points-cell">
@@ -179,7 +179,7 @@
                                 <td class="average-cell">
                                     {#if colAvg.assessmentId}
                                     <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
-                                    <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                    <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>{#if colAvg.due}<span class="open-count" data-assessment-id="{colAvg.assessmentId}">{#if colAvg.openCount > 0}{colAvg.openCount} offen{/if}</span>{/if}
                                     {/if}
                                 </td>
                             {/for}
@@ -190,7 +190,7 @@
                             <td class="average-cell">
                                 {#if colAvg.assessmentId}
                                 <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
-                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>{#if colAvg.due}<span class="open-count" data-assessment-id="{colAvg.assessmentId}">{#if colAvg.openCount > 0}{colAvg.openCount} offen{/if}</span>{/if}
                                 {/if}
                             </td>
                         {/for}
@@ -201,7 +201,7 @@
                             <td class="average-cell">
                                 {#if colAvg.assessmentId}
                                 <span class="assessment-average-final" data-assessment-id="{colAvg.assessmentId}">{colAvg.finalGrade ?: '–'}</span>
-                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>
+                                <span class="raw-average assessment-average-raw" data-assessment-id="{colAvg.assessmentId}">{colAvg.rawAverage ?: '–'}</span>{#if colAvg.due}<span class="open-count" data-assessment-id="{colAvg.assessmentId}">{#if colAvg.openCount > 0}{colAvg.openCount} offen{/if}</span>{/if}
                                 {/if}
                             </td>
                         {/for}
