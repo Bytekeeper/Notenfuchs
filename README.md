@@ -648,13 +648,19 @@ tastaturgesteuerte Tabellen-Navigation des Noteneingabe-Rasters) - kein React/SP
 kein Node-Build-Schritt.
 
 - `/` leitet auf `/classes` weiter
-- `/classes` - Klassen auflisten/anlegen/löschen
-- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten
+- `/classes` - Übersicht: "Meine Fächer" sowie Klassen auflisten/anlegen/löschen
+- `/classes/{id}` - die Fächer und Schüler einer Klasse verwalten; weitere Reiter der
+  Klasse: `/behavior-grid` (Verhaltensnoten), und nur für Klassen-Admins `/overview`
+  (Notenübersicht), `/teachers` (Lehrkräfte) und `/settings` (Einstellungen)
 - `/subjects/{id}` - die Notenkategorien und Leistungen eines Fachs verwalten
+  (Reiter "Leistungen & Gewichtung"); `/subjects/{id}/teachers` - die Lehrkräfte
+  des Fachs
 - `/subjects/{id}/grid` - das Noteneingabe-Raster: Schüler als Zeilen, Leistungen als
   Spalten (gruppiert nach Kategorie), jede Zelle speichert bei Blur/Verlassen
   automatisch über einen kleinen `fetch()`-Aufruf, mit einer live berechneten
-  Durchschnittsspalte pro Schüler (`GradeService`)
+  Durchschnittsspalte pro Schüler (`GradeService`). Neue Leistungen lassen sich direkt
+  hier anlegen (+ neben der Kategorie), bestehende über ihren Spaltenkopf ändern oder
+  löschen
 - `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
   herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
   möchten

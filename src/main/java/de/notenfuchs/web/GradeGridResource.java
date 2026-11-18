@@ -22,6 +22,7 @@ import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
@@ -95,6 +96,9 @@ public class GradeGridResource {
     OwnershipGuard guard;
 
     @Inject
+    SubjectUiResource subjectUi;
+
+    @Inject
     @Location("GridPage/grid.html")
     Template gridTemplate;
 
@@ -107,11 +111,14 @@ public class GradeGridResource {
     public TemplateInstance grid(@PathParam("id") Long id) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
+        // Lets the empty state offer "+ Leistung" per category before any column exists.
+        List<GradeCategory> subjectCategories = GradeCategory.list("subject.id = ?1 order by id", id);
 
         if (cutoff == null) {
             GridData data = loadGridData(subject);
             return currentUser.withUser(gridTemplate
                     .data("subject", subject)
+                    .data("subjectCategories", subjectCategories)
                     .data("categories", data.categoryColumns())
                     .data("students", data.students())
                     .data("rows", data.rows())
@@ -124,6 +131,7 @@ public class GradeGridResource {
         HalfYearGridData data = loadHalfYearGridData(subject, cutoff);
         return currentUser.withUser(gridHalfYearTemplate
                 .data("subject", subject)
+                .data("subjectCategories", subjectCategories)
                 .data("isClassAdmin", guard.isAdmin(subject.schoolClass, currentUser.effectiveSubject()))
                 .data("cutoff", cutoff)
                 .data("undatedColumns", data.undatedColumns())
@@ -142,12 +150,78 @@ public class GradeGridResource {
                 .data("gridEmpty", data.gridEmpty()));
     }
 
+    /**
+     * Adds a Leistung from the grade table. A plain form POST answered with a redirect (not htmx):
+     * the new column changes the whole table layout, so re-rendering the page is simpler than
+     * patching it. {@code focus} tells the page which column to put the cursor in.
+     */
+    @POST
+    @Path("/assessments")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response addAssessment(@PathParam("id") Long id,
+                                  @FormParam("categoryId") Long categoryId,
+                                  @FormParam("name") String name,
+                                  @FormParam("date") LocalDate date,
+                                  @FormParam("factor") BigDecimal factor,
+                                  @FormParam("pointsBased") String pointsBasedRaw,
+                                  @FormParam("roundingMode") String roundingModeRaw) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
+        if (!category.subject.id.equals(id)) {
+            throw new NotFoundException("GradeCategory " + categoryId + " not found");
+        }
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Name fehlt");
+        }
+        Assessment assessment = subjectUi.createAssessment(category, subject.gradeScale, name.strip(), date, factor,
+                pointsBasedRaw, roundingModeRaw);
+        return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+    }
+
+    @POST
+    @Path("/assessments/{assessmentId}")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response updateAssessment(@PathParam("id") Long id,
+                                     @PathParam("assessmentId") Long assessmentId,
+                                     @FormParam("name") String name,
+                                     @FormParam("date") LocalDate date,
+                                     @FormParam("factor") BigDecimal factor,
+                                     @FormParam("pointsBased") String pointsBasedRaw,
+                                     @FormParam("roundingMode") String roundingModeRaw) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
+        subjectUi.updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
+        return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+    }
+
+    @POST
+    @Path("/assessments/{assessmentId}/delete")
+    @Transactional
+    public Response deleteAssessment(@PathParam("id") Long id, @PathParam("assessmentId") Long assessmentId) {
+        guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        requireAssessmentOfSubject(assessmentId, id).delete();
+        return Redirects.seeOther("/subjects/" + id + "/grid").build();
+    }
+
+    private Assessment requireAssessmentOfSubject(Long assessmentId, Long subjectId) {
+        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentUser.effectiveSubject());
+        if (!assessment.category.subject.id.equals(subjectId)) {
+            throw new NotFoundException("Assessment " + assessmentId + " not found");
+        }
+        return assessment;
+    }
+
     @GET
     @Path("/export")
     @Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public Response exportXlsx(@PathParam("id") Long id) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
+        // Lets the empty state offer "+ Leistung" per category before any column exists.
+        List<GradeCategory> subjectCategories = GradeCategory.list("subject.id = ?1 order by id", id);
 
         byte[] xlsx = cutoff == null
                 ? buildWorkbook(subject, loadGridData(subject))

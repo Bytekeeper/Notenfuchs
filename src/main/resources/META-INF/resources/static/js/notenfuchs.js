@@ -813,3 +813,104 @@
         }
     });
 })();
+
+/**
+ * Add/edit a Leistung straight from the grade table: "+" in a category header opens the dialog
+ * empty, clicking a column header opens it filled in. Saving is a plain form POST; the server
+ * redirects back with ?focus=<assessmentId>, and the cursor lands in that column's first cell.
+ */
+(function () {
+    "use strict";
+
+    function today() {
+        var d = new Date();
+        var pad = function (n) { return String(n).padStart(2, "0"); };
+        return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    }
+
+    function initAssessmentDialog(dialog) {
+        var form = dialog.querySelector("form");
+        var baseUrl = dialog.dataset.baseUrl;
+        var title = dialog.querySelector(".assessment-dialog-title");
+        var categoryLabel = dialog.querySelector(".assessment-dialog-category");
+        var deleteButton = dialog.querySelector(".assessment-dialog-delete");
+        var pointsWarning = dialog.querySelector(".assessment-dialog-points-warning");
+        var bandsHint = dialog.querySelector(".assessment-dialog-bands");
+        var pointsBox = form.elements.pointsBased;
+        var originalPointsBased = null;
+
+        function open(data) {
+            var editing = Boolean(data.assessmentId);
+            form.reset();
+            form.action = editing ? baseUrl + "/" + data.assessmentId : baseUrl;
+            form.elements.categoryId.value = data.categoryId || "";
+            title.textContent = editing ? "Leistung bearbeiten" : "Neue Leistung";
+            categoryLabel.textContent = "Kategorie: " + data.categoryName;
+            form.elements.name.value = data.name || "";
+            form.elements.date.value = editing ? (data.date || "") : today();
+            form.elements.factor.value = data.factor || "1.0";
+            pointsBox.checked = data.pointsBased === "true";
+            form.elements.roundingMode.value = data.roundingMode || "IN_FAVOR_OF_STUDENT";
+            originalPointsBased = editing ? pointsBox.checked : null;
+            deleteButton.hidden = !editing;
+            deleteButton.formAction = editing ? baseUrl + "/" + data.assessmentId + "/delete" : "";
+            deleteButton.dataset.name = data.name || "";
+            bandsHint.hidden = !(editing && pointsBox.checked);
+            pointsWarning.hidden = true;
+            dialog.showModal();
+            form.elements.name.focus();
+        }
+
+        document.addEventListener("click", function (ev) {
+            var add = ev.target.closest(".column-add");
+            if (add) {
+                open({ categoryId: add.dataset.categoryId, categoryName: add.dataset.categoryName });
+                return;
+            }
+            var edit = ev.target.closest(".column-edit");
+            if (edit) {
+                open(edit.dataset);
+            }
+        });
+
+        pointsBox.addEventListener("change", function () {
+            pointsWarning.hidden = originalPointsBased === null || pointsBox.checked === originalPointsBased;
+        });
+
+        deleteButton.addEventListener("click", function (ev) {
+            var message = "Leistung '" + deleteButton.dataset.name + "' wirklich löschen? Das löscht auch alle zugehörigen Noten.";
+            if (!window.confirm(message)) {
+                ev.preventDefault();
+            }
+        });
+
+        dialog.querySelector(".assessment-dialog-cancel").addEventListener("click", function () {
+            dialog.close();
+        });
+    }
+
+    function focusRequestedColumn() {
+        var params = new URLSearchParams(window.location.search);
+        var assessmentId = params.get("focus");
+        if (!assessmentId) {
+            return;
+        }
+        // Drop the parameter so a later reload doesn't jump back to this column.
+        window.history.replaceState(null, "", window.location.pathname);
+        var input = document.querySelector(
+            '.grade-grid-root input[data-row="0"][data-assessment-id="' + CSS.escape(assessmentId) + '"]');
+        if (input) {
+            input.scrollIntoView({ block: "nearest", inline: "center" });
+            input.focus();
+            input.select();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var dialog = document.getElementById("assessment-dialog");
+        if (dialog) {
+            initAssessmentDialog(dialog);
+        }
+        focusRequestedColumn();
+    });
+})();

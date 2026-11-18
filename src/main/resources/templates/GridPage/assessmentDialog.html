@@ -1,0 +1,36 @@
+<dialog id="assessment-dialog" class="assessment-dialog" data-base-url="/subjects/{subject.id}/grid/assessments">
+    <form method="post" class="assessment-dialog-form">
+        <h2 class="assessment-dialog-title">Leistung</h2>
+        <p class="hint assessment-dialog-category"></p>
+        <input type="hidden" name="categoryId">
+        <div class="form-field">
+            <label for="assessmentName">Name</label>
+            <input type="text" id="assessmentName" name="name" placeholder="z. B. Klassenarbeit 1" required>
+        </div>
+        <div class="form-field">
+            <label for="assessmentDate">Datum</label>
+            <input type="date" id="assessmentDate" name="date">
+        </div>
+        <div class="form-field">
+            <label for="assessmentFactor">Faktor</label>
+            <input type="number" id="assessmentFactor" name="factor" step="0.01" min="0.01" value="1.0" required>
+        </div>
+        <div class="form-field checkbox-field">
+            <label><input type="checkbox" id="assessmentPointsBased" name="pointsBased" value="true"> Punktebasiert (mit Notenschlüssel)</label>
+        </div>
+        <div class="form-field">
+            <label for="assessmentRoundingMode">Rundung (bei Punkten)</label>
+            <select id="assessmentRoundingMode" name="roundingMode">
+                <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
+                <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
+            </select>
+        </div>
+        <p class="hint assessment-dialog-points-warning" hidden>Beim Wechsel zwischen Punkten und Noten werden die bisherigen Einträge dieser Leistung gelöscht.</p>
+        <p class="hint assessment-dialog-bands" hidden>Den Notenschlüssel bearbeiten Sie unter <a href="/subjects/{subject.id}">Leistungen &amp; Gewichtung</a>.</p>
+        <div class="assessment-dialog-actions">
+            <button type="submit">Speichern</button>
+            <button type="button" class="secondary assessment-dialog-cancel">Abbrechen</button>
+            <button type="submit" class="delete-btn assessment-dialog-delete" formnovalidate>Leistung löschen</button>
+        </div>
+    </form>
+</dialog>

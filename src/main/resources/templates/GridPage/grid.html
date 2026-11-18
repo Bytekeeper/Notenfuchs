@@ -5,7 +5,16 @@
 <p class="hint">Notenskala {subject.gradeScale.name} ({subject.gradeScale.min}–{subject.gradeScale.max}, {#if subject.gradeScale.lowerIsBetter}niedriger ist besser{#else}höher ist besser{/if}) · Rundung: {subject.roundingMode}</p>
 
 {#if gridEmpty}
-    <p class="hint">Dieses Fach hat noch keine Kategorien/Leistungen. <a href="/subjects/{subject.id}">Erst Kategorien und Leistungen anlegen</a>.</p>
+    {#if subjectCategories.isEmpty}
+    <p class="hint">Dieses Fach hat noch keine Kategorien. <a href="/subjects/{subject.id}">Erst Kategorien anlegen</a>.</p>
+    {#else}
+    <p class="hint">Dieses Fach hat noch keine Leistungen. Legen Sie die erste an:</p>
+    <p class="empty-grid-actions">
+        {#for c in subjectCategories}
+        <button type="button" class="secondary column-add" data-category-id="{c.id}" data-category-name="{c.name}">+ Leistung in {c.name}</button>
+        {/for}
+    </p>
+    {/if}
 {#else if students.isEmpty}
     <p class="hint">Diese Klasse hat noch keine Schüler. <a href="/classes/{subject.schoolClass.id}">Erst Schüler anlegen</a>.</p>
 {#else}
@@ -19,7 +28,7 @@
                 <tr>
                     <th rowspan="2">Schüler</th>
                     {#for cat in categories}
-                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent}%)</th>
+                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
                     {/for}
                     <th rowspan="2">Ø / Note</th>
                 </tr>
@@ -29,7 +38,7 @@
                             <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
                         {#else}
                             {#for a in cat.assessments}
-                                <th class="assessment-header">{a.name}<span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
                             {/for}
                         {/if}
                     {/for}
@@ -95,11 +104,16 @@
         </table>
     </div>
     <p class="grid-legend">
+        + neben einer Kategorie: neue Leistung · Name einer Leistung anklicken: ändern oder löschen ·
         Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
         Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
         Zelle leeren + verlassen löscht die Note. Punktebasierte Leistungen: Punktzahl eingeben,
         die Note wird automatisch nach dem Notenschlüssel berechnet und angezeigt (z. B. „65 → 1").
     </p>
+{/if}
+
+{#if !subjectCategories.isEmpty}
+{#include GridPage/assessmentDialog /}
 {/if}
 
 {/include}

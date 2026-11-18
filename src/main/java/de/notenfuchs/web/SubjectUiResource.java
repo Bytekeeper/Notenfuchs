@@ -279,6 +279,13 @@ public class SubjectUiResource {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
+        createAssessment(category, subject.gradeScale, name, date, factor, pointsBasedRaw, roundingModeRaw);
+        return categoryFragment(subject);
+    }
+
+    /** Shared with the grade table ({@code GradeGridResource}) so both create a Leistung the same way. */
+    Assessment createAssessment(GradeCategory category, GradeScale scale, String name, LocalDate date,
+                                BigDecimal factor, String pointsBasedRaw, String roundingModeRaw) {
         boolean pointsBased = isChecked(pointsBasedRaw);
         Assessment assessment = new Assessment();
         assessment.category = category;
@@ -289,9 +296,9 @@ public class SubjectUiResource {
         assessment.roundingMode = parseRoundingMode(roundingModeRaw);
         assessment.persist();
         if (pointsBased) {
-            seedDefaultBands(assessment, subject.gradeScale);
+            seedDefaultBands(assessment, scale);
         }
-        return categoryFragment(subject);
+        return assessment;
     }
 
     @DELETE
@@ -336,6 +343,13 @@ public class SubjectUiResource {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
+        updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
+        return categoryFragment(subject);
+    }
+
+    /** Shared with the grade table ({@code GradeGridResource}); see {@link #renameAssessment} for the rules. */
+    void updateAssessment(Assessment assessment, GradeScale scale, String name, BigDecimal factor,
+                          String pointsBasedRaw, String roundingModeRaw, LocalDate date) {
         if (name != null && !name.isBlank()) {
             assessment.name = name;
         }
@@ -349,10 +363,9 @@ public class SubjectUiResource {
         assessment.pointsBased = pointsBased;
         assessment.roundingMode = parseRoundingMode(roundingModeRaw);
         if (pointsBased && PointsGradeBand.count("assessment.id", assessment.id) == 0) {
-            seedDefaultBands(assessment, subject.gradeScale);
+            seedDefaultBands(assessment, scale);
         }
         assessment.date = date;
-        return categoryFragment(subject);
     }
 
     @POST

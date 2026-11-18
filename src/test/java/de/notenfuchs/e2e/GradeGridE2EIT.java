@@ -5,6 +5,7 @@ import com.microsoft.playwright.Download;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.SelectOption;
 import io.quarkiverse.playwright.InjectPlaywright;
 import io.quarkiverse.playwright.WithPlaywright;
@@ -181,6 +182,8 @@ class GradeGridE2EIT {
 
         cellAfterGap.fill("4");
         cellAfterGap.evaluate("el => el.blur()");
+        // Let both autosave requests finish; reloading earlier can abort one of them.
+        page.waitForLoadState(LoadState.NETWORKIDLE);
 
         // Both cells' edits must have actually persisted - proof that tabbing off cell1
         // (skipping over the gap) really blurred and autosaved it, not just that focus moved.
