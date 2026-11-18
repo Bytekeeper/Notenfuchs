@@ -99,7 +99,8 @@ Team teaching, a Referendar, a substitute teacher.
 
 ### U15 – Get a new colleague started
 Kollegium admin sends a Pocket ID signup link; the colleague signs up and needs to land in
-Notenfuchs (see the README for the current workaround).
+Notenfuchs. Solved by setting Pocket ID's home page (`HOME_PAGE_URL`) to Notenfuchs; see the
+README's Pocket ID steps.
 
 ### U16 – Export grades for the school system or a personal backup
 - Today: xlsx export per Fach. Nothing per class.

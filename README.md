@@ -83,8 +83,8 @@ cp .env.example .env
    `<deine Notenfuchs-URL>/auth-callback` (standardmäßig
    `http://localhost:8080/auth-callback`) und die Logout-Callback-URL auf
    `<deine Notenfuchs-URL>/` und die **Launch URL** auf `<deine Notenfuchs-URL>/`
-   (damit Notenfuchs in Pocket ID unter "My apps" mit einem Öffnen-Knopf erscheint,
-   siehe Schritt 7), klappe dann "Advanced options" auf und setze das Feld
+   (damit Notenfuchs in Pocket ID unter "My apps" mit einem Öffnen-Knopf erscheint),
+   klappe dann "Advanced options" auf und setze das Feld
    **Client ID** exakt auf `notenfuchs` (passend zur fest codierten `OIDC_CLIENT_ID` in
    `docker-compose.oidc.yml`). Beim Speichern wird ein Client Secret erzeugt - kopiere
    es als `OIDC_CLIENT_SECRET` in die `.env` und führe dann `docker compose up -d app`
@@ -97,15 +97,20 @@ cp .env.example .env
    eine Einzellehrkraft-Instanz oder einen kleinen, vertrauenswürdigen
    Haushalt/Kollegium in Ordnung) oder lege eine Gruppe an/weise eine zu, um den
    Zugriff auf genau die Lehrkräfte zu beschränken, die Notenfuchs nutzen sollen.
-7. **Einen Registrierungslink verschicken.** Erzeuge auf der Users-Seite über
+7. **Pocket ID auf Notenfuchs weiterleiten lassen.** Nach der Anmeldung bei Pocket ID
+   selbst - also auch direkt nach der Registrierung - landet man auf Pocket IDs
+   Startseite, standardmäßig der eigenen Kontoseite. Setze diese Startseite
+   (`HOME_PAGE_URL`) auf `<deine Notenfuchs-URL>/`, dann kommen neue Kolleginnen und
+   Kollegen nach der Registrierung direkt in Notenfuchs an. Normalerweise stellst du das
+   in Pocket IDs Admin-Einstellungen ein; als Umgebungsvariable im Pocket-ID-Container
+   wirkt `HOME_PAGE_URL` nur zusammen mit `UI_CONFIG_DISABLED=true`, weil Pocket ID die
+   Einstellung sonst aus seiner Datenbank liest.
+8. **Einen Registrierungslink verschicken.** Erzeuge auf der Users-Seite über
    "Create signup token" einen Einmal-Link und gib ihn an die Person weiter, die
    Notenfuchs tatsächlich nutzen soll (z. B. dich selbst oder eine Kollegin/einen
    Kollegen), damit sie direkt ein eigenes Passkey-Konto anlegen kann - der
-   Admin-Login muss nie geteilt werden. Schicke die Notenfuchs-Adresse mit, z. B.
-   "Konto anlegen: `<Registrierungslink>`, danach Notenfuchs öffnen:
-   `<deine Notenfuchs-URL>`". Pocket ID leitet nach der Registrierung nämlich immer auf
-   die eigene Kontoseite weiter, nicht zu Notenfuchs. Von dort geht es über "My apps"
-   -> Notenfuchs weiter, oder einfach über die mitgeschickte Adresse.
+   Admin-Login muss nie geteilt werden. Ohne Schritt 7 landet sie danach auf ihrer
+   Pocket-ID-Kontoseite und kommt über "My apps" -> Notenfuchs weiter.
 
 **Weitere Geräte freischalten.** Über den Link "Konto" oben rechts in Notenfuchs
 gelangt eine Lehrkraft zu ihrer Pocket-ID-Kontoseite und kann dort für das aktuelle
