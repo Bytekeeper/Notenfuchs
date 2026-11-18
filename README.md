@@ -215,11 +215,8 @@ nicht nötig - Cloudflare übernimmt HTTPS.
    `https://notenfuchs.example.com/auth-callback` setzen.
 5. **`docker compose up -d`** ausführen.
 
-In den Cloudflare-Einstellungen der Domain sollten zwei Funktionen ausgeschaltet
-sein: **Email Address Obfuscation** (unter Scrape Shield) schreibt E-Mail-Adressen in
-Seiten um - Notenfuchs zeigt E-Mail-Adressen von Lehrkräften an, z. B. beim
-Hinzufügen einer Lehrkraft zu einer Klasse. **Rocket Loader** verändert, wie
-JavaScript geladen wird, und kann das Noten-Raster stören.
+In den Cloudflare-Einstellungen der Domain sollte **Rocket Loader** ausgeschaltet
+sein: Es verändert, wie JavaScript geladen wird, und kann das Noten-Raster stören.
 
 Pocket ID ist vollständig optional - die zugrunde liegende OIDC-Anbindung ist
 provider-unabhängig, sodass du stattdessen `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
@@ -437,10 +434,10 @@ anpassen): `https://your-domain.example/auth-callback`. Dies wird von
 `/auth-callback`. Logout ist unter `/logout` verfügbar (RP-initiiertes Logout,
 `quarkus.oidc.logout.*`), das danach zurück auf `/` leitet.
 
-Standardmäßig fordert die App die Scopes `openid profile email` an (`openid` wird
-automatisch von Quarkus hinzugefügt; `profile` und `email` sind explizit
-konfiguriert), damit Name/E-Mail des angemeldeten Nutzers über den
-OIDC-UserInfo-Endpunkt verfügbar sind.
+Die App fordert nur die Scopes `openid profile` an (`openid` fügt Quarkus automatisch
+hinzu), damit der Name des angemeldeten Nutzers verfügbar ist. E-Mail-Adressen fragt
+Notenfuchs bewusst nicht ab und speichert sie nicht. Im mitgelieferten Pocket-ID-Setup
+brauchen Konten deshalb auch keine E-Mail-Adresse (`REQUIRE_USER_EMAIL=false`).
 
 Optional zeigt `OIDC_ACCOUNT_URL` (z. B. die Kontoseite des Providers, bei Pocket ID
 `<POCKET_ID_APP_URL>/settings/account`) einen Link "Konto" neben "Logout" an, über
@@ -472,7 +469,7 @@ OIDC-Clients und das Ausstellen von Registrierungslinks).
    tatsächlich ein Client-Secret hat) - Clerk vermarktet sich primär als
    Auth-Provider mit eigenen SDKs, die generische OIDC/OAuth-Anwendungsunterstützung
    ist eher ein Nebenfeature, prüfe daher die genaue Discovery-URL und
-   Scope-Unterstützung (`profile`, `email`) gegen Clerks aktuelle
+   Scope-Unterstützung (`profile`) gegen Clerks aktuelle
    OAuth-Dokumentation für dein Konto, statt Keycloak-ähnliche Standardwerte
    anzunehmen.
 
@@ -502,7 +499,7 @@ Entwicklung nicht darauf.
 ### Nutzeridentität im Code
 
 `de.notenfuchs.security.CurrentUser` (Request-scoped Bean) stellt das
-OIDC-Subject, die E-Mail und den Anzeigenamen des angemeldeten Nutzers für die
+OIDC-Subject und den Anzeigenamen des angemeldeten Nutzers für die
 Verwendung in REST-Resources oder Qute-Templates bereit - siehe den Javadoc dieser
 Klasse für Details. `CurrentUser.effectiveSubject()` ist der Wert, der tatsächlich
 für die Zuordnung der Daten pro Lehrkraft verwendet wird (siehe unten).

@@ -60,8 +60,8 @@ class SubjectTeacherDisplayIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Display-Multi-Klasse-" + unique, "2025/26");
         Long subjectId = createSubject(classId, "Display-Multi-Fach-" + unique);
-        String colleagueALabel = "kollegin-a-" + unique + "@schule.de";
-        String colleagueBLabel = "kollegin-b-" + unique + "@schule.de";
+        String colleagueALabel = "kollegin-a-" + unique;
+        String colleagueBLabel = "kollegin-b-" + unique;
         seedTeacher(colleagueALabel, colleagueALabel);
         seedTeacher(colleagueBLabel, colleagueBLabel);
         post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", colleagueALabel));
@@ -80,7 +80,7 @@ class SubjectTeacherDisplayIT {
     void subjectList_showsTeacherInfoEvenForSubjectViewerDoesNotTeach() throws Exception {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Display-Untaught-Klasse-" + unique, "2025/26");
-        String otherTeacherLabel = "kollegin-untaught-" + unique + "@schule.de";
+        String otherTeacherLabel = "kollegin-untaught-" + unique;
         Long subjectId = QuarkusTransaction.requiringNew().call(() -> {
             SchoolClass schoolClass = SchoolClass.<SchoolClass>findById(classId);
             GradeScale gradeScale = GradeScale.find("name", "DE 1-6").firstResult();
@@ -96,7 +96,7 @@ class SubjectTeacherDisplayIT {
             subjectTeacher.persist();
             Teacher teacher = new Teacher();
             teacher.subject = "colleague-untaught-" + unique;
-            teacher.email = otherTeacherLabel;
+            teacher.displayName = otherTeacherLabel;
             teacher.firstSeenAt = Instant.now();
             teacher.lastSeenAt = Instant.now();
             teacher.persist();
@@ -108,11 +108,11 @@ class SubjectTeacherDisplayIT {
         assertTrue(html.contains("unterrichtet von: " + otherTeacherLabel));
     }
 
-    private void seedTeacher(String subject, String email) {
+    private void seedTeacher(String subject, String label) {
         QuarkusTransaction.requiringNew().run(() -> {
             Teacher teacher = new Teacher();
             teacher.subject = subject;
-            teacher.email = email;
+            teacher.displayName = label;
             teacher.firstSeenAt = Instant.now();
             teacher.lastSeenAt = Instant.now();
             teacher.persist();

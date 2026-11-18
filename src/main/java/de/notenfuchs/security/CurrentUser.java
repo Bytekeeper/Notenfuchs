@@ -86,7 +86,7 @@ public class CurrentUser {
     @ConfigProperty(name = DEV_USER_SUBJECT_PROPERTY, defaultValue = DEV_USER_SUBJECT)
     String devUserSubject = DEV_USER_SUBJECT;
 
-    // UserInfo requires the "email"/"profile" scopes (requested by default, see
+    // UserInfo requires the "profile" scope (requested by default, see
     // quarkus.oidc.authentication.scopes) and a userinfo endpoint on the provider.
     // Injection is lazy/proxied, so this is safe to inject even when unauthenticated
     // or when OIDC is disabled - only touching it would require a live session.
@@ -117,7 +117,7 @@ public class CurrentUser {
     /**
      * The stable OIDC subject identifier ("sub" claim) for the logged-in user,
      * or empty if not authenticated. This is the right key to use for any future
-     * per-teacher data ownership/scoping, rather than email (which can change).
+     * per-teacher data ownership/scoping, rather than a name (which can change).
      */
     public Optional<String> subject() {
         if (!isAuthenticated()) {
@@ -174,36 +174,23 @@ public class CurrentUser {
     }
 
     /**
-     * Best-effort display email for the logged-in user, sourced from the OIDC
-     * UserInfo endpoint (falls back to the ID token's "email" claim if UserInfo
-     * didn't return one, e.g. because the provider only put it in the token).
-     */
-    public Optional<String> email() {
-        if (!isAuthenticated()) {
-            return Optional.empty();
-        }
-        String fromUserInfo = safeUserInfoString("email");
-        if (fromUserInfo != null && !fromUserInfo.isBlank()) {
-            return Optional.of(fromUserInfo);
-        }
-        return Optional.ofNullable(safeIdTokenClaim("email"));
-    }
-
-    /**
-     * Best-effort human-readable name (e.g. for "logged in as X" UI), preferring
-     * UserInfo's "name", falling back to the ID token claim, then to the subject.
+     * Best-effort human-readable name (e.g. for "logged in as X" UI): the "name" claim, then
+     * "preferred_username" (both from the "profile" scope, UserInfo first, then the ID token),
+     * then the subject.
      */
     public Optional<String> displayName() {
         if (!isAuthenticated()) {
             return Optional.empty();
         }
-        String fromUserInfo = safeUserInfoString("name");
-        if (fromUserInfo != null && !fromUserInfo.isBlank()) {
-            return Optional.of(fromUserInfo);
-        }
-        String fromToken = safeIdTokenClaim("name");
-        if (fromToken != null && !fromToken.isBlank()) {
-            return Optional.of(fromToken);
+        for (String claim : new String[] {"name", "preferred_username"}) {
+            String fromUserInfo = safeUserInfoString(claim);
+            if (fromUserInfo != null && !fromUserInfo.isBlank()) {
+                return Optional.of(fromUserInfo);
+            }
+            String fromToken = safeIdTokenClaim(claim);
+            if (fromToken != null && !fromToken.isBlank()) {
+                return Optional.of(fromToken);
+            }
         }
         return subject();
     }

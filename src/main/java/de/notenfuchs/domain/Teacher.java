@@ -29,9 +29,6 @@ public class Teacher extends PanacheEntity {
     @Column(nullable = false, unique = true)
     public String subject;
 
-    /** Best-effort, refreshed on every sighting - see {@link de.notenfuchs.security.CurrentUser#email()}. */
-    public String email;
-
     @Column(name = "display_name")
     public String displayName;
 
@@ -43,11 +40,8 @@ public class Teacher extends PanacheEntity {
     @Column(name = "last_seen_at", nullable = false)
     public Instant lastSeenAt;
 
-    /** The label to show in UI (e.g. the add-teacher dropdown) - prefers {@link #email}, then {@link #displayName}, then {@link #subject}. */
+    /** The label to show in UI (e.g. the add-teacher dropdown): {@link #displayName}, else {@link #subject}. */
     public String displayLabel() {
-        if (email != null && !email.isBlank()) {
-            return email;
-        }
         if (displayName != null && !displayName.isBlank()) {
             return displayName;
         }

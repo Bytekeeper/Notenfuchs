@@ -301,7 +301,7 @@ class SubjectTeacherIT {
         QuarkusTransaction.requiringNew().run(() -> {
             Teacher teacher = new Teacher();
             teacher.subject = subject;
-            teacher.email = subject + "@schule.de";
+            teacher.displayName = subject;
             teacher.firstSeenAt = Instant.now();
             teacher.lastSeenAt = Instant.now();
             teacher.persist();

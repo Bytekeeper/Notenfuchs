@@ -49,7 +49,7 @@ class TransitiveTeacherIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Transitiv-Klasse-" + unique, "2025/26");
         Long subjectId = createSubject(classId, "Transitiv-Fach-" + unique);
-        String colleagueLabel = "kollege-transitiv-" + unique + "@schule.de";
+        String colleagueLabel = "kollege-transitiv-" + unique;
         seedTeacher("colleague-transitiv-" + unique, colleagueLabel);
         post("/subjects/" + subjectId + "/teachers", Map.of("teacherSubject", "colleague-transitiv-" + unique));
 
@@ -101,11 +101,11 @@ class TransitiveTeacherIT {
         assertFalse(get("/classes/" + classId).body().contains("/classes/" + classId + "/teachers"));
     }
 
-    private String seedTeacher(String subject, String email) {
+    private String seedTeacher(String subject, String label) {
         QuarkusTransaction.requiringNew().run(() -> {
             Teacher teacher = new Teacher();
             teacher.subject = subject;
-            teacher.email = email;
+            teacher.displayName = label;
             teacher.firstSeenAt = Instant.now();
             teacher.lastSeenAt = Instant.now();
             teacher.persist();

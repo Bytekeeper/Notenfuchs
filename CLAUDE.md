@@ -47,7 +47,7 @@ SchoolClass → Subject (GradeScale, roundingMode) → GradeCategory (weightPerc
 Assessment  → Grade (per student: value OR points OR neither, plus optional absence EXCUSED/UNEXCUSED)
 Assessment  → PointsGradeBand (points → gradeValue: the Notenschlüssel)
 Student + Subject → BehaviorGrade (one Verhaltensnote per student per Fach)
-SchoolClass → ClassTeacher (ADMIN | FACHLEHRER) ; Subject → SubjectTeacher ; Teacher = directory of everyone who logged in
+SchoolClass → ClassTeacher (ADMIN | FACHLEHRER) ; Subject → SubjectTeacher ; Teacher = directory (subject + name) of everyone who logged in
 SchoolClass: halfYearCutoff, halfYearGradeDisplay WHOLE/HALF + tendency threshold, predecessorClass (informational)
 GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seeded "DE 1-6"
 ```
@@ -69,6 +69,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seed
 - **Tiers:** `ClassTeacher` ADMIN (roster, settings, teachers, delete any Fach, Notenübersicht) or FACHLEHRER (add Fächer, delete own). `SubjectTeacher` gates everything inside a Fach (categories, Leistungen, grades), with **no admin override**, and is self-service: any current teacher of the Fach can add/remove colleagues. Plain class access (roster read, Verhaltensnoten view) is derived: any ClassTeacher row or teaching one Fach of the class.
 - **`OwnershipGuard` is the only gate.** Resolve every entity by id through its `require*` methods (never raw `findById`), list via its scoped queries (never `listAll()`), pass `CurrentUser.effectiveSubject()`. Foreign and unknown ids both 404. New class/subject-scoped entities get a new `require*` method. Endpoints that take two ids (e.g. Fach + Leistung) also check they belong together.
 - **Don't render dead controls.** Templates hide what the viewer can't do (`isClassAdmin`, `isClassTeacher`, `taughtSubjectIds`, `adminClassIds`), and every htmx fragment response must pass the same flags again (templates aren't type-checked, so nothing forces it).
+- **No email addresses.** OIDC requests only `profile`; teachers are shown by name (`name`, then `preferred_username`, then the subject). Don't add the `email` scope or store addresses; the Pocket ID overlay sets `REQUIRE_USER_EMAIL=false`.
 - Dev only: `DevTeacherSeeder` adds `dev-user` and a colleague; `/dev/identity` switches identity via a cookie that `CurrentUser` honors only in `%dev`.
 
 ## Gotchas
