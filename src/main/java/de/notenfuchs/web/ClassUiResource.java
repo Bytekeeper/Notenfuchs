@@ -813,7 +813,7 @@ public class ClassUiResource {
     /** Per Fach, a label like "5 Noten offen"; only Fächer with something missing are in the map. */
     private Map<Long, String> openGradeCounts(List<Subject> subjects) {
         Map<Long, String> labels = new HashMap<>();
-        GradeGridResource.openGradeCounts(subjects).forEach((subjectId, missing) ->
+        OpenGrades.openGradeCounts(subjects).forEach((subjectId, missing) ->
                 labels.put(subjectId, missing + (missing == 1 ? " Note offen" : " Noten offen")));
         return labels;
     }

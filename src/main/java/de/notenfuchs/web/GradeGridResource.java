@@ -17,7 +17,6 @@ import de.notenfuchs.service.HalfYearAssessmentPartitioner;
 import de.notenfuchs.service.HalfYearGradeDisplayService;
 import de.notenfuchs.service.PointsConversionService;
 import de.notenfuchs.service.PointsGradeBandData;
-import de.notenfuchs.service.RequiredGradeService;
 import de.notenfuchs.service.SubjectAverageResult;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
@@ -33,7 +32,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.poi.ss.usermodel.Cell;
@@ -108,12 +106,6 @@ public class GradeGridResource {
     @Inject
     @Location("GridPage/gridHalfYear.html")
     Template gridHalfYearTemplate;
-
-    @Inject
-    @Location("GridPage/student.html")
-    Template studentTemplate;
-
-    private final RequiredGradeService requiredGradeService = new RequiredGradeService();
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -344,145 +336,6 @@ public class GradeGridResource {
         return assessment;
     }
 
-    /**
-     * One student in this Fach: every Leistung with its grade, the averages, and what the next
-     * Leistung would need to be for each final grade ({@link RequiredGradeService}). Printable for
-     * parent conversations. {@code category}/{@code factor} describe that hypothetical next Leistung.
-     */
-    @GET
-    @Path("/students/{studentId}")
-    @Produces(MediaType.TEXT_HTML)
-    public TemplateInstance studentPage(@PathParam("id") Long id,
-                                        @PathParam("studentId") Long studentId,
-                                        @QueryParam("category") Long categoryId,
-                                        @QueryParam("factor") BigDecimal factor) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        Student student = guard.requireClassAccessStudent(studentId, currentSubject);
-        if (!student.schoolClass.id.equals(subject.schoolClass.id)) {
-            throw new NotFoundException("Student " + studentId + " not found");
-        }
-        List<GradeCategory> categories = GradeCategory.list("subject.id = ?1 order by id", id);
-        List<Assessment> assessments = Assessment.list(
-                "category.subject.id = ?1 order by category.id, date nulls last, id", id);
-        Map<GradeKey, Grade> grades = gradesByKey(
-                Grade.list("student.id = ?1 and assessment.category.subject.id = ?2", studentId, id));
-
-        List<StudentLeistungView> leistungen = new ArrayList<>();
-        for (Assessment assessment : assessments) {
-            Grade grade = grades.get(new GradeKey(assessment.id, studentId));
-            BigDecimal value = grade != null ? effectiveGradeValue(grade, assessment, subject.gradeScale) : null;
-            String gradeText = value == null ? "–"
-                    : assessment.pointsBased ? plain(grade.points) + " Pkt. → " + plain(value) : plain(value);
-            leistungen.add(new StudentLeistungView(assessment.category.name, assessment.name, assessment.date,
-                    assessment.factor, gradeText, grade != null && grade.absence != null ? grade.absence.label : null));
-        }
-
-        LocalDate cutoff = subject.schoolClass.halfYearCutoff;
-        List<AverageView> averages = new ArrayList<>();
-        List<Assessment> currentHalf = null;
-        String currentHalfName = null;
-        if (cutoff != null) {
-            List<Assessment> h1 = new ArrayList<>();
-            List<Assessment> h2 = new ArrayList<>();
-            for (Assessment assessment : assessments) {
-                switch (halfYearPartitioner.classify(assessment.date, cutoff)) {
-                    case FIRST -> h1.add(assessment);
-                    case SECOND -> h2.add(assessment);
-                    case UNDATED -> { }
-                }
-            }
-            SubjectAverageResult h1Average = average(categories, h1, grades, student, subject);
-            SubjectAverageResult h2Average = average(categories, h2, grades, student, subject);
-            averages.add(new AverageView("1. Halbjahr", h1Average.rawAverage(), h1Average.finalGrade() != null ? displayLabel(subject, h1Average) : null));
-            averages.add(new AverageView("2. Halbjahr", h2Average.rawAverage(), h2Average.finalGrade() != null ? displayLabel(subject, h2Average) : null));
-            // A Leistung written today falls into the half that contains today.
-            boolean firstHalf = halfYearPartitioner.classify(LocalDate.now(), cutoff) == HalfYearAssessmentPartitioner.Half.FIRST;
-            currentHalf = firstHalf ? h1 : h2;
-            currentHalfName = firstHalf ? "1. Halbjahr" : "2. Halbjahr";
-        }
-        SubjectAverageResult yearAverage = average(categories, assessments, grades, student, subject);
-        averages.add(new AverageView("Jahr", yearAverage.rawAverage(),
-                yearAverage.finalGrade() != null ? yearAverage.finalGrade().toString() : null));
-
-        GradeCategory nextCategory = categories.stream().filter(c -> c.id.equals(categoryId)).findFirst()
-                .orElse(categories.isEmpty() ? null : categories.get(0));
-        BigDecimal nextFactor = factor != null && factor.signum() > 0 ? factor : BigDecimal.ONE;
-        List<RequirementRow> requirements = new ArrayList<>();
-        if (nextCategory != null) {
-            int index = categories.indexOf(nextCategory);
-            List<RequiredGradeService.Requirement> year = requiredGradeService.requiredGrades(
-                    categoryData(categories, assessments, grades, student, subject), index, nextFactor,
-                    subject.gradeScale, subject.roundingMode);
-            List<RequiredGradeService.Requirement> half = currentHalf == null ? null : requiredGradeService.requiredGrades(
-                    categoryData(categories, currentHalf, grades, student, subject), index, nextFactor,
-                    subject.gradeScale, subject.roundingMode);
-            for (int i = 0; i < year.size(); i++) {
-                requirements.add(new RequirementRow(year.get(i).targetGrade(),
-                        half != null ? requirementText(half.get(i)) : null, requirementText(year.get(i))));
-            }
-        }
-
-        return currentUser.withUser(studentTemplate
-                .data("subject", subject)
-                .data("student", student)
-                .data("switchSubjects", subjectUi.switchSubjects(subject))
-                .data("leistungen", leistungen)
-                .data("averages", averages)
-                .data("categories", categories)
-                .data("nextCategory", nextCategory)
-                .data("nextFactor", plain(nextFactor))
-                .data("currentHalfName", currentHalfName)
-                .data("requirements", requirements));
-    }
-
-    private static String requirementText(RequiredGradeService.Requirement requirement) {
-        if (requirement.unreachable()) {
-            return "nicht erreichbar";
-        }
-        if (requirement.alreadySafe()) {
-            return "sicher";
-        }
-        return plain(requirement.requiredGrade()) + " oder besser";
-    }
-
-    /** The student's grades in {@code assessments}, one {@link CategoryData} per category (empty ones included). */
-    private List<CategoryData> categoryData(List<GradeCategory> categories, List<Assessment> assessments,
-                                            Map<GradeKey, Grade> grades, Student student, Subject subject) {
-        List<CategoryData> result = new ArrayList<>();
-        for (GradeCategory category : categories) {
-            List<GradeData> categoryGrades = new ArrayList<>();
-            for (Assessment assessment : assessments) {
-                if (!assessment.category.id.equals(category.id)) {
-                    continue;
-                }
-                Grade grade = grades.get(new GradeKey(assessment.id, student.id));
-                BigDecimal value = grade != null ? effectiveGradeValue(grade, assessment, subject.gradeScale) : null;
-                if (value != null) {
-                    categoryGrades.add(new GradeData(value, assessment.factor));
-                }
-            }
-            result.add(new CategoryData(category.weightPercent, categoryGrades));
-        }
-        return result;
-    }
-
-    private SubjectAverageResult average(List<GradeCategory> categories, List<Assessment> assessments,
-                                         Map<GradeKey, Grade> grades, Student student, Subject subject) {
-        return gradeService.calculateSubjectAverage(categoryData(categories, assessments, grades, student, subject),
-                subject.gradeScale, subject.roundingMode);
-    }
-
-    public record StudentLeistungView(String categoryName, String name, LocalDate date, BigDecimal factor,
-                                      String gradeText, String absenceLabel) {
-    }
-
-    public record AverageView(String label, BigDecimal rawAverage, String grade) {
-    }
-
-    public record RequirementRow(int targetGrade, String currentHalf, String year) {
-    }
-
     @GET
     @Path("/export")
     @Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -710,7 +563,7 @@ public class GradeGridResource {
                         }
                     }
                     Absence absence = grade != null ? grade.absence : null;
-                    boolean due = isDue(assessment, today);
+                    boolean due = OpenGrades.isDue(assessment, today);
                     cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue, absence,
                             assessment.pointsBased, derivedDisplay, due, due && grade == null));
                     categoryStart = false;
@@ -741,58 +594,6 @@ public class GradeGridResource {
         }
 
         return new BlockBuild(cellsByStudent, footers, startColIndex + totalCols);
-    }
-
-    /**
-     * Per Fach, how many grades are still missing for Leistungen whose date has come (the same rule
-     * as the grid's highlight, {@link #isDue}); a cell with only an absence mark counts as entered.
-     * Only Fächer with at least one missing grade are in the map. Grouped queries instead of loading
-     * every grade, since the home page and the Notenübersicht call this for many Fächer at once.
-     */
-    static Map<Long, Long> openGradeCounts(List<Subject> subjects) {
-        if (subjects.isEmpty()) {
-            return Map.of();
-        }
-        List<Long> subjectIds = subjects.stream().map(s -> s.id).toList();
-        List<Long> classIds = subjects.stream().map(s -> s.schoolClass.id).distinct().toList();
-        LocalDate today = LocalDate.now();
-        var em = Subject.getEntityManager();
-        Map<Long, Long> dueAssessments = countsById(em.createQuery(
-                "select a.category.subject.id, count(a) from Assessment a"
-                        + " where a.category.subject.id in :ids and a.date <= :today group by a.category.subject.id",
-                Object[].class).setParameter("ids", subjectIds).setParameter("today", today).getResultList());
-        Map<Long, Long> studentsByClass = countsById(em.createQuery(
-                "select s.schoolClass.id, count(s) from Student s where s.schoolClass.id in :ids and s.leftOn is null"
-                        + " group by s.schoolClass.id",
-                Object[].class).setParameter("ids", classIds).getResultList());
-        Map<Long, Long> enteredGrades = countsById(em.createQuery(
-                "select g.assessment.category.subject.id, count(g) from Grade g"
-                        + " where g.assessment.category.subject.id in :ids and g.assessment.date <= :today"
-                        + " and g.student.leftOn is null"
-                        + " group by g.assessment.category.subject.id",
-                Object[].class).setParameter("ids", subjectIds).setParameter("today", today).getResultList());
-        Map<Long, Long> open = new HashMap<>();
-        for (Subject s : subjects) {
-            long missing = dueAssessments.getOrDefault(s.id, 0L) * studentsByClass.getOrDefault(s.schoolClass.id, 0L)
-                    - enteredGrades.getOrDefault(s.id, 0L);
-            if (missing > 0) {
-                open.put(s.id, missing);
-            }
-        }
-        return open;
-    }
-
-    static Map<Long, Long> countsById(List<Object[]> rows) {
-        Map<Long, Long> counts = new HashMap<>();
-        for (Object[] row : rows) {
-            counts.put((Long) row[0], (Long) row[1]);
-        }
-        return counts;
-    }
-
-    /** A Leistung whose date has come; only then is an empty cell worth pointing out. Undated ones never are. */
-    static boolean isDue(Assessment assessment, LocalDate today) {
-        return assessment.date != null && !assessment.date.isAfter(today);
     }
 
     /**
@@ -831,7 +632,7 @@ public class GradeGridResource {
      * - "Jahr" never goes through this, it always stays the plain {@code finalGrade} (see
      * {@link HalfYearGradeDisplayService}).
      */
-    private String displayLabel(Subject subject, SubjectAverageResult average) {
+    String displayLabel(Subject subject, SubjectAverageResult average) {
         return halfYearGradeDisplayService.label(average.rawAverage(), average.finalGrade(),
                 subject.schoolClass.halfYearGradeDisplay, subject.schoolClass.halfYearTendencyThreshold,
                 subject.gradeScale);
@@ -1006,7 +807,7 @@ public class GradeGridResource {
      * {@link Grade#points} via {@link PointsConversionService} for a points-based one - never a
      * stored/frozen number, so editing the points or the bands is reflected immediately.
      */
-    private BigDecimal effectiveGradeValue(Grade grade, Assessment assessment, GradeScale scale) {
+    BigDecimal effectiveGradeValue(Grade grade, Assessment assessment, GradeScale scale) {
         if (assessment.pointsBased) {
             if (grade.points == null) {
                 return null;
@@ -1037,7 +838,7 @@ public class GradeGridResource {
      * one {@code Grade.find} per cell - both the HTML grid and the Halbjahr split view otherwise
      * re-query the same rows once for the cell display and again for the average calculation.
      */
-    private static Map<GradeKey, Grade> gradesByKey(List<Grade> grades) {
+    static Map<GradeKey, Grade> gradesByKey(List<Grade> grades) {
         Map<GradeKey, Grade> byKey = new HashMap<>();
         for (Grade grade : grades) {
             byKey.put(new GradeKey(grade.assessment.id, grade.student.id), grade);
@@ -1045,7 +846,7 @@ public class GradeGridResource {
         return byKey;
     }
 
-    private static String plain(BigDecimal value) {
+    static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
     }
 
@@ -1352,7 +1153,7 @@ public class GradeGridResource {
     // ---- View models for the Qute template (and the .xlsx export, which reuses them) ----
 
     /** Lookup key for {@link #gradesByKey}, indexing a subject's grades by (assessment, student). */
-    private record GradeKey(Long assessmentId, Long studentId) {
+    record GradeKey(Long assessmentId, Long studentId) {
     }
 
     /** Everything needed to render either the HTML grid or the .xlsx export - see {@link #loadGridData(Subject)}. */

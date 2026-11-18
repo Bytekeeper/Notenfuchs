@@ -98,8 +98,8 @@ public class ClassOverviewResource {
         }
 
         // What is still missing before the Zeugniskonferenz, per Fach and aligned with the columns.
-        Map<Long, Long> openGrades = GradeGridResource.openGradeCounts(subjects);
-        Map<Long, Long> behaviorEntered = GradeGridResource.countsById(Subject.getEntityManager().createQuery(
+        Map<Long, Long> openGrades = OpenGrades.openGradeCounts(subjects);
+        Map<Long, Long> behaviorEntered = OpenGrades.countsById(Subject.getEntityManager().createQuery(
                 "select b.subject.id, count(b) from BehaviorGrade b where b.subject.schoolClass.id = :id"
                         + " and b.student.leftOn is null group by b.subject.id",
                 Object[].class).setParameter("id", id).getResultList());
