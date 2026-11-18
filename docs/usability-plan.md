@@ -117,16 +117,21 @@ ask a few before building.
 
 ## Suggested order
 
-| Step | Effort | Serves | Why now |
+| Step | Effort | Serves | Status |
 |---|---|---|---|
-| 1.1 Fach tabs | S | U1, U2, U8 | Frame for everything else in phase 1 |
-| 1.2 + 1.3 Leistung in the grade table | M | U1, U2 | Biggest daily time saver |
-| 3.1 + 3.2 Copy setup / starter | S | U11 | Every new Fach hits this |
-| 2.2 Missing-grade hints | S | U7, U9 | No schema change, high value before reports |
-| 2.1 Absence mark | M | U4, U7 | Needs a migration |
-| 2.3 Zeugnis check | S | U9 | Builds on 2.1/2.2 |
-| 1.4, 1.5 | S | U2, U6 | Polish |
-| 4.1, 4.2 Student view | M | U5, U17 | |
-| 5.1 Phone mode | M | U1 | Only after asking teachers |
+| 1.1 Fach tabs | S | U1, U2, U8 | Done |
+| 1.2 + 1.3 Leistung in the grade table | M | U1, U2 | Done |
+| 3.1 + 3.2 Copy setup / starter | S | U11 | Done |
+| 2.2 Missing-grade hints | S | U7, U9 | Done |
+| 2.1 Absence mark | M | U4, U7 | Done |
+| 2.3 Zeugnis check | S | U9 | Done (at-risk threshold stored per grade scale) |
+| 1.4 Notenschlüssel in the grid | S | U2 | Done (band editor + live Notenspiegel in the dialog) |
+| 1.5 Fach switcher | S | U6 | Done |
+| 4.1, 4.2 Student view | M | U5, U17 | Done |
+| 3.3 Invite a colleague before first login | M | U14 | Open: needs a decision on matching by email |
+| 5.1 Phone mode | M | U1 | Open: only after asking teachers |
 
 S = up to a day, M = a few days.
+
+Also still open from the use cases: U10 (a student who leaves mid-year loses all grades when
+deleted) and U16 (class-wide export).
