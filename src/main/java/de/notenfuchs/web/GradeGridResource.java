@@ -206,6 +206,29 @@ public class GradeGridResource {
         return Redirects.seeOther("/subjects/" + id + "/grid").build();
     }
 
+    /**
+     * One-click starter for a Fach without categories: Schriftlich 50 % / Mündlich 50 %, the most
+     * common split. Does nothing if categories already exist, so a double submit can't duplicate them.
+     */
+    @POST
+    @Path("/starter-categories")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response addStarterCategories(@PathParam("id") Long id, @FormParam("returnTo") String returnTo) {
+        Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
+        if (GradeCategory.count("subject.id", id) == 0) {
+            for (String name : List.of("Schriftlich", "Mündlich")) {
+                GradeCategory category = new GradeCategory();
+                category.subject = subject;
+                category.name = name;
+                category.weightPercent = new BigDecimal("50");
+                category.persist();
+            }
+        }
+        String target = "setup".equals(returnTo) ? "/subjects/" + id : "/subjects/" + id + "/grid";
+        return Redirects.seeOther(target).build();
+    }
+
     private Assessment requireAssessmentOfSubject(Long assessmentId, Long subjectId) {
         Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentUser.effectiveSubject());
         if (!assessment.category.subject.id.equals(subjectId)) {

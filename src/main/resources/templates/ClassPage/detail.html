@@ -34,6 +34,17 @@
                         <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
                     </select>
                 </div>
+                {#if !categorySources.isEmpty}
+                <div class="form-field">
+                    <label for="copyCategoriesFrom">Kategorien übernehmen von</label>
+                    <select id="copyCategoriesFrom" name="copyCategoriesFrom">
+                        <option value="">– keine –</option>
+                        {#for src in categorySources}
+                            <option value="{src.id}">{src.schoolClass.name} – {src.name} ({src.schoolClass.schoolYear})</option>
+                        {/for}
+                    </select>
+                </div>
+                {/if}
                 <button type="submit">Anlegen</button>
             </form>
         </div>

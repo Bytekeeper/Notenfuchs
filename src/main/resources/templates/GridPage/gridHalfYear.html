@@ -8,7 +8,7 @@
 
 {#if gridEmpty}
     {#if subjectCategories.isEmpty}
-    <p class="hint">Dieses Fach hat noch keine Kategorien. <a href="/subjects/{subject.id}">Erst Kategorien anlegen</a>.</p>
+    {#include SubjectPage/starterCategories returnTo='grid' /}
     {#else}
     <p class="hint">Dieses Fach hat noch keine Leistungen. Legen Sie die erste an:</p>
     <p class="empty-grid-actions">

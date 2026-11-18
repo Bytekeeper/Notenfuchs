@@ -1,0 +1,8 @@
+<div class="card starter-categories">
+    <p>Dieses Fach hat noch keine Kategorien. Die häufigste Aufteilung mit einem Klick übernehmen:</p>
+    <form method="post" action="/subjects/{subject.id}/grid/starter-categories" class="inline-form">
+        <input type="hidden" name="returnTo" value="{returnTo}">
+        <button type="submit">Mit Schriftlich 50 % / Mündlich 50 % starten</button>
+    </form>
+    <p class="hint">Oder eigene Kategorien {#if returnTo == 'setup'}unten anlegen{#else}unter <a href="/subjects/{subject.id}">Leistungen &amp; Gewichtung</a> anlegen{/if}. Gewichtungen lassen sich später jederzeit ändern.</p>
+</div>

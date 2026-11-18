@@ -139,6 +139,7 @@ public class ClassUiResource {
                 .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
                 .data("students", students)
                 .data("gradeScales", gradeScales)
+                .data("categorySources", guard.listTaughtSubjects(currentSubject))
                 .data("rosterImportResult", rosterImportResult)
                 .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
                 .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject)));
@@ -213,14 +214,7 @@ public class ClassUiResource {
             subjectCopyTeacher.teacherSubject = currentSubject;
             subjectCopyTeacher.persist();
 
-            List<GradeCategory> sourceCategories = GradeCategory.list("subject.id", sourceSubject.id);
-            for (GradeCategory sourceCategory : sourceCategories) {
-                GradeCategory categoryCopy = new GradeCategory();
-                categoryCopy.subject = subjectCopy;
-                categoryCopy.name = sourceCategory.name;
-                categoryCopy.weightPercent = sourceCategory.weightPercent;
-                categoryCopy.persist();
-            }
+            copyCategories(sourceSubject.id, subjectCopy);
         }
 
         List<Student> sourceStudents = Student.list("schoolClass.id", id);
@@ -655,13 +649,17 @@ public class ClassUiResource {
     public TemplateInstance addSubject(@PathParam("id") Long id,
                                         @FormParam("name") String name,
                                         @FormParam("gradeScaleId") Long gradeScaleId,
-                                        @FormParam("roundingMode") String roundingMode) {
+                                        @FormParam("roundingMode") String roundingMode,
+                                        @FormParam("copyCategoriesFrom") String copyCategoriesFrom) {
         String currentSubject = currentUser.effectiveSubject();
         SchoolClass schoolClass = guard.requireClassTeacher(id, currentSubject);
         GradeScale gradeScale = GradeScale.findById(gradeScaleId);
         if (gradeScale == null) {
             throw new NotFoundException("GradeScale " + gradeScaleId + " not found");
         }
+        // Only a Fach the viewer teaches can be a source: they'd otherwise copy a setup they can't see.
+        Subject categorySource = copyCategoriesFrom == null || copyCategoriesFrom.isBlank() ? null
+                : guard.requireTeachesSubject(parseId(copyCategoriesFrom), currentSubject);
         Subject subject = new Subject();
         subject.schoolClass = schoolClass;
         subject.name = name;
@@ -675,6 +673,9 @@ public class ClassUiResource {
         teacher.subject = subject;
         teacher.teacherSubject = currentSubject;
         teacher.persist();
+        if (categorySource != null) {
+            copyCategories(categorySource.id, subject);
+        }
 
         List<Subject> subjects = subjectsWithGradeScale(id);
         attachTeacherLabels(subjects);
@@ -682,6 +683,26 @@ public class ClassUiResource {
                 .data("taughtSubjectIds", taughtSubjectIds(id, currentSubject))
                 .data("isClassAdmin", guard.isAdmin(schoolClass, currentSubject))
                 .data("isClassTeacher", guard.isClassTeacher(schoolClass, currentSubject));
+    }
+
+    private static Long parseId(String raw) {
+        try {
+            return Long.valueOf(raw.strip());
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Ungültige Auswahl");
+        }
+    }
+
+    /** Categories and weights only - Leistungen and grades always start fresh. */
+    private static void copyCategories(Long sourceSubjectId, Subject target) {
+        List<GradeCategory> sourceCategories = GradeCategory.list("subject.id = ?1 order by id", sourceSubjectId);
+        for (GradeCategory sourceCategory : sourceCategories) {
+            GradeCategory categoryCopy = new GradeCategory();
+            categoryCopy.subject = target;
+            categoryCopy.name = sourceCategory.name;
+            categoryCopy.weightPercent = sourceCategory.weightPercent;
+            categoryCopy.persist();
+        }
     }
 
     @DELETE
