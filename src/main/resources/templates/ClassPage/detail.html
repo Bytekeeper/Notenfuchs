@@ -9,6 +9,9 @@
 <div class="section-columns">
     <section>
         <h2>Fächer</h2>
+        {#if isClassAdmin || !taughtSubjectIds.isEmpty}
+        <p><a class="btn secondary" href="/classes/{schoolClass.id}/export" title="{#if isClassAdmin}Notenübersicht aller Fächer und{#else}Je{/if} ein Blatt pro eigenem Fach">Klasse als Excel exportieren</a></p>
+        {/if}
         {#include fragments/subjectList /}
 
         {#if isClassTeacher}

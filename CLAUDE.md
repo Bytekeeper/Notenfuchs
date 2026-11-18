@@ -37,6 +37,7 @@ Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only 
   - `GradeGridResource`: grade grid (classic and half-year view), cell save, xlsx export, the Leistung dialog endpoints (add/edit/delete, Notenschlüssel, `band-preview`), starter categories.
   - `StudentPageResource`: one student in one Fach, incl. "Was braucht …".
   - `BehaviorGridResource`: Verhaltensnoten grid. `ClassOverviewResource`: admin-only Notenübersicht. `OpenGrades`: the "offen" rule and counts.
+  - `ClassExportResource`: class-wide xlsx. Admins get a "Notenübersicht" sheet (final grades of every Fach); everyone gets a full sheet per Fach they teach, written by `GradeGridResource#addSubjectSheet` (the same code as the Fach export). It never widens access.
 - Templates in `src/main/resources/templates/`; tab headers `ClassPage/classHeader.html` and `SubjectPage/subjectHeader.html` (every tab page passes `activeTab`; class pages also `isClassAdmin`, Fach pages `switchSubjects`). Grid JS: `static/js/notenfuchs.js`.
 
 ## Data model
@@ -102,6 +103,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom) — shared reference data, seed
 | Verhaltensnoten | `BehaviorGradeServiceTest`, `BehaviorGridIT`, `BehaviorGridE2EIT` |
 | Access rules | `OwnershipGuardIT`, `SubjectStructuralAccessIT`, `CurrentUserTest` |
 | Class / Fach teachers | `ClassTeacherIT`, `ClassTeacherE2EIT`, `SubjectTeacherIT`, `SubjectTeacherE2EIT`, `SubjectTeacherDisplayIT`, `TransitiveTeacherIT`, `TeacherDirectoryRecorderIT` |
+| Class export | `ClassExportIT` |
 | School-year copy | `ClassDuplicationIT`, `ClassDuplicationE2EIT` |
 | Roster CSV | `CsvRosterServiceTest`, `RosterImportExportE2EIT` |
 | Login | `LocalAuthConfigSourceTest`, `AuthConfigurationCheckTest`, `LoginIT`, `LoginE2EIT` |

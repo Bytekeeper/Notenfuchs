@@ -863,90 +863,86 @@ public class GradeGridResource {
      * numerically consistent for further spreadsheet calculations.
      */
     private byte[] buildWorkbook(Subject subject, GridData data) {
-        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(subject.name));
-            CellStyle headerStyle = headerStyle(workbook);
+        return toBytes(workbook -> writeSheet(workbook, WorkbookUtil.createSafeSheetName(subject.name), subject, data));
+    }
 
-            int assessmentColumnCount = data.categoryColumns().stream()
-                    .mapToInt(CategoryColumns::columnCount).sum();
-            int studentCol = 0;
-            int avgRawCol = 1 + assessmentColumnCount;
-            int avgFinalCol = avgRawCol + 1;
+    private void writeSheet(XSSFWorkbook workbook, String sheetName, Subject subject, GridData data) {
+        Sheet sheet = workbook.createSheet(sheetName);
+        CellStyle headerStyle = headerStyle(workbook);
 
-            Row headerRow1 = sheet.createRow(0);
-            Row headerRow2 = sheet.createRow(1);
+        int assessmentColumnCount = data.categoryColumns().stream()
+                .mapToInt(CategoryColumns::columnCount).sum();
+        int studentCol = 0;
+        int avgRawCol = 1 + assessmentColumnCount;
+        int avgFinalCol = avgRawCol + 1;
 
-            setHeaderCell(headerRow1, studentCol, "Schüler", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 1, studentCol, studentCol));
+        Row headerRow1 = sheet.createRow(0);
+        Row headerRow2 = sheet.createRow(1);
 
-            int col = 1;
-            for (CategoryColumns cc : data.categoryColumns()) {
-                setHeaderCell(headerRow1, col, cc.category().name + " (" + plain(cc.category().weightPercent) + "%)",
-                        headerStyle);
-                int span = cc.columnCount();
-                if (span > 1) {
-                    sheet.addMergedRegion(new CellRangeAddress(0, 0, col, col + span - 1));
-                }
-                if (cc.assessments().isEmpty()) {
-                    setHeaderCell(headerRow2, col, "noch keine Leistungen", headerStyle);
-                } else {
-                    int i = 0;
-                    for (Assessment assessment : cc.assessments()) {
-                        setHeaderCell(headerRow2, col + i,
-                                assessment.name + " (Faktor " + plain(assessment.factor) + ")", headerStyle);
-                        i++;
-                    }
-                }
-                col += span;
+        setHeaderCell(headerRow1, studentCol, "Schüler", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 1, studentCol, studentCol));
+
+        int col = 1;
+        for (CategoryColumns cc : data.categoryColumns()) {
+            setHeaderCell(headerRow1, col, cc.category().name + " (" + plain(cc.category().weightPercent) + "%)",
+                    headerStyle);
+            int span = cc.columnCount();
+            if (span > 1) {
+                sheet.addMergedRegion(new CellRangeAddress(0, 0, col, col + span - 1));
             }
-
-            setHeaderCell(headerRow1, avgRawCol, "Ø", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 1, avgRawCol, avgRawCol));
-            setHeaderCell(headerRow1, avgFinalCol, "Note", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 1, avgFinalCol, avgFinalCol));
-
-            int rowNum = 2;
-            // Students who left come last, marked, since their grades may still be needed for a report.
-            List<RowView> exportRows = new ArrayList<>(data.rows());
-            exportRows.addAll(data.leftRows());
-            for (RowView row : exportRows) {
-                Row xlsxRow = sheet.createRow(rowNum++);
-                xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
-                List<CellView> cells = row.cells();
-                for (int i = 0; i < cells.size(); i++) {
-                    CellView cell = cells.get(i);
-                    writeCell(xlsxRow, 1 + i, cell);
-                }
-                if (row.rawAverage() != null) {
-                    xlsxRow.createCell(avgRawCol).setCellValue(row.rawAverage().doubleValue());
-                }
-                if (row.finalGrade() != null) {
-                    xlsxRow.createCell(avgFinalCol).setCellValue(row.finalGrade());
+            if (cc.assessments().isEmpty()) {
+                setHeaderCell(headerRow2, col, "noch keine Leistungen", headerStyle);
+            } else {
+                int i = 0;
+                for (Assessment assessment : cc.assessments()) {
+                    setHeaderCell(headerRow2, col + i,
+                            assessment.name + " (Faktor " + plain(assessment.factor) + ")", headerStyle);
+                    i++;
                 }
             }
+            col += span;
+        }
 
-            Row footerRow = sheet.createRow(rowNum);
-            footerRow.createCell(studentCol).setCellValue("Ø je Leistung");
-            int footerCol = 1;
-            for (CategoryFooter cf : data.categoryFooters()) {
-                for (ColumnAverageView columnAverage : cf.columnAverages()) {
-                    if (columnAverage.rawAverage() != null) {
-                        footerRow.createCell(footerCol).setCellValue(columnAverage.rawAverage().doubleValue());
-                    }
-                    footerCol++;
+        setHeaderCell(headerRow1, avgRawCol, "Ø", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 1, avgRawCol, avgRawCol));
+        setHeaderCell(headerRow1, avgFinalCol, "Note", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 1, avgFinalCol, avgFinalCol));
+
+        int rowNum = 2;
+        // Students who left come last, marked, since their grades may still be needed for a report.
+        List<RowView> exportRows = new ArrayList<>(data.rows());
+        exportRows.addAll(data.leftRows());
+        for (RowView row : exportRows) {
+            Row xlsxRow = sheet.createRow(rowNum++);
+            xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
+            List<CellView> cells = row.cells();
+            for (int i = 0; i < cells.size(); i++) {
+                CellView cell = cells.get(i);
+                writeCell(xlsxRow, 1 + i, cell);
+            }
+            if (row.rawAverage() != null) {
+                xlsxRow.createCell(avgRawCol).setCellValue(row.rawAverage().doubleValue());
+            }
+            if (row.finalGrade() != null) {
+                xlsxRow.createCell(avgFinalCol).setCellValue(row.finalGrade());
+            }
+        }
+
+        Row footerRow = sheet.createRow(rowNum);
+        footerRow.createCell(studentCol).setCellValue("Ø je Leistung");
+        int footerCol = 1;
+        for (CategoryFooter cf : data.categoryFooters()) {
+            for (ColumnAverageView columnAverage : cf.columnAverages()) {
+                if (columnAverage.rawAverage() != null) {
+                    footerRow.createCell(footerCol).setCellValue(columnAverage.rawAverage().doubleValue());
                 }
+                footerCol++;
             }
+        }
 
-            sheet.createFreezePane(1, 2);
-            for (int c = 0; c <= avgFinalCol; c++) {
-                sheet.autoSizeColumn(c);
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        sheet.createFreezePane(1, 2);
+        for (int c = 0; c <= avgFinalCol; c++) {
+            sheet.autoSizeColumn(c);
         }
     }
 
@@ -958,82 +954,102 @@ public class GradeGridResource {
      * Halbjahr"/"Jahr") above the existing category/assessment header rows.
      */
     private byte[] buildHalfYearWorkbook(Subject subject, HalfYearGridData data) {
+        return toBytes(workbook -> writeHalfYearSheet(workbook, WorkbookUtil.createSafeSheetName(subject.name), subject, data));
+    }
+
+    private void writeHalfYearSheet(XSSFWorkbook workbook, String sheetName, Subject subject, HalfYearGridData data) {
+        Sheet sheet = workbook.createSheet(sheetName);
+        CellStyle headerStyle = headerStyle(workbook);
+
+        int studentCol = 0;
+        int col = 1;
+        int undatedStartCol = col;
+        col += data.undatedTotalCols();
+        int h1StartCol = col;
+        col += totalColumns(data.h1Columns());
+        int h1AvgRawCol = col++;
+        int h1AvgFinalCol = col++;
+        int h2StartCol = col;
+        col += totalColumns(data.h2Columns());
+        int h2AvgRawCol = col++;
+        int h2AvgFinalCol = col++;
+        int jahrAvgRawCol = col++;
+        int jahrAvgFinalCol = col++;
+        int lastCol = jahrAvgFinalCol;
+
+        Row regionRow = sheet.createRow(0);
+        Row categoryRow = sheet.createRow(1);
+        Row assessmentRow = sheet.createRow(2);
+
+        setHeaderCell(regionRow, studentCol, "Schüler", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 2, studentCol, studentCol));
+
+        if (data.undatedTotalCols() > 0) {
+            setHeaderCell(regionRow, undatedStartCol, "Ohne Datum (zählt nur in die Jahresnote)", headerStyle);
+            if (data.undatedTotalCols() > 1) {
+                sheet.addMergedRegion(new CellRangeAddress(0, 0, undatedStartCol,
+                        undatedStartCol + data.undatedTotalCols() - 1));
+            }
+            writeCategoryAndAssessmentHeaders(sheet, categoryRow, assessmentRow, data.undatedColumns(),
+                    undatedStartCol, headerStyle);
+        }
+
+        setHeaderCell(regionRow, h1StartCol, "1. Halbjahr", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, h1StartCol, h1AvgFinalCol));
+        writeCategoryAndAssessmentHeaders(sheet, categoryRow, assessmentRow, data.h1Columns(), h1StartCol, headerStyle);
+        writeAverageHeader(sheet, categoryRow, h1AvgRawCol, h1AvgFinalCol, headerStyle);
+
+        setHeaderCell(regionRow, h2StartCol, "2. Halbjahr", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, h2StartCol, h2AvgFinalCol));
+        writeCategoryAndAssessmentHeaders(sheet, categoryRow, assessmentRow, data.h2Columns(), h2StartCol, headerStyle);
+        writeAverageHeader(sheet, categoryRow, h2AvgRawCol, h2AvgFinalCol, headerStyle);
+
+        setHeaderCell(regionRow, jahrAvgRawCol, "Jahr", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, jahrAvgRawCol, jahrAvgFinalCol));
+        writeAverageHeader(sheet, categoryRow, jahrAvgRawCol, jahrAvgFinalCol, headerStyle);
+
+        int rowNum = 3;
+        List<HalfYearRowView> exportRows = new ArrayList<>(data.rows());
+        exportRows.addAll(data.leftRows());
+        for (HalfYearRowView row : exportRows) {
+            Row xlsxRow = sheet.createRow(rowNum++);
+            xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
+            writeCells(xlsxRow, row.undatedCells(), undatedStartCol);
+            writeCells(xlsxRow, row.h1Cells(), h1StartCol);
+            writeAverageWithLabel(xlsxRow, h1AvgRawCol, h1AvgFinalCol, row.h1RawAverage(), row.h1DisplayLabel());
+            writeCells(xlsxRow, row.h2Cells(), h2StartCol);
+            writeAverageWithLabel(xlsxRow, h2AvgRawCol, h2AvgFinalCol, row.h2RawAverage(), row.h2DisplayLabel());
+            writeAverage(xlsxRow, jahrAvgRawCol, jahrAvgFinalCol, row.jahrRawAverage(), row.jahrFinalGrade());
+        }
+
+        Row footerRow = sheet.createRow(rowNum);
+        footerRow.createCell(studentCol).setCellValue("Ø je Leistung");
+        writeFooterAverages(footerRow, data.undatedFooters(), undatedStartCol);
+        writeFooterAverages(footerRow, data.h1Footers(), h1StartCol);
+        writeFooterAverages(footerRow, data.h2Footers(), h2StartCol);
+
+        sheet.createFreezePane(1, 3);
+        for (int c = 0; c <= lastCol; c++) {
+            sheet.autoSizeColumn(c);
+        }
+    }
+
+    /**
+     * Adds this Fach's grade sheet (the same content as its own export) to a workbook, e.g. the
+     * class-wide export. The caller must already have checked that the viewer teaches the Fach.
+     */
+    void addSubjectSheet(XSSFWorkbook workbook, String sheetName, Subject subject) {
+        LocalDate cutoff = subject.schoolClass.halfYearCutoff;
+        if (cutoff == null) {
+            writeSheet(workbook, sheetName, subject, loadGridData(subject));
+        } else {
+            writeHalfYearSheet(workbook, sheetName, subject, loadHalfYearGridData(subject, cutoff));
+        }
+    }
+
+    static byte[] toBytes(java.util.function.Consumer<XSSFWorkbook> fill) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(subject.name));
-            CellStyle headerStyle = headerStyle(workbook);
-
-            int studentCol = 0;
-            int col = 1;
-            int undatedStartCol = col;
-            col += data.undatedTotalCols();
-            int h1StartCol = col;
-            col += totalColumns(data.h1Columns());
-            int h1AvgRawCol = col++;
-            int h1AvgFinalCol = col++;
-            int h2StartCol = col;
-            col += totalColumns(data.h2Columns());
-            int h2AvgRawCol = col++;
-            int h2AvgFinalCol = col++;
-            int jahrAvgRawCol = col++;
-            int jahrAvgFinalCol = col++;
-            int lastCol = jahrAvgFinalCol;
-
-            Row regionRow = sheet.createRow(0);
-            Row categoryRow = sheet.createRow(1);
-            Row assessmentRow = sheet.createRow(2);
-
-            setHeaderCell(regionRow, studentCol, "Schüler", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 2, studentCol, studentCol));
-
-            if (data.undatedTotalCols() > 0) {
-                setHeaderCell(regionRow, undatedStartCol, "Ohne Datum (zählt nur in die Jahresnote)", headerStyle);
-                if (data.undatedTotalCols() > 1) {
-                    sheet.addMergedRegion(new CellRangeAddress(0, 0, undatedStartCol,
-                            undatedStartCol + data.undatedTotalCols() - 1));
-                }
-                writeCategoryAndAssessmentHeaders(sheet, categoryRow, assessmentRow, data.undatedColumns(),
-                        undatedStartCol, headerStyle);
-            }
-
-            setHeaderCell(regionRow, h1StartCol, "1. Halbjahr", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, h1StartCol, h1AvgFinalCol));
-            writeCategoryAndAssessmentHeaders(sheet, categoryRow, assessmentRow, data.h1Columns(), h1StartCol, headerStyle);
-            writeAverageHeader(sheet, categoryRow, h1AvgRawCol, h1AvgFinalCol, headerStyle);
-
-            setHeaderCell(regionRow, h2StartCol, "2. Halbjahr", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, h2StartCol, h2AvgFinalCol));
-            writeCategoryAndAssessmentHeaders(sheet, categoryRow, assessmentRow, data.h2Columns(), h2StartCol, headerStyle);
-            writeAverageHeader(sheet, categoryRow, h2AvgRawCol, h2AvgFinalCol, headerStyle);
-
-            setHeaderCell(regionRow, jahrAvgRawCol, "Jahr", headerStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, jahrAvgRawCol, jahrAvgFinalCol));
-            writeAverageHeader(sheet, categoryRow, jahrAvgRawCol, jahrAvgFinalCol, headerStyle);
-
-            int rowNum = 3;
-            List<HalfYearRowView> exportRows = new ArrayList<>(data.rows());
-            exportRows.addAll(data.leftRows());
-            for (HalfYearRowView row : exportRows) {
-                Row xlsxRow = sheet.createRow(rowNum++);
-                xlsxRow.createCell(studentCol).setCellValue(exportName(row.student(), data.leftRows().contains(row)));
-                writeCells(xlsxRow, row.undatedCells(), undatedStartCol);
-                writeCells(xlsxRow, row.h1Cells(), h1StartCol);
-                writeAverageWithLabel(xlsxRow, h1AvgRawCol, h1AvgFinalCol, row.h1RawAverage(), row.h1DisplayLabel());
-                writeCells(xlsxRow, row.h2Cells(), h2StartCol);
-                writeAverageWithLabel(xlsxRow, h2AvgRawCol, h2AvgFinalCol, row.h2RawAverage(), row.h2DisplayLabel());
-                writeAverage(xlsxRow, jahrAvgRawCol, jahrAvgFinalCol, row.jahrRawAverage(), row.jahrFinalGrade());
-            }
-
-            Row footerRow = sheet.createRow(rowNum);
-            footerRow.createCell(studentCol).setCellValue("Ø je Leistung");
-            writeFooterAverages(footerRow, data.undatedFooters(), undatedStartCol);
-            writeFooterAverages(footerRow, data.h1Footers(), h1StartCol);
-            writeFooterAverages(footerRow, data.h2Footers(), h2StartCol);
-
-            sheet.createFreezePane(1, 3);
-            for (int c = 0; c <= lastCol; c++) {
-                sheet.autoSizeColumn(c);
-            }
-
+            fill.accept(workbook);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);
             return out.toByteArray();

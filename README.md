@@ -670,6 +670,9 @@ kein Node-Build-Schritt.
   ändert sich dadurch nie. Ein Klick auf einen Schülernamen öffnet seine Seite im Fach
   (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte und
   „Was braucht … in der nächsten Leistung?“ – druckbar, z. B. fürs Elterngespräch
+- `/classes/{id}/export` - die ganze Klasse als `.xlsx`: für Klassen-Admins ein Blatt
+  „Notenübersicht“ mit den Endnoten aller Fächer, dazu für jedes Fach, das man selbst
+  unterrichtet, ein Blatt mit allen Noten (wie der Export des einzelnen Fachs)
 - `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
   herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
   möchten
