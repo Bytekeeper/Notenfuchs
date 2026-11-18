@@ -929,3 +929,11 @@
         focusRequestedColumn();
     });
 })();
+
+/** Fach header: switching keeps the current tab (Notenerfassung, Leistungen & Gewichtung, Lehrkräfte). */
+document.addEventListener("change", function (ev) {
+    const select = ev.target.closest(".subject-switcher select");
+    if (select) {
+        window.location.href = "/subjects/" + select.value + (select.dataset.tabPath || "");
+    }
+});

@@ -693,3 +693,7 @@ table.grade-grid td.at-risk-count { color: var(--color-error); font-weight: 600;
 table.grade-grid td.status-cell { color: var(--color-success); }
 table.grade-grid td.status-cell.status-open { color: var(--color-primary-dark); font-weight: 600; }
 .overview-summary { margin: 0 0 0.75rem; }
+
+/* Fach header with the "Fach wechseln" switcher on the right. */
+.subject-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.subject-switcher { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted); }

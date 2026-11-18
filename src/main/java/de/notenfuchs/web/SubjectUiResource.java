@@ -86,6 +86,7 @@ public class SubjectUiResource {
         CategoryListData data = categoryListData(id);
         return currentUser.withUser(detailTemplate
                 .data("subject", subject)
+                .data("switchSubjects", switchSubjects(subject))
                 .data("categories", data.categories())
                 .data("weightSum", data.weightSum())
                 .data("weightSumWarning", data.weightSumWarning()));
@@ -98,6 +99,7 @@ public class SubjectUiResource {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         return currentUser.withUser(teachersTemplate
                 .data("subject", subject)
+                .data("switchSubjects", switchSubjects(subject))
                 .data("subjectTeachers", subjectTeachersWithResolvedLabels(id))
                 .data("availableTeachers", availableTeachers(id))
                 .data("currentUserSubject", currentUser.effectiveSubject()));
@@ -281,6 +283,11 @@ public class SubjectUiResource {
         GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
         createAssessment(category, subject.gradeScale, name, date, factor, pointsBasedRaw, roundingModeRaw);
         return categoryFragment(subject);
+    }
+
+    /** Shared with {@code GradeGridResource}: the Fach header's switcher lists the viewer's Fächer of the same year. */
+    List<Subject> switchSubjects(Subject subject) {
+        return guard.listTaughtSubjectsInYear(currentUser.effectiveSubject(), subject.schoolClass.schoolYear);
     }
 
     /** Shared with the grade table ({@code GradeGridResource}) so both create a Leistung the same way. */

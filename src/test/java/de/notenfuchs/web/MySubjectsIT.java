@@ -100,6 +100,24 @@ class MySubjectsIT {
         assertTrue(html.contains("1 Note offen"), html);
     }
 
+    @Test
+    void fachSwitcher_listsTheViewersFaecherOfTheSameYearOnly() throws Exception {
+        String unique = Long.toString(System.nanoTime());
+        Long classId = createClass("Wechsel-Klasse-" + unique, OLDER_YEAR);
+        Long currentId = createSubject(classId, "Wechsel-Aktuell-" + unique);
+        createSubject(classId, "Wechsel-Nachbar-" + unique);
+        seedSubjectTaughtByColleague(classId, "Wechsel-Fremd-" + unique, "colleague-" + unique);
+        Long otherYearClassId = createClass("Wechsel-Neu-" + unique, NEWEST_YEAR);
+        createSubject(otherYearClassId, "Wechsel-AnderesJahr-" + unique);
+
+        String html = get("/subjects/" + currentId + "/grid").body();
+
+        assertTrue(html.contains("Fach wechseln"));
+        assertTrue(html.contains("Wechsel-Nachbar-" + unique));
+        assertFalse(html.contains("Wechsel-Fremd-" + unique));
+        assertFalse(html.contains("Wechsel-AnderesJahr-" + unique));
+    }
+
     private void seedSubjectTaughtByColleague(Long classId, String name, String colleagueSubject) {
         QuarkusTransaction.requiringNew().run(() -> {
             Subject subject = new Subject();

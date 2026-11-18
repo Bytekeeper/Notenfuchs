@@ -120,6 +120,7 @@ public class GradeGridResource {
             return currentUser.withUser(gridTemplate
                     .data("subject", subject)
                     .data("subjectCategories", subjectCategories)
+                    .data("switchSubjects", subjectUi.switchSubjects(subject))
                     .data("categories", data.categoryColumns())
                     .data("students", data.students())
                     .data("rows", data.rows())
@@ -133,6 +134,7 @@ public class GradeGridResource {
         return currentUser.withUser(gridHalfYearTemplate
                 .data("subject", subject)
                 .data("subjectCategories", subjectCategories)
+                .data("switchSubjects", subjectUi.switchSubjects(subject))
                 .data("isClassAdmin", guard.isAdmin(subject.schoolClass, currentUser.effectiveSubject()))
                 .data("cutoff", cutoff)
                 .data("undatedColumns", data.undatedColumns())
