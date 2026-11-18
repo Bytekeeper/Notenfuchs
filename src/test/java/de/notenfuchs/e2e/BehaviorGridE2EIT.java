@@ -101,6 +101,8 @@ class BehaviorGridE2EIT {
         Locator cellB_Fach1 = page.locator("input.grade-input[data-row='1'][data-col='0']");
 
         assertThat(row0Average).hasText("–");
+        // Two students x two Fächer, nothing entered yet: every cell is marked as missing.
+        assertThat(page.locator("table.behavior-grid-root td.grade-cell-open")).hasCount(4);
 
         // Student A gets a 2 in FachA -> row average = 2, not borderline. Live JS updates use the
         // save endpoint's trailing-zero-stripped JSON value (like the grade grid's own cell-save
@@ -111,6 +113,7 @@ class BehaviorGridE2EIT {
         assertThat(row0Average.locator(".behavior-average-raw")).hasText("2");
         assertThat(row0Average).not().hasClass(Pattern.compile(".*borderline.*"));
         assertThat(fach1Footer.locator(".behavior-subject-average-final")).hasText("2");
+        assertThat(page.locator("table.behavior-grid-root td.grade-cell-open")).hasCount(3);
 
         // Keyboard nav: Tab from FachA's cell must land on FachB's cell, same row.
         cellA_Fach1.click();

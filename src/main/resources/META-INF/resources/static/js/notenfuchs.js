@@ -451,6 +451,7 @@
                     if (data && typeof data.displayValue === "string") {
                         input.value = data.displayValue;
                     }
+                    input.closest("td").classList.toggle("grade-cell-open", input.value.trim() === "");
                     updateStudentAverage(studentId, data);
                     updateSubjectAverage(data);
                 })
