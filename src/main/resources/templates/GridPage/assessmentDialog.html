@@ -18,7 +18,7 @@
         <div class="form-field checkbox-field">
             <label><input type="checkbox" id="assessmentPointsBased" name="pointsBased" value="true"> Punktebasiert (mit Notenschlüssel)</label>
         </div>
-        <div class="form-field">
+        <div class="form-field assessment-dialog-rounding">
             <label for="assessmentRoundingMode">Rundung (bei Punkten)</label>
             <select id="assessmentRoundingMode" name="roundingMode">
                 <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
@@ -42,6 +42,7 @@
                 <td><button type="button" class="delete-btn band-remove" aria-label="Stufe entfernen">×</button></td>
             </tr>
         </template>
+        <p class="hint warning assessment-dialog-error" role="alert" hidden></p>
         <div class="assessment-dialog-actions">
             <button type="submit">Speichern</button>
             <button type="button" class="secondary assessment-dialog-cancel">Abbrechen</button>

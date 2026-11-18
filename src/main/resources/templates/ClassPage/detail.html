@@ -9,9 +9,6 @@
 <div class="section-columns">
     <section>
         <h2>Fächer</h2>
-        {#if isClassAdmin || !taughtSubjectIds.isEmpty}
-        <p><a class="btn secondary" href="/classes/{schoolClass.id}/export" title="{#if isClassAdmin}Notenübersicht aller Fächer und{#else}Je{/if} ein Blatt pro eigenem Fach">Klasse als Excel exportieren</a></p>
-        {/if}
         {#include fragments/subjectList /}
 
         {#if isClassTeacher}
@@ -93,7 +90,7 @@
                 </div>
                 <button type="submit">Vorschau anzeigen</button>
             </form>
-            <p class="hint">Eine Spalte „Name“, ein Name pro Zeile. Semikolon- oder komma-getrennt, UTF-8 oder Windows-1252.</p>
+            <p class="hint">Eine Spalte „Name“ oder zwei Spalten „Vorname“ und „Nachname“, ein Schüler pro Zeile. Semikolon oder Komma als Trennzeichen; Exporte aus Excel und der Schulverwaltung gehen direkt.</p>
             {/if}
         </div>
     </section>

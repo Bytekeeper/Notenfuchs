@@ -876,6 +876,8 @@
         var bandRows = bandsEditor.querySelector("tbody");
         var bandRowTemplate = dialog.querySelector(".band-row-template");
         var preview = dialog.querySelector(".assessment-dialog-preview");
+        var rounding = dialog.querySelector(".assessment-dialog-rounding");
+        var errorBox = dialog.querySelector(".assessment-dialog-error");
         var pointsBox = form.elements.pointsBased;
         var originalPointsBased = null;
         var previewUrl = null;
@@ -941,7 +943,7 @@
             title.textContent = editing ? "Leistung bearbeiten" : "Neue Leistung";
             categoryLabel.textContent = "Kategorie: " + data.categoryName;
             form.elements.name.value = data.name || "";
-            form.elements.date.value = editing ? (data.date || "") : today();
+            form.elements.date.value = editing || data.date !== undefined ? (data.date || "") : today();
             form.elements.factor.value = data.factor || "1.0";
             pointsBox.checked = data.pointsBased === "true";
             form.elements.roundingMode.value = data.roundingMode || "IN_FAVOR_OF_STUDENT";
@@ -957,6 +959,8 @@
                 addBandRow(parts[0], parts[1]);
             });
             showBandsEditor(editing && pointsBox.checked);
+            rounding.hidden = !pointsBox.checked;
+            errorBox.hidden = true;
             pointsWarning.hidden = true;
             dialog.showModal();
             form.elements.name.focus();
@@ -965,7 +969,8 @@
         document.addEventListener("click", function (ev) {
             var add = ev.target.closest(".column-add");
             if (add) {
-                open({ categoryId: add.dataset.categoryId, categoryName: add.dataset.categoryName });
+                // In the half-year view each region's "+" brings a date inside that region ("" = Ohne Datum).
+                open({ categoryId: add.dataset.categoryId, categoryName: add.dataset.categoryName, date: add.dataset.date });
                 return;
             }
             var edit = ev.target.closest(".column-edit");
@@ -975,6 +980,7 @@
         });
 
         pointsBox.addEventListener("change", function () {
+            rounding.hidden = !pointsBox.checked;
             pointsWarning.hidden = originalPointsBased === null || pointsBox.checked === originalPointsBased;
             // Only an existing points-based Leistung has bands to edit; a new switch gets default bands.
             showBandsEditor(originalPointsBased === true && pointsBox.checked);
@@ -1001,6 +1007,32 @@
             if (!window.confirm(message)) {
                 ev.preventDefault();
             }
+        });
+
+        // Saved in the background so a refused save shows up in the dialog instead of a bare error
+        // page; on success the server's redirect target (the grid, focused on the column) is loaded.
+        form.addEventListener("submit", function (ev) {
+            ev.preventDefault();
+            var url = (ev.submitter && ev.submitter.getAttribute("formaction")) || form.action;
+            fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams(new FormData(form)).toString()
+            })
+                .then(function (resp) {
+                    if (resp.ok) {
+                        window.location.href = resp.url;
+                        return;
+                    }
+                    errorBox.textContent = resp.status === 404
+                        ? "Diese Leistung gibt es nicht mehr. Bitte laden Sie die Seite neu."
+                        : "Nicht gespeichert. Bitte prüfen Sie die Eingaben.";
+                    errorBox.hidden = false;
+                })
+                .catch(function () {
+                    errorBox.textContent = "Keine Verbindung zum Server. Bitte versuchen Sie es noch einmal.";
+                    errorBox.hidden = false;
+                });
         });
 
         dialog.querySelector(".assessment-dialog-cancel").addEventListener("click", function () {

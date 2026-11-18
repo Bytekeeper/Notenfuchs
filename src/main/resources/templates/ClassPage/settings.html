@@ -4,6 +4,14 @@
 {#include ClassPage/classHeader activeTab='settings' /}
 
 <div class="card">
+    <h3 style="margin-top: 0;">Halbjahr-Ansicht</h3>
+    <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
+    {#include fragments/halfYearCutoff /}
+    <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
+    {#include fragments/halfYearGradeDisplay /}
+</div>
+
+<div class="card">
     <h3 style="margin-top: 0;">Schuljahreswechsel</h3>
     <p class="hint">Legt eine neue Klasse mit denselben Fächern, Kategorien und Schülern an (ohne Leistungen/Noten) - z. B. beim Übergang 8b → 9b. Diese Klasse bleibt unverändert und weiter bearbeitbar.</p>
     <form class="inline-form" method="post" action="/classes/{schoolClass.id}/duplicate">
@@ -17,14 +25,6 @@
         </div>
         <button type="submit">Ins neue Schuljahr übernehmen</button>
     </form>
-</div>
-
-<div class="card">
-    <h3 style="margin-top: 0;">Halbjahr-Ansicht</h3>
-    <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
-    {#include fragments/halfYearCutoff /}
-    <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
-    {#include fragments/halfYearGradeDisplay /}
 </div>
 
 {/include}

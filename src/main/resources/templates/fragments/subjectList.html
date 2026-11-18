@@ -81,5 +81,8 @@
                 {/if}
             </div>
         {/for}
+        {#if isClassAdmin || !taughtSubjectIds.isEmpty}
+        <p class="subject-list-export"><a class="btn secondary" href="/classes/{schoolClass.id}/export" title="{#if isClassAdmin}Notenübersicht aller Fächer und{#else}Je{/if} ein Blatt pro eigenem Fach">Klasse als Excel exportieren</a></p>
+        {/if}
     {/if}
 </div>

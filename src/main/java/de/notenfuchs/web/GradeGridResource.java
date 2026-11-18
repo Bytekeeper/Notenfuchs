@@ -141,6 +141,10 @@ public class GradeGridResource {
                 .data("bandSpecs", bandSpecs)
                 .data("isClassAdmin", guard.isAdmin(subject.schoolClass, currentUser.effectiveSubject()))
                 .data("cutoff", cutoff)
+                // A new Leistung from a region's "+" should land in that region: today if it falls in it,
+                // otherwise the nearest day that does.
+                .data("h1DefaultDate", LocalDate.now().isAfter(cutoff) ? cutoff : LocalDate.now())
+                .data("h2DefaultDate", LocalDate.now().isAfter(cutoff) ? LocalDate.now() : cutoff.plusDays(1))
                 .data("undatedColumns", data.undatedColumns())
                 .data("undatedTotalCols", data.undatedTotalCols())
                 .data("h1Columns", data.h1Columns())

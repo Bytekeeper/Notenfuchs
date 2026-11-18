@@ -122,6 +122,28 @@ class GradeGridAssessmentE2EIT {
         assertThat(page.locator(".derived-grade")).hasText("3");
     }
 
+    @Test
+    void aRefusedSaveIsShownInTheDialogInsteadOfAnErrorPage() {
+        String unique = Long.toString(System.nanoTime());
+        String categoryName = "E2E-Kategorie-" + unique;
+        setUpSubjectWithEmptyCategory(unique, categoryName);
+        Locator dialog = page.locator("#assessment-dialog");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("+ Leistung in " + categoryName)).click();
+        page.locator("#assessmentName").fill("KA1");
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        String gridUrl = page.url().replaceAll("\\?.*$", "");
+
+        // Someone else deletes the Leistung while this dialog is open.
+        page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("KA1")).click();
+        String assessmentId = page.locator(".column-edit").first().getAttribute("data-assessment-id");
+        page.request().post(gridUrl + "/assessments/" + assessmentId + "/delete");
+        page.locator("#assessmentName").fill("KA1-neu");
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+
+        assertThat(dialog.locator(".assessment-dialog-error")).containsText("gibt es nicht mehr");
+        assertThat(dialog).isVisible();
+    }
+
     private void setUpSubjectWithEmptyCategory(String unique, String categoryName) {
         String className = "E2E-Klasse-" + unique;
         String subjectName = "E2E-Fach-" + unique;

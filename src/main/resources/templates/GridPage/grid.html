@@ -18,7 +18,7 @@
 {#else if students.isEmpty}
     <p class="hint">Diese Klasse hat noch keine Schüler. <a href="/classes/{subject.schoolClass.id}">Erst Schüler anlegen</a>.</p>
 {#else}
-    <p><a class="btn" href="/subjects/{subject.id}/grid/export">Als Excel exportieren</a></p>
+    <p><a class="btn secondary" href="/subjects/{subject.id}/grid/export">Als Excel exportieren</a></p>
     <div class="grid-wrapper">
         <table class="grade-grid grade-grid-root"
                data-save-url="/subjects/{subject.id}/grid/cell"
@@ -61,7 +61,7 @@
                                                data-student-id="{row.student.id}"
                                                data-assessment-id="{cell.assessmentId}"
                                                placeholder="Pkt."
-                                               value="{cell.inputValue}">
+                                               value="{cell.inputValue}" title="Punkte eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                         <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                         <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
@@ -73,7 +73,7 @@
                                            data-col="{cell.colIndex}"
                                            data-student-id="{row.student.id}"
                                            data-assessment-id="{cell.assessmentId}"
-                                           value="{cell.inputValue}">
+                                           value="{cell.inputValue}" title="Note eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                     {/if}
                                 {/if}
                             </td>

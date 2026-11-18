@@ -20,7 +20,7 @@
 {#else if students.isEmpty}
     <p class="hint">Diese Klasse hat noch keine Schüler. <a href="/classes/{subject.schoolClass.id}">Erst Schüler anlegen</a>.</p>
 {#else}
-    <p><a class="btn" href="/subjects/{subject.id}/grid/export">Als Excel exportieren</a></p>
+    <p><a class="btn secondary" href="/subjects/{subject.id}/grid/export">Als Excel exportieren</a></p>
     <div class="grid-wrapper">
         <table class="grade-grid grade-grid-root"
                data-save-url="/subjects/{subject.id}/grid/cell"
@@ -42,15 +42,15 @@
                 <tr>
                     {#if !undatedColumns.isEmpty}
                         {#for cat in undatedColumns}
-                            <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
+                            <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-date="" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
                         {/for}
                     {/if}
                     {#for cat in h1Columns}
-                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
+                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-date="{h1DefaultDate}" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
                     {/for}
                     <th rowspan="2">Ø / Note<br>1. HJ</th>
                     {#for cat in h2Columns}
-                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
+                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-date="{h2DefaultDate}" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
                     {/for}
                     <th rowspan="2">Ø / Note<br>2. HJ</th>
                 </tr>
@@ -99,7 +99,7 @@
                                             <input type="text" inputmode="decimal" class="grade-input points-input"
                                                    data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                    data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                                   placeholder="Pkt." value="{cell.inputValue}">
+                                                   placeholder="Pkt." value="{cell.inputValue}" title="Punkte eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                             <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                             <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                         </span>
@@ -107,7 +107,7 @@
                                         <input type="text" inputmode="decimal" class="grade-input"
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                               value="{cell.inputValue}">
+                                               value="{cell.inputValue}" title="Note eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                         {/if}
                                     {/if}
                                 </td>
@@ -121,7 +121,7 @@
                                         <input type="text" inputmode="decimal" class="grade-input points-input"
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                               placeholder="Pkt." value="{cell.inputValue}">
+                                               placeholder="Pkt." value="{cell.inputValue}" title="Punkte eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                         <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                         <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
@@ -129,7 +129,7 @@
                                     <input type="text" inputmode="decimal" class="grade-input"
                                            data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                            data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                           value="{cell.inputValue}">
+                                           value="{cell.inputValue}" title="Note eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                     {/if}
                                 {/if}
                             </td>
@@ -146,7 +146,7 @@
                                         <input type="text" inputmode="decimal" class="grade-input points-input"
                                                data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                                data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                               placeholder="Pkt." value="{cell.inputValue}">
+                                               placeholder="Pkt." value="{cell.inputValue}" title="Punkte eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                         <span class="derived-grade-arrow">{#if cell.derivedGradeDisplay}→{/if}</span>
                                         <span class="derived-grade">{cell.derivedGradeDisplay ?: ''}</span>
                                     </span>
@@ -154,7 +154,7 @@
                                     <input type="text" inputmode="decimal" class="grade-input"
                                            data-row="{row.rowIndex}" data-col="{cell.colIndex}"
                                            data-student-id="{row.student.id}" data-assessment-id="{cell.assessmentId}"
-                                           value="{cell.inputValue}">
+                                           value="{cell.inputValue}" title="Note eingeben · e = abwesend entschuldigt, u = unentschuldigt">
                                     {/if}
                                 {/if}
                             </td>
