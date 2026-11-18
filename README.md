@@ -663,7 +663,9 @@ kein Node-Build-Schritt.
   löschen. Fehlende Noten von Leistungen, deren Datum erreicht ist, werden markiert.
   `e` / `u` in einer Zelle vermerkt „abwesend entschuldigt / unentschuldigt“ – allein
   (zählt dann nicht als fehlend) oder neben der Note (z. B. `6 u`); die Note selbst
-  ändert sich dadurch nie
+  ändert sich dadurch nie. Ein Klick auf einen Schülernamen öffnet seine Seite im Fach
+  (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte und
+  „Was braucht … in der nächsten Leistung?“ – druckbar, z. B. fürs Elterngespräch
 - `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
   herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
   möchten

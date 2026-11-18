@@ -47,7 +47,7 @@
             <tbody>
                 {#for row in rows}
                     <tr>
-                        <td class="student-cell">{row.student.effectiveName}</td>
+                        <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}" title="Alle Leistungen und was noch nötig ist">{row.student.effectiveName}</a></td>
                         {#for cell in row.cells}
                             <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}{#if cell.absence} grade-cell-absent{/if}"{#if cell.due} data-due="true"{/if}>
                                 {#if cell.assessmentId}
