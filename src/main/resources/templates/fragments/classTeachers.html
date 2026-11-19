@@ -28,7 +28,7 @@
         {#if availableTeachers.isEmpty}
             <p class="hint">Keine weiteren Lehrkräfte verfügbar - sie erscheinen hier, sobald sie sich einmal angemeldet haben.</p>
         {#else}
-            <form class="inline-form" hx-post="/classes/{schoolClass.id}/teachers" hx-target="#class-teachers-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+            <form class="inline-form" hx-post="/classes/{schoolClass.id}/teachers" hx-target="#class-teachers-fragment" hx-swap="outerHTML">
                 <div class="form-field">
                     <label for="teacherSubject">Lehrkraft</label>
                     <select id="teacherSubject" name="teacherSubject" required>

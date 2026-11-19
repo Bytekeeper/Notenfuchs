@@ -111,6 +111,9 @@ class ClassDuplicationE2EIT {
         page.locator("#studentName").fill(newClassExtraStudent);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
         assertThat(studentRow(newClassExtraStudent)).hasCount(1);
+        // Ready for the next name without a click.
+        assertThat(page.locator("#studentName")).isFocused();
+        assertThat(page.locator("#studentName")).isEmpty();
 
         // The source class stayed untouched (its Leistung is still there) and stays editable too.
         page.navigate(baseUrl() + "classes");

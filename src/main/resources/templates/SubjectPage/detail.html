@@ -10,7 +10,7 @@
 <details class="add-panel"{#if categories.isEmpty} open{/if}>
 <summary>+ Kategorie anlegen</summary>
 <div class="card">
-    <form class="inline-form" hx-post="/subjects/{subject.id}/categories" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <form class="inline-form" hx-post="/subjects/{subject.id}/categories" hx-target="#category-list-fragment" hx-swap="outerHTML">
         <div class="form-field">
             <label for="categoryName">Name</label>
             <input type="text" id="categoryName" name="name" placeholder="z. B. Schriftlich" required>

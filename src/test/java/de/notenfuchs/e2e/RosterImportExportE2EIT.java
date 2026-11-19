@@ -72,7 +72,6 @@ class RosterImportExportE2EIT {
             Files.write(csvFile, csv.getBytes(StandardCharsets.UTF_8));
 
             page.locator("#rosterFile").setInputFiles(csvFile);
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Vorschau anzeigen")).click();
 
             // Preview page: one duplicate (the pre-existing student) and two new rows, one
             // blank line skipped.
@@ -109,7 +108,7 @@ class RosterImportExportE2EIT {
         createClassWithStudent(className, studentName);
 
         Download download = page.waitForDownload(() ->
-                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Als CSV exportieren")).click());
+                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Exportieren").setExact(true)).click());
         assertTrue(download.suggestedFilename().endsWith(".csv"));
 
         Path savedPath = Files.createTempFile("notenfuchs-roster-export-" + unique, ".csv");
@@ -146,7 +145,6 @@ class RosterImportExportE2EIT {
         try {
             Files.write(csvFile, ("Name\r\n" + leftName + "\r\n").getBytes(StandardCharsets.UTF_8));
             page.locator("#rosterFile").setInputFiles(csvFile);
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Vorschau anzeigen")).click();
 
             assertThat(page.locator("tr[data-status='duplicate']")).containsText("Wieder aufnehmen");
         } finally {

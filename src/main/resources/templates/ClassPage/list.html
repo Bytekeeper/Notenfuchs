@@ -8,7 +8,7 @@
 <details class="add-panel"{#if yearGroups.isEmpty} open{/if}>
 <summary>+ Klasse anlegen</summary>
 <div class="card">
-    <form class="inline-form" hx-post="/classes" hx-target="#home-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <form class="inline-form" hx-post="/classes" hx-target="#home-fragment" hx-swap="outerHTML">
         <div class="form-field">
             <label for="name">Name</label>
             <input type="text" id="name" name="name" placeholder="z. B. 8b" required>

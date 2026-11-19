@@ -9,11 +9,8 @@ Schuljahr ein und klicken auf **„Anlegen“**.
 
 ## Schüler importieren
 
-Öffnen Sie die Klasse. Bei einer neuen Klasse sind die Formulare zum Anlegen schon
-aufgeklappt; später öffnen Sie sie mit einem Klick auf ihre Überschrift. Unter
-**„Schülerliste aus CSV importieren“** wählen Sie eine CSV-Datei aus, zum Beispiel den Export
-aus der Schulverwaltung, und klicken auf **„Vorschau anzeigen“**.
-Notenfuchs versteht eine Spalte „Name“ oder getrennte Spalten „Vorname“ und „Nachname“,
+Öffnen Sie die Klasse. Unter der Schülerliste klicken Sie auf **„Importieren“** und wählen
+eine CSV-Datei aus, zum Beispiel den Export aus der Schulverwaltung. Notenfuchs versteht eine Spalte „Name“ oder getrennte Spalten „Vorname“ und „Nachname“,
 mit Semikolon oder Komma getrennt.
 
 Die Vorschau zeigt, welche Schüler neu sind und welche es schon gibt. Erst mit
@@ -21,7 +18,9 @@ Die Vorschau zeigt, welche Schüler neu sind und welche es schon gibt. Erst mit
 
 ![Vorschau des Schüler-Imports](bilder/schuljahresbeginn-import-vorschau.png)
 
-Einzelne Schüler tragen Sie unter **„+ Schüler hinzufügen“** ein. Statt des echten Namens
+Einzelne Schüler tragen Sie unter **„+ Schüler hinzufügen“** ein. Bei einer neuen Klasse ist
+dieses Formular schon aufgeklappt. Nach jedem **„Hinzufügen“** steht der Cursor wieder im
+Namensfeld: So tippen Sie eine Liste von Papier mit Name und Enter ab. Statt des echten Namens
 können Sie auch nur ein Kürzel verwenden.
 
 ## Fach anlegen

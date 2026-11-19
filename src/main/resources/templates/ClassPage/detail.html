@@ -15,7 +15,7 @@
         <details class="add-panel"{#if subjects.isEmpty} open{/if}>
         <summary>+ Fach anlegen</summary>
         <div class="card">
-            <form class="inline-form" hx-post="/classes/{schoolClass.id}/subjects" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+            <form class="inline-form" hx-post="/classes/{schoolClass.id}/subjects" hx-target="#subject-list-fragment" hx-swap="outerHTML">
                 <div class="form-field">
                     <label for="subjectName">Name</label>
                     <input type="text" id="subjectName" name="name" placeholder="z. B. Mathematik" required>
@@ -69,7 +69,7 @@
         <details class="add-panel"{#if students.isEmpty && leftStudents.isEmpty} open{/if}>
         <summary>+ Schüler hinzufügen</summary>
         <div class="card">
-            <form class="inline-form" hx-post="/classes/{schoolClass.id}/students" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+            <form class="inline-form" hx-post="/classes/{schoolClass.id}/students" hx-target="#student-list-fragment" hx-swap="outerHTML">
                 <div class="form-field">
                     <label for="studentName">Name</label>
                     <input type="text" id="studentName" name="name" placeholder="Vor- und Nachname" required>
@@ -82,27 +82,19 @@
             </form>
         </div>
         </details>
-
-        <details class="add-panel"{#if students.isEmpty && leftStudents.isEmpty} open{/if}>
-        <summary>Schülerliste aus CSV importieren</summary>
-        <div class="card">
-            <form class="inline-form" method="post" action="/classes/{schoolClass.id}/roster/import/preview" enctype="multipart/form-data">
-                <div class="form-field">
-                    <label for="rosterFile">CSV-Datei</label>
-                    <div class="file-field">
-                        <span class="btn secondary" aria-hidden="true">Datei wählen</span>
-                        <input type="file" id="rosterFile" name="file" accept=".csv,text/csv" required>
-                        <span class="filename">Keine Datei ausgewählt</span>
-                    </div>
-                </div>
-                <button type="submit">Vorschau anzeigen</button>
-            </form>
-            <p class="hint">Eine Spalte „Name“ oder zwei Spalten „Vorname“ und „Nachname“, ein Schüler pro Zeile. Semikolon oder Komma als Trennzeichen; Exporte aus Excel und der Schulverwaltung gehen direkt.</p>
-        </div>
-        </details>
         {/if}
 
-        <p class="list-actions"><a class="btn secondary" href="/classes/{schoolClass.id}/roster/export">Schülerliste als CSV exportieren</a></p>
+        <div class="list-actions">
+            <span class="list-actions-label">Schülerliste</span>
+            {#if isClassAdmin}
+            {! Picking a file submits at once; the preview page asks before anything is saved. !}
+            <form class="file-import" method="post" action="/classes/{schoolClass.id}/roster/import/preview" enctype="multipart/form-data">
+                <input type="file" id="rosterFile" name="file" accept=".csv,text/csv" hidden>
+                <button type="button" class="secondary" data-pick-file="rosterFile">Importieren</button>
+            </form>
+            {/if}
+            <a class="btn secondary" href="/classes/{schoolClass.id}/roster/export">Exportieren</a>
+        </div>
     </section>
 </div>
 

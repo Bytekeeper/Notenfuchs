@@ -374,34 +374,9 @@ tr:has(+ tr.edit-row:last-child:not(.editing)) td { border-bottom: none; }
 .add-panel > summary:hover { background: var(--color-tonal-hover); }
 .add-panel[open] > summary { margin-bottom: 0.5rem; }
 
-.list-actions { margin: 0.5rem 0; }
-
-.file-field {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.file-field input[type="file"] {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-    padding: 0;
-    border: none;
-}
-
-.file-field .filename {
-    font-size: 0.85rem;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 12rem;
-}
+.list-actions { margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.list-actions-label { color: var(--color-text-muted); }
+.file-import { display: contents; }
 
 /* ---------------- Grade grid ---------------- */
 

@@ -740,23 +740,24 @@
 })();
 
 /**
- * CSV file picker (ClassPage/detail.html's Schülerliste import): the native <input
- * type="file"> is transparent and stretched over a styled ".btn secondary" label so it lines
- * up with the "Vorschau anzeigen" submit button - see the ".file-field" CSS. The filename
- * text next to it is the only thing that still needs JS, since a transparent input shows no
- * feedback about what (if anything) was picked.
+ * "Importieren" (Schülerliste): the button opens the hidden file picker, and picking a file
+ * submits its form, so the teacher lands on the preview without a second click.
  */
 (function () {
     "use strict";
 
+    document.addEventListener("click", function (ev) {
+        const button = ev.target.closest("[data-pick-file]");
+        if (button) {
+            document.getElementById(button.dataset.pickFile).click();
+        }
+    });
+
     document.addEventListener("change", function (ev) {
-        const input = ev.target.closest(".file-field input[type='file']");
-        if (!input) return;
-        const filename = input.closest(".file-field").querySelector(".filename");
-        if (!filename) return;
-        filename.textContent = input.files && input.files.length > 0
-            ? input.files[0].name
-            : "Keine Datei ausgewählt";
+        const input = ev.target.closest(".file-import input[type='file']");
+        if (input && input.files.length > 0) {
+            input.form.submit();
+        }
     });
 })();
 
@@ -1126,5 +1127,36 @@ document.addEventListener("change", function (ev) {
                     errorBox.hidden = false;
                 });
         });
+    });
+})();
+
+/**
+ * Add panels ("+ Schüler hinzufügen" etc.): typing a list of entries should need no mouse,
+ * so opening a panel and every successful add put the cursor back into its first field.
+ */
+(function () {
+    "use strict";
+
+    function focusFirstField(container) {
+        const field = container.querySelector("input:not([type='hidden']), select");
+        if (field) {
+            field.focus();
+        }
+    }
+
+    // "toggle" doesn't bubble, so listen in the capture phase.
+    document.addEventListener("toggle", function (ev) {
+        const panel = ev.target;
+        if (panel.matches && panel.matches("details.add-panel") && panel.open) {
+            focusFirstField(panel);
+        }
+    }, true);
+
+    document.addEventListener("htmx:afterRequest", function (ev) {
+        const form = ev.target;
+        if (form.matches("details.add-panel form") && ev.detail.successful) {
+            form.reset();
+            focusFirstField(form);
+        }
     });
 })();

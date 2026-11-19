@@ -119,7 +119,6 @@ class WalkthroughIT {
             Files.writeString(csv, "Vorname;Nachname\r\nIda;Neumann\r\nJonas;Keller\r\nLea;Schmidt\r\nMilan;Weber\r\n",
                     StandardCharsets.UTF_8);
             page.locator("#rosterFile").setInputFiles(csv);
-            clickButton("Vorschau anzeigen");
             assertThat(page.locator("tr[data-status='new']")).hasCount(4);
             shot("schuljahresbeginn-import-vorschau");
             clickButton("Import bestätigen");

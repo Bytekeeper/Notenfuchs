@@ -21,7 +21,7 @@ page needs something that isn't here, add it here first, then build it.
 - Two separate lists of similar weight sit side by side in `.section-columns`; below 800 px
   they stack. A page with one main table (grade grid, Notenübersicht) uses the full width.
 - Each section, top to bottom: `h2`, the list, its add panels directly below the list, then
-  downloads.
+  import and download buttons.
 
 ## Building blocks
 
@@ -29,7 +29,7 @@ page needs something that isn't here, add it here first, then build it.
 |---|---|---|
 | A list of records (students, Fächer, Leistungen, teachers) | `table.entity-list`, one row per record, a header row; secondary facts (Kürzel, scale, "seit …") as small `.row-meta` text under or next to the name | Cards per record, free-floating text rows, columns that are mostly empty |
 | A form that is the page's job (settings, login) | `.card` around the form | |
-| A form you need rarely (new class, Fach, student, Kategorie, colleague; CSV import) | `details.add-panel` with a `summary` like "+ Fach anlegen", `.card` inside; `open` while its list is empty | A form that is always open |
+| A form you need rarely (new class, Fach, student, Kategorie, colleague) | `details.add-panel` with a `summary` like "+ Fach anlegen", `.card` inside; `open` while its list is empty; opening it and each add put the cursor in its first field, so Enter adds the next entry | A form that is always open |
 | A form you use often in a group (new Leistung in a Kategorie) | an open one-line `form.inline-form` under the group's list | Hiding it behind a click |
 | A group with its own sub-list (a Kategorie with its Leistungen) | one `.card` per group: header with "Ändern", then the table | |
 | A form that needs focus or a preview (Leistung, feedback) | `<dialog>` | A separate page |
@@ -55,8 +55,10 @@ page needs something that isn't here, add it here first, then build it.
 - **Destructive actions** ask first (`hx-confirm`). The question names the thing and says what
   goes with it ("… löscht auch alle Noten …"). Where an action can be undone instead, offer
   that one (e.g. "Ausgetreten" instead of "Löschen").
-- **Links** for moving to another page. Downloads ("Klasse als Excel exportieren") are tonal
-  buttons (`a.btn.secondary`) in `.list-actions` below the add panels.
+- **Links** for moving to another page. Downloads and file imports are tonal buttons in
+  `.list-actions` below the add panels. When a list has both, a muted label names the list once
+  and the buttons say only the verb: "Schülerliste [Importieren] [Exportieren]". "Importieren"
+  opens the file picker at once; the next page shows a preview to confirm.
 - **No hover-only actions.** Tablets have no hover, and a hidden action is a lost one.
 
 ## Words
