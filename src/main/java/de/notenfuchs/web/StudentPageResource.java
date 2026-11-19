@@ -124,7 +124,9 @@ public class StudentPageResource {
         averages.add(new AverageView("Jahr", yearAverage.rawAverage(),
                 yearAverage.finalGrade() != null ? yearAverage.finalGrade().toString() : null));
 
-        GradeCategory nextCategory = categories.stream().filter(c -> c.id.equals(categoryId)).findFirst()
+        // A student who left gets no further Leistung, so there is nothing to work out for them.
+        GradeCategory nextCategory = student.hasLeft() ? null : categories.stream()
+                .filter(c -> c.id.equals(categoryId)).findFirst()
                 .orElse(categories.isEmpty() ? null : categories.get(0));
         BigDecimal nextFactor = factor != null && factor.signum() > 0 ? factor : BigDecimal.ONE;
         List<RequirementRow> requirements = new ArrayList<>();

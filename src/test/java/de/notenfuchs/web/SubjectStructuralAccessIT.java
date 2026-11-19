@@ -12,15 +12,9 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -45,7 +39,7 @@ class SubjectStructuralAccessIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void addSubject_subjectOnlyFachlehrer_isRejected() throws Exception {
@@ -57,7 +51,7 @@ class SubjectStructuralAccessIT {
             return foreign.id;
         });
 
-        HttpResponse<String> response = post("/classes/" + classId + "/subjects", Map.of(
+        HttpResponse<String> response = http.post("/classes/" + classId + "/subjects", Map.of(
                 "name", "Neues-Fach-" + unique, "gradeScaleId", String.valueOf(gradeScaleId()), "roundingMode", "COMMERCIAL"));
 
         assertEquals(404, response.statusCode());
@@ -73,7 +67,7 @@ class SubjectStructuralAccessIT {
         });
         String subjectName = "Neues-Fach-Fachlehrer-" + unique;
 
-        HttpResponse<String> response = post("/classes/" + classId + "/subjects", Map.of(
+        HttpResponse<String> response = http.post("/classes/" + classId + "/subjects", Map.of(
                 "name", subjectName, "gradeScaleId", String.valueOf(gradeScaleId()), "roundingMode", "COMMERCIAL"));
 
         assertEquals(200, response.statusCode());
@@ -90,7 +84,7 @@ class SubjectStructuralAccessIT {
             return new Long[]{foreign.id, subject.id};
         });
 
-        HttpResponse<String> response = delete("/classes/" + ids[0] + "/subjects/" + ids[1]);
+        HttpResponse<String> response = http.delete("/classes/" + ids[0] + "/subjects/" + ids[1]);
 
         assertEquals(404, response.statusCode());
         assertEquals(1, Subject.count("id", ids[1]));
@@ -109,11 +103,11 @@ class SubjectStructuralAccessIT {
             return new Long[]{foreign.id, ownSubject.id, foreignSubject.id};
         });
 
-        HttpResponse<String> deleteForeign = delete("/classes/" + ids[0] + "/subjects/" + ids[2]);
+        HttpResponse<String> deleteForeign = http.delete("/classes/" + ids[0] + "/subjects/" + ids[2]);
         assertEquals(404, deleteForeign.statusCode());
         assertEquals(1, Subject.count("id", ids[2]));
 
-        HttpResponse<String> deleteOwn = delete("/classes/" + ids[0] + "/subjects/" + ids[1]);
+        HttpResponse<String> deleteOwn = http.delete("/classes/" + ids[0] + "/subjects/" + ids[1]);
         assertEquals(200, deleteOwn.statusCode());
         assertEquals(0, Subject.count("id", ids[1]));
     }
@@ -130,7 +124,7 @@ class SubjectStructuralAccessIT {
             return subject.id;
         });
 
-        HttpResponse<String> response = delete("/classes/" + classId + "/subjects/" + subjectId);
+        HttpResponse<String> response = http.delete("/classes/" + classId + "/subjects/" + subjectId);
 
         assertEquals(200, response.statusCode());
         assertEquals(0, Subject.count("id", subjectId));
@@ -176,37 +170,8 @@ class SubjectStructuralAccessIT {
     }
 
     private Long createClass(String name, String schoolYear) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", schoolYear));
+        http.post("/classes", Map.of("name", name, "schoolYear", schoolYear));
         SchoolClass created = SchoolClass.find("name", name).firstResult();
         return created.id;
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> delete(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .DELETE()
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

@@ -92,8 +92,9 @@ export, create the Fächer.
 
 ### U14 – Share a Fach or a class with a colleague
 Team teaching, a Referendar, a substitute teacher.
-- Today: Fach page → Lehrkräfte → pick from a list of everyone who has ever logged in. Works
-  only after the colleague logged in once.
+- Today: Fach tab Lehrkräfte → pick from a list of everyone who has ever logged in. Works
+  only after the colleague logged in once, which is fine: Notenfuchs is invite-only, and a new
+  colleague signs up via a Pocket ID link and lands in Notenfuchs right away (U15).
 
 ## One-off / rare
 
@@ -103,7 +104,8 @@ Notenfuchs. Solved by setting Pocket ID's home page (`HOME_PAGE_URL`) to Notenfu
 README's Pocket ID steps.
 
 ### U16 – Export grades for the school system or a personal backup
-- Today: xlsx export per Fach. Nothing per class.
+- Today: xlsx export per Fach, and per class (`Klasse als Excel exportieren`): an overview of all
+  final grades for class admins plus full sheets for one's own Fächer.
 
 ### U17 – "What does the student need in the next Klausur for a 2?"
 On the roadmap ("Later / maybe"). Students ask this a lot before the last test of a half.

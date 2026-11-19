@@ -61,6 +61,8 @@ class DeleteCascadeE2EIT {
 
         page.locator("#studentName").fill(studentName);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
+        // Wait for the background save to land before the next form or a page change can cut it off.
+        assertThat(page.locator("#student-list-fragment")).containsText(studentName);
 
         page.locator("#subjectName").fill(subjectName);
         page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
@@ -76,6 +78,7 @@ class DeleteCascadeE2EIT {
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         // Enter a grade for the assessment via the real grid, so the Assessment now has a
         // dependent Grade row - this is what previously made the delete below fail.
@@ -116,6 +119,8 @@ class DeleteCascadeE2EIT {
 
         page.locator("#studentName").fill(studentName);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
+        // Wait for the background save to land before the next form or a page change can cut it off.
+        assertThat(page.locator("#student-list-fragment")).containsText(studentName);
 
         page.locator("#subjectName").fill(subjectName);
         page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
@@ -131,6 +136,7 @@ class DeleteCascadeE2EIT {
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
         Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");

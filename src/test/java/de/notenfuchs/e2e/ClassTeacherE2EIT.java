@@ -61,7 +61,7 @@ class ClassTeacherE2EIT {
         String unique = Long.toString(System.nanoTime());
         String className = "E2E-Teacher-Klasse-" + unique;
         String colleagueSubject = "e2e-colleague-" + unique;
-        String colleagueLabel = "kollegin-" + unique + "@schule.de";
+        String colleagueLabel = "kollegin-" + unique;
         seedTeacher(colleagueSubject, colleagueLabel);
 
         page.navigate(baseUrl());
@@ -101,11 +101,11 @@ class ClassTeacherE2EIT {
                 .hasCount(0);
     }
 
-    private void seedTeacher(String subject, String email) {
+    private void seedTeacher(String subject, String label) {
         QuarkusTransaction.requiringNew().run(() -> {
             Teacher teacher = new Teacher();
             teacher.subject = subject;
-            teacher.email = email;
+            teacher.displayName = label;
             teacher.firstSeenAt = Instant.now();
             teacher.lastSeenAt = Instant.now();
             teacher.persist();

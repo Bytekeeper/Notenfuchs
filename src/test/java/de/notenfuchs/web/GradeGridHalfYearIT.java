@@ -22,18 +22,12 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -60,7 +54,7 @@ class GradeGridHalfYearIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
     private final ObjectMapper json = new ObjectMapper();
 
     private static final LocalDate CUTOFF = LocalDate.of(2026, 1, 31);
@@ -124,7 +118,7 @@ class GradeGridHalfYearIT {
         assertFalse(response.hasNonNull("h2RawAverage"));
         assertFalse(response.hasNonNull("h2FinalGrade"));
 
-        String gridHtml = get("/subjects/" + subjectId + "/grid").body();
+        String gridHtml = http.get("/subjects/" + subjectId + "/grid").body();
         assertFalse(gridHtml.contains("region-header"), "classic (null cutoff) grid must not render Halbjahr regions");
     }
 
@@ -142,7 +136,7 @@ class GradeGridHalfYearIT {
         createAssessment(subjectAId, categoryAId, "HJ-Regionen-A-Undatiert-" + unique, null);
         createAssessment(subjectAId, categoryAId, "HJ-Regionen-A-H1-" + unique, CUTOFF.minusDays(1));
 
-        String htmlWithUndated = get("/subjects/" + subjectAId + "/grid").body();
+        String htmlWithUndated = http.get("/subjects/" + subjectAId + "/grid").body();
         assertTrue(htmlWithUndated.contains("Ohne Datum"), "undated Assessment exists -> block must render");
         assertTrue(htmlWithUndated.contains("kein Datum"), "undated block must carry the warning hint");
         assertTrue(htmlWithUndated.contains("1. Halbjahr"));
@@ -158,7 +152,7 @@ class GradeGridHalfYearIT {
         createAssessment(subjectBId, categoryBId, "HJ-Regionen-B-H1-" + unique, CUTOFF.minusDays(1));
         createAssessment(subjectBId, categoryBId, "HJ-Regionen-B-H2-" + unique, CUTOFF.plusDays(1));
 
-        String htmlWithoutUndated = get("/subjects/" + subjectBId + "/grid").body();
+        String htmlWithoutUndated = http.get("/subjects/" + subjectBId + "/grid").body();
         assertFalse(htmlWithoutUndated.contains("Ohne Datum"), "no undated Assessment -> block must not render");
         assertTrue(htmlWithoutUndated.contains("1. Halbjahr"));
         assertTrue(htmlWithoutUndated.contains("2. Halbjahr"));
@@ -180,11 +174,7 @@ class GradeGridHalfYearIT {
         saveGradeAndParse(subjectId, studentId, assessmentX, "2");
         saveGradeAndParse(subjectId, studentId, assessmentY, "4");
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + "/subjects/" + subjectId + "/grid/export"))
-                .GET()
-                .build();
-        HttpResponse<byte[]> response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response = http.getBytes("/subjects/" + subjectId + "/grid/export");
         assertEquals(200, response.statusCode());
 
         try (Workbook workbook = WorkbookFactory.create(new java.io.ByteArrayInputStream(response.body()))) {
@@ -257,7 +247,7 @@ class GradeGridHalfYearIT {
         JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "2.2");
         assertEquals("2", response.get("h1DisplayLabel").asText());
 
-        String gridHtml = get("/subjects/" + subjectId + "/grid").body();
+        String gridHtml = http.get("/subjects/" + subjectId + "/grid").body();
         assertTrue(gridHtml.contains("data-scope=\"h1\">2<"), "half-grade label must actually render in the grid");
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
@@ -294,7 +284,7 @@ class GradeGridHalfYearIT {
         JsonNode refined = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
         assertEquals("2.5", refined.get("h1DisplayLabel").asText());
 
-        String gridHtml = get("/subjects/" + subjectId + "/grid").body();
+        String gridHtml = http.get("/subjects/" + subjectId + "/grid").body();
         assertTrue(gridHtml.contains("data-scope=\"h1\">2.5"), "refined half-grade label must actually render in the grid");
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
@@ -342,7 +332,7 @@ class GradeGridHalfYearIT {
             return foreign.id;
         });
 
-        HttpResponse<String> response = patch("/classes/" + foreignClassId + "/half-year-grade-display",
+        HttpResponse<String> response = http.patch("/classes/" + foreignClassId + "/half-year-grade-display",
                 Map.of("halfYearGradeDisplay", "HALF"));
         assertEquals(404, response.statusCode());
 
@@ -365,7 +355,7 @@ class GradeGridHalfYearIT {
             return foreign.id;
         });
 
-        HttpResponse<String> response = patch("/classes/" + foreignClassId + "/half-year-cutoff",
+        HttpResponse<String> response = http.patch("/classes/" + foreignClassId + "/half-year-cutoff",
                 Map.of("halfYearCutoff", CUTOFF.toString()));
         assertEquals(404, response.statusCode());
 
@@ -384,7 +374,7 @@ class GradeGridHalfYearIT {
     }
 
     private JsonNode saveGradeAndParse(Long subjectId, Long studentId, Long assessmentId, String value) throws Exception {
-        HttpResponse<String> response = post("/subjects/" + subjectId + "/grid/cell", Map.of(
+        HttpResponse<String> response = http.post("/subjects/" + subjectId + "/grid/cell", Map.of(
                 "studentId", String.valueOf(studentId),
                 "assessmentId", String.valueOf(assessmentId),
                 "value", value));
@@ -393,7 +383,7 @@ class GradeGridHalfYearIT {
     }
 
     private void setHalfYearCutoff(Long classId, LocalDate cutoff) throws Exception {
-        HttpResponse<String> response = patch("/classes/" + classId + "/half-year-cutoff",
+        HttpResponse<String> response = http.patch("/classes/" + classId + "/half-year-cutoff",
                 Map.of("halfYearCutoff", cutoff.toString()));
         assertEquals(200, response.statusCode(), response.body());
     }
@@ -402,23 +392,23 @@ class GradeGridHalfYearIT {
         Map<String, String> form = tendencyThreshold == null
                 ? Map.of("halfYearGradeDisplay", mode)
                 : Map.of("halfYearGradeDisplay", mode, "tendencyThreshold", tendencyThreshold);
-        HttpResponse<String> response = patch("/classes/" + classId + "/half-year-grade-display", form);
+        HttpResponse<String> response = http.patch("/classes/" + classId + "/half-year-grade-display", form);
         assertEquals(200, response.statusCode(), response.body());
     }
 
     private Long createClass(String name, String schoolYear) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", schoolYear));
+        http.post("/classes", Map.of("name", name, "schoolYear", schoolYear));
         return SchoolClass.find("name", name).<SchoolClass>firstResult().id;
     }
 
     private Long createSubject(Long classId, String name, Long gradeScaleId) throws Exception {
-        post("/classes/" + classId + "/subjects",
+        http.post("/classes/" + classId + "/subjects",
                 Map.of("name", name, "gradeScaleId", String.valueOf(gradeScaleId), "roundingMode", "COMMERCIAL"));
         return Subject.find("name", name).<Subject>firstResult().id;
     }
 
     private Long createCategory(Long subjectId, String name, String weightPercent) throws Exception {
-        post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", weightPercent));
+        http.post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", weightPercent));
         return GradeCategory.find("name", name).<GradeCategory>firstResult().id;
     }
 
@@ -426,46 +416,12 @@ class GradeGridHalfYearIT {
         Map<String, String> form = date != null
                 ? Map.of("name", name, "factor", "1", "date", date.toString())
                 : Map.of("name", name, "factor", "1");
-        post("/subjects/" + subjectId + "/categories/" + categoryId + "/assessments", form);
+        http.post("/subjects/" + subjectId + "/categories/" + categoryId + "/assessments", form);
         return Assessment.find("name", name).<Assessment>firstResult().id;
     }
 
     private Long createStudent(Long classId, String name) throws Exception {
-        post("/classes/" + classId + "/students", Map.of("name", name, "displayName", ""));
+        http.post("/classes/" + classId + "/students", Map.of("name", name, "displayName", ""));
         return Student.find("name", name).<Student>firstResult().id;
-    }
-
-    private HttpResponse<String> get(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        return send("POST", path, form);
-    }
-
-    private HttpResponse<String> patch(String path, Map<String, String> form) throws Exception {
-        return send("PATCH", path, form);
-    }
-
-    private HttpResponse<String> send(String method, String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .method(method, HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

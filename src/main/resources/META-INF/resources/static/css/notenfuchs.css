@@ -147,6 +147,9 @@ form.inline-form {
     margin-top: 0.75rem;
 }
 
+/* Rules like .form-field's display: flex would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
+
 .form-field {
     display: flex;
     flex-direction: column;
@@ -158,7 +161,7 @@ form.inline-form {
     color: var(--color-text-muted);
 }
 
-input, select {
+input, select, textarea {
     padding: 0.4rem 0.5rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
@@ -167,7 +170,7 @@ input, select {
     color: var(--color-text);
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
     outline: 2px solid var(--color-primary);
     outline-offset: 1px;
 }
@@ -732,3 +735,17 @@ table.grade-grid tr.left-heading td {
     letter-spacing: 0.04em;
     border-top: 2px solid var(--color-border);
 }
+
+/* "Fehler melden" in the header (base.html), styled like the other header links. */
+.user-info .feedback-open {
+    padding: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    border-radius: 0;
+}
+.user-info .feedback-open:hover { background: none; text-decoration: underline; }
+#feedback-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.feedback-thanks { color: var(--color-success); }
+.feedback-list .feedback-time { white-space: nowrap; }
+.feedback-list .feedback-message { white-space: pre-wrap; }

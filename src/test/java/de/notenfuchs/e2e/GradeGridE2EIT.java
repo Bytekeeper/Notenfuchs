@@ -419,6 +419,8 @@ class GradeGridE2EIT {
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
         categoryCard.locator("form.inline-form input[name='pointsBased']").check();
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        // Leaving the page before the background save lands would cut it off.
+        assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
     }

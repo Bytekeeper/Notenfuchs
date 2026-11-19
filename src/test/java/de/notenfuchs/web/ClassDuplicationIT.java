@@ -13,16 +13,10 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,7 +43,7 @@ class ClassDuplicationIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void duplicateCopiesSubjectsCategoriesAndStudents_butNotAssessmentsOrGrades() throws Exception {
@@ -71,7 +65,7 @@ class ClassDuplicationIT {
         Long studentId = createStudent(classId, studentName);
         saveGrade(subjectId, studentId, assessmentId, "2");
 
-        HttpResponse<String> response = post("/classes/" + classId + "/duplicate",
+        HttpResponse<String> response = http.post("/classes/" + classId + "/duplicate",
                 Map.of("name", newClassName, "schoolYear", newSchoolYear));
         assertEquals(303, response.statusCode());
 
@@ -131,7 +125,7 @@ class ClassDuplicationIT {
             return foreign.id;
         });
 
-        HttpResponse<String> response = post("/classes/" + foreignClassId + "/duplicate",
+        HttpResponse<String> response = http.post("/classes/" + foreignClassId + "/duplicate",
                 Map.of("name", rejectedName, "schoolYear", "2026/27"));
 
         assertEquals(404, response.statusCode());
@@ -139,62 +133,41 @@ class ClassDuplicationIT {
     }
 
     private Long createClass(String name, String schoolYear) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", schoolYear));
+        http.post("/classes", Map.of("name", name, "schoolYear", schoolYear));
         SchoolClass created = SchoolClass.find("name", name).firstResult();
         return created.id;
     }
 
     private Long createSubject(Long classId, String name, Long gradeScaleId) throws Exception {
-        post("/classes/" + classId + "/subjects",
+        http.post("/classes/" + classId + "/subjects",
                 Map.of("name", name, "gradeScaleId", String.valueOf(gradeScaleId), "roundingMode", "COMMERCIAL"));
         Subject created = Subject.find("name", name).firstResult();
         return created.id;
     }
 
     private Long createCategory(Long subjectId, String name) throws Exception {
-        post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", "100"));
+        http.post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", "100"));
         GradeCategory created = GradeCategory.find("name", name).firstResult();
         return created.id;
     }
 
     private Long createAssessment(Long subjectId, Long categoryId, String name) throws Exception {
-        post("/subjects/" + subjectId + "/categories/" + categoryId + "/assessments",
+        http.post("/subjects/" + subjectId + "/categories/" + categoryId + "/assessments",
                 Map.of("name", name, "factor", "1"));
         Assessment created = Assessment.find("name", name).firstResult();
         return created.id;
     }
 
     private Long createStudent(Long classId, String name) throws Exception {
-        post("/classes/" + classId + "/students", Map.of("name", name, "displayName", ""));
+        http.post("/classes/" + classId + "/students", Map.of("name", name, "displayName", ""));
         Student created = Student.find("name", name).firstResult();
         return created.id;
     }
 
     private void saveGrade(Long subjectId, Long studentId, Long assessmentId, String value) throws Exception {
-        post("/subjects/" + subjectId + "/grid/cell", Map.of(
+        http.post("/subjects/" + subjectId + "/grid/cell", Map.of(
                 "studentId", String.valueOf(studentId),
                 "assessmentId", String.valueOf(assessmentId),
                 "value", value));
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

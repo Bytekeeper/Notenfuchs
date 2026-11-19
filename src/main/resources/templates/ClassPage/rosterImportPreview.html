@@ -17,7 +17,7 @@
             {#for row in rows}
                 <tr data-status="{#if row.duplicate}duplicate{#else}new{/if}">
                     <td>{row.name}</td>
-                    <td>{#if row.duplicate}<span class="hint warning">Duplikat</span>{#else}Neu{/if}</td>
+                    <td>{#if row.hasLeft}<span class="hint warning">Ausgetreten – auf der Klassenseite über „Wieder aufnehmen“ zurückholen</span>{#else if row.duplicate}<span class="hint warning">Duplikat</span>{#else}Neu{/if}</td>
                 </tr>
             {/for}
         </tbody>

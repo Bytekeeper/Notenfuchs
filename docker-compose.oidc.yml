@@ -40,6 +40,8 @@ services:
       # Pocket ID's own account page (passkeys, login codes), linked as
       # "Konto" in the Notenfuchs nav.
       OIDC_ACCOUNT_URL: ${POCKET_ID_APP_URL:-http://localhost:1411}/settings/account
+      # Members of this Pocket ID group are instance admins (e.g. they read teachers' feedback).
+      NOTENFUCHS_ADMIN_GROUP: ${NOTENFUCHS_ADMIN_GROUP:-notenfuchs-admins}
 
   # Lightweight, passkey-only OIDC provider - see the README's "Option B:
   # multi-user, Pocket ID SSO" section. The Notenfuchs OIDC client and teacher
@@ -61,6 +63,8 @@ services:
       INTERNAL_APP_URL: http://pocket-id:1411
       ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY}
       ALLOW_USER_SIGNUPS: withToken
+      # Notenfuchs doesn't need email addresses, so accounts don't have to have one.
+      REQUIRE_USER_EMAIL: "false"
       # With UI_CONFIG_DISABLED, Pocket ID takes its settings from here, not its admin UI.
       UI_CONFIG_DISABLED: "true"
       # Where Pocket ID sends people after they sign in to it, which includes right after

@@ -1,0 +1,32 @@
+{#include base}
+{#title}Rückmeldungen – Notenfuchs{/title}
+
+<h1>Rückmeldungen</h1>
+<p class="hint">Was Lehrkräfte über „Fehler melden“ geschickt haben, neueste zuerst. Gespeichert sind nur die
+    Art der Seite, die Nachricht und der Zeitpunkt, nicht wer sie geschickt hat. „Erledigt“ löscht die Meldung.</p>
+
+{#if entries.isEmpty}
+    <p class="hint">Keine offenen Rückmeldungen.</p>
+{#else}
+<div class="card">
+    <table class="entity-list feedback-list">
+        <thead><tr><th>Zeitpunkt</th><th>Seite</th><th>Nachricht</th><th></th></tr></thead>
+        <tbody>
+            {#for e in entries}
+            <tr>
+                <td class="feedback-time">{e.time}</td>
+                <td title="{e.pageType}">{e.pageName}</td>
+                <td class="feedback-message">{e.message}</td>
+                <td>
+                    <form method="post" action="/admin/feedback/{e.id}/delete">
+                        <button type="submit" class="row-btn">Erledigt</button>
+                    </form>
+                </td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
+</div>
+{/if}
+
+{/include}

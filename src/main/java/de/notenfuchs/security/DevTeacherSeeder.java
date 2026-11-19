@@ -35,17 +35,16 @@ public class DevTeacherSeeder {
 
     @Transactional
     void onStart(@Observes StartupEvent event) {
-        ensureTeacher(devUserSubject, null, null);
-        ensureTeacher(devUserSubject + "-2", "kollege@example.test", "Kollege (Dev)");
+        ensureTeacher(devUserSubject, null);
+        ensureTeacher(devUserSubject + "-2", "Kollege (Dev)");
     }
 
-    private void ensureTeacher(String subject, String email, String displayName) {
+    private void ensureTeacher(String subject, String displayName) {
         if (Teacher.count("subject", subject) > 0) {
             return;
         }
         Teacher teacher = new Teacher();
         teacher.subject = subject;
-        teacher.email = email;
         teacher.displayName = displayName;
         teacher.firstSeenAt = Instant.now();
         teacher.lastSeenAt = Instant.now();

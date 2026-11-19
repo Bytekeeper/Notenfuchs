@@ -40,7 +40,7 @@ import java.time.Instant;
  *     <li>{@code @Blocking} cannot be placed on an {@code @Observes} method at all - Quarkus's
  *     build-time checks reject it ("not an entrypoint"), so the DB write has to be explicitly
  *     dispatched to a worker thread instead, via {@link ManagedExecutor}.</li>
- *     <li>{@link CurrentUser}'s accessors ({@code email()}/{@code displayName()}/{@code
+ *     <li>{@link CurrentUser}'s accessors ({@code displayName()}/{@code
  *     isAuthenticated()}) are NOT safe to call here even before that dispatch: they read the
  *     request-scoped {@code SecurityIdentity} association, which internally does a blocking {@code
  *     Uni.await()} and throws {@code IllegalStateException("The current thread cannot be
@@ -65,39 +65,39 @@ public class TeacherDirectoryRecorder {
     void onAuthenticationSuccess(@Observes AuthenticationSuccessEvent event) {
         SecurityIdentity identity = event.getSecurityIdentity();
         String subject = identity.getPrincipal().getName();
-        String email = null;
         String displayName = null;
         UserInfo userInfo = identity.getAttribute("userinfo");
         if (userInfo != null) {
-            email = blankToNull(userInfo.getString("email"));
             displayName = blankToNull(userInfo.getString("name"));
+            if (displayName == null) {
+                displayName = blankToNull(userInfo.getString("preferred_username"));
+            }
         }
         if (displayName == null) {
             // Mirrors CurrentUser#displayName()'s final fallback - also what local auth's fixed
             // "lehrer" identity (no UserInfo at all) always ends up as.
             displayName = subject;
         }
-        String finalEmail = email;
         String finalDisplayName = displayName;
-        managedExecutor.runAsync(() -> record(subject, finalEmail, finalDisplayName))
+        managedExecutor.runAsync(() -> record(subject, finalDisplayName))
                 .exceptionally(e -> {
                     LOG.warn("Failed to record teacher directory sighting for subject " + subject, e);
                     return null;
                 });
     }
 
-    private void record(String subject, String email, String displayName) {
+    private void record(String subject, String displayName) {
         try {
-            QuarkusTransaction.requiringNew().run(() -> upsert(subject, email, displayName));
+            QuarkusTransaction.requiringNew().run(() -> upsert(subject, displayName));
         } catch (PersistenceException e) {
             // Lost a race against another near-simultaneous sighting's insert for the same brand-new
             // subject (unique constraint on Teacher#subject) - that row now exists, so retry as a
-            // plain update instead of losing this sighting's email/displayName/lastSeenAt refresh.
-            QuarkusTransaction.requiringNew().run(() -> upsert(subject, email, displayName));
+            // plain update instead of losing this sighting's displayName/lastSeenAt refresh.
+            QuarkusTransaction.requiringNew().run(() -> upsert(subject, displayName));
         }
     }
 
-    private void upsert(String subject, String email, String displayName) {
+    private void upsert(String subject, String displayName) {
         Teacher teacher = Teacher.find("subject", subject).firstResult();
         Instant now = Instant.now();
         if (teacher == null) {
@@ -105,7 +105,6 @@ public class TeacherDirectoryRecorder {
             teacher.subject = subject;
             teacher.firstSeenAt = now;
         }
-        teacher.email = email;
         teacher.displayName = displayName;
         teacher.lastSeenAt = now;
         // Must come after every field is set: Hibernate snapshots the INSERT's values at persist().

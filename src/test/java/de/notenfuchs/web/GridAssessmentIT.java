@@ -10,15 +10,9 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,7 +28,7 @@ class GridAssessmentIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void addRedirectsToTheGridFocusedOnTheNewColumn() throws Exception {
@@ -43,7 +37,7 @@ class GridAssessmentIT {
         Long subjectId = createSubject(classId, "GA-Fach-" + unique);
         Long categoryId = createCategory(subjectId, "GA-Kat-" + unique);
 
-        HttpResponse<String> response = post("/subjects/" + subjectId + "/grid/assessments",
+        HttpResponse<String> response = http.post("/subjects/" + subjectId + "/grid/assessments",
                 Map.of("categoryId", categoryId.toString(), "name", "KA1", "factor", "1"));
 
         Long assessmentId = Assessment.find("category.id", categoryId).<Assessment>firstResult().id;
@@ -59,14 +53,14 @@ class GridAssessmentIT {
         Long subjectA = createSubject(classId, "GA-FachA-" + unique);
         Long subjectB = createSubject(classId, "GA-FachB-" + unique);
         Long categoryB = createCategory(subjectB, "GA-KatB-" + unique);
-        post("/subjects/" + subjectB + "/grid/assessments", Map.of("categoryId", categoryB.toString(), "name", "KA-B"));
+        http.post("/subjects/" + subjectB + "/grid/assessments", Map.of("categoryId", categoryB.toString(), "name", "KA-B"));
         Long assessmentB = Assessment.find("category.id", categoryB).<Assessment>firstResult().id;
 
-        assertEquals(404, post("/subjects/" + subjectA + "/grid/assessments",
+        assertEquals(404, http.post("/subjects/" + subjectA + "/grid/assessments",
                 Map.of("categoryId", categoryB.toString(), "name", "KA-falsch")).statusCode());
-        assertEquals(404, post("/subjects/" + subjectA + "/grid/assessments/" + assessmentB,
+        assertEquals(404, http.post("/subjects/" + subjectA + "/grid/assessments/" + assessmentB,
                 Map.of("name", "umbenannt", "factor", "1")).statusCode());
-        assertEquals(404, post("/subjects/" + subjectA + "/grid/assessments/" + assessmentB + "/delete", Map.of())
+        assertEquals(404, http.post("/subjects/" + subjectA + "/grid/assessments/" + assessmentB + "/delete", Map.of())
                 .statusCode());
         assertEquals("KA-B", Assessment.<Assessment>findById(assessmentB).name);
     }
@@ -77,67 +71,37 @@ class GridAssessmentIT {
         Long classId = createClass("GA-Klasse3-" + unique);
         Long subjectId = createSubject(classId, "GA-Fach3-" + unique);
         Long categoryId = createCategory(subjectId, "GA-Kat3-" + unique);
-        post("/subjects/" + subjectId + "/grid/assessments",
+        http.post("/subjects/" + subjectId + "/grid/assessments",
                 Map.of("categoryId", categoryId.toString(), "name", "Klausur", "pointsBased", "true"));
         Long assessmentId = Assessment.find("category.id", categoryId).<Assessment>firstResult().id;
         String url = "/subjects/" + subjectId + "/grid/assessments/" + assessmentId;
 
         // Grade 7 is outside DE 1-6: rejected before the name change is applied either.
-        HttpResponse<String> invalid = post(url, "name=Umbenannt&factor=1&pointsBased=true"
+        HttpResponse<String> invalid = http.post(url, "name=Umbenannt&factor=1&pointsBased=true"
                 + "&bandPoints=50&bandGrades=1&bandPoints=10&bandGrades=7");
         assertEquals(400, invalid.statusCode());
         assertEquals("Klausur", Assessment.<Assessment>findById(assessmentId).name);
         assertEquals(2, PointsGradeBand.count("assessment.id", assessmentId));
 
-        post(url, "name=Klausur&factor=1&pointsBased=true"
+        http.post(url, "name=Klausur&factor=1&pointsBased=true"
                 + "&bandPoints=45&bandGrades=1&bandPoints=30&bandGrades=3&bandPoints=10&bandGrades=6");
         assertEquals(3, PointsGradeBand.count("assessment.id", assessmentId));
     }
 
-    private HttpResponse<String> post(String path, String rawBody) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(rawBody))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
     private Long createClass(String name) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", "2025/26"));
+        http.post("/classes", Map.of("name", name, "schoolYear", "2025/26"));
         return SchoolClass.find("name", name).<SchoolClass>firstResult().id;
     }
 
     private Long createSubject(Long classId, String name) throws Exception {
         Long gradeScaleId = GradeScale.find("name", "DE 1-6").<GradeScale>firstResult().id;
-        post("/classes/" + classId + "/subjects",
+        http.post("/classes/" + classId + "/subjects",
                 Map.of("name", name, "gradeScaleId", String.valueOf(gradeScaleId), "roundingMode", "COMMERCIAL"));
         return Subject.find("name", name).<Subject>firstResult().id;
     }
 
     private Long createCategory(Long subjectId, String name) throws Exception {
-        post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", "100"));
+        http.post("/subjects/" + subjectId + "/categories", Map.of("name", name, "weightPercent", "100"));
         return GradeCategory.find("name", name).<GradeCategory>firstResult().id;
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

@@ -13,16 +13,9 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,7 +34,7 @@ class MySubjectsIT {
     @TestHTTPResource("/")
     URL rootUrl;
 
-    private final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    private final TestHttp http = new TestHttp(() -> rootUrl);
 
     @Test
     void showsOnlySubjectsTheViewerTeaches_evenInAClassTheyAdminister() throws Exception {
@@ -50,7 +43,7 @@ class MySubjectsIT {
         Long taughtId = createSubject(classId, "Mine-Fach-" + unique);
         seedSubjectTaughtByColleague(classId, "Mine-Fremdfach-" + unique, "colleague-" + unique);
 
-        String html = get("/classes").body();
+        String html = http.get("/classes").body();
 
         assertTrue(html.contains("Meine Fächer"));
         assertTrue(html.contains("href=\"/subjects/" + taughtId + "/grid\""));
@@ -66,7 +59,7 @@ class MySubjectsIT {
         Long newClassId = createClass("Neu-Klasse-" + unique, NEWEST_YEAR);
         createSubject(newClassId, "Neu-Fach-" + unique);
 
-        String html = get("/classes").body();
+        String html = http.get("/classes").body();
 
         assertTrue(html.contains("Neu-Fach-" + unique));
         assertFalse(html.contains("Alt-Fach-" + unique));
@@ -77,25 +70,25 @@ class MySubjectsIT {
         String unique = Long.toString(System.nanoTime());
         Long classId = createClass("Offen-Klasse-" + unique, NEWEST_YEAR);
         Long subjectId = createSubject(classId, "Offen-Fach-" + unique);
-        post("/classes/" + classId + "/students", Map.of("name", "Anna-" + unique));
-        post("/classes/" + classId + "/students", Map.of("name", "Ben-" + unique));
-        post("/subjects/" + subjectId + "/categories", Map.of("name", "Kat-" + unique, "weightPercent", "100"));
+        http.post("/classes/" + classId + "/students", Map.of("name", "Anna-" + unique));
+        http.post("/classes/" + classId + "/students", Map.of("name", "Ben-" + unique));
+        http.post("/subjects/" + subjectId + "/categories", Map.of("name", "Kat-" + unique, "weightPercent", "100"));
         Long categoryId = GradeCategory.find("name", "Kat-" + unique).<GradeCategory>firstResult().id;
         String yesterday = LocalDate.now().minusDays(1).toString();
         String tomorrow = LocalDate.now().plusDays(1).toString();
-        post("/subjects/" + subjectId + "/grid/assessments",
+        http.post("/subjects/" + subjectId + "/grid/assessments",
                 Map.of("categoryId", categoryId.toString(), "name", "Vergangen-" + unique, "date", yesterday));
         // Not due yet, and undated: neither counts as missing.
-        post("/subjects/" + subjectId + "/grid/assessments",
+        http.post("/subjects/" + subjectId + "/grid/assessments",
                 Map.of("categoryId", categoryId.toString(), "name", "Zukunft-" + unique, "date", tomorrow));
-        post("/subjects/" + subjectId + "/grid/assessments",
+        http.post("/subjects/" + subjectId + "/grid/assessments",
                 Map.of("categoryId", categoryId.toString(), "name", "Ohne-" + unique));
         Long pastId = Assessment.find("name", "Vergangen-" + unique).<Assessment>firstResult().id;
         Long annaId = Student.find("name", "Anna-" + unique).<Student>firstResult().id;
-        post("/subjects/" + subjectId + "/grid/cell",
+        http.post("/subjects/" + subjectId + "/grid/cell",
                 Map.of("studentId", annaId.toString(), "assessmentId", pastId.toString(), "value", "2"));
 
-        String html = get("/classes").body();
+        String html = http.get("/classes").body();
 
         assertTrue(html.contains("1 Note offen"), html);
     }
@@ -110,7 +103,7 @@ class MySubjectsIT {
         Long otherYearClassId = createClass("Wechsel-Neu-" + unique, NEWEST_YEAR);
         createSubject(otherYearClassId, "Wechsel-AnderesJahr-" + unique);
 
-        String html = get("/subjects/" + currentId + "/grid").body();
+        String html = http.get("/subjects/" + currentId + "/grid").body();
 
         assertTrue(html.contains("Fach wechseln"));
         assertTrue(html.contains("Wechsel-Nachbar-" + unique));
@@ -134,40 +127,14 @@ class MySubjectsIT {
     }
 
     private Long createClass(String name, String schoolYear) throws Exception {
-        post("/classes", Map.of("name", name, "schoolYear", schoolYear));
+        http.post("/classes", Map.of("name", name, "schoolYear", schoolYear));
         return SchoolClass.find("name", name).<SchoolClass>firstResult().id;
     }
 
     private Long createSubject(Long classId, String name) throws Exception {
         Long gradeScaleId = GradeScale.find("name", "DE 1-6").<GradeScale>firstResult().id;
-        post("/classes/" + classId + "/subjects",
+        http.post("/classes/" + classId + "/subjects",
                 Map.of("name", name, "gradeScaleId", String.valueOf(gradeScaleId), "roundingMode", "COMMERCIAL"));
         return Subject.find("name", name).<Subject>firstResult().id;
-    }
-
-    private HttpResponse<String> get(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private HttpResponse<String> post(String path, Map<String, String> form) throws Exception {
-        String body = form.entrySet().stream()
-                .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
-                .collect(Collectors.joining("&"));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl() + path))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return http.send(request, HttpResponse.BodyHandlers.ofString());
-    }
-
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String baseUrl() {
-        String url = rootUrl.toString();
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 }

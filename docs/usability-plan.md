@@ -128,10 +128,11 @@ ask a few before building.
 | 1.4 Notenschlüssel in the grid | S | U2 | Done (band editor + live Notenspiegel in the dialog) |
 | 1.5 Fach switcher | S | U6 | Done |
 | 4.1, 4.2 Student view | M | U5, U17 | Done |
-| 3.3 Invite a colleague before first login | M | U14 | Open: needs a decision on matching by email |
+| 3.3 Invite a colleague before first login | M | U14 | Dropped: Notenfuchs is invite-only via Pocket ID signup links, so colleagues log in once before being added; no email addresses are kept |
 | 5.1 Phone mode | M | U1 | Open: only after asking teachers |
 
 S = up to a day, M = a few days.
 
 Also done since: U8 missing Verhaltensnoten are highlighted; U10 a student can be marked
-"ausgetreten" (grades kept, read-only below the tables). Still open: U16 (class-wide export).
+"ausgetreten" (grades kept, read-only below the tables); U16 class-wide xlsx (overview for
+admins, full sheets for one's own Fächer). Waiting for teacher feedback: U1 phone mode.

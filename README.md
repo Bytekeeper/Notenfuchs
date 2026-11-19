@@ -16,6 +16,9 @@ Fach sowie gerundete Endnoten.
 
 (Alle gezeigten Namen sind frei erfunden und keine echten Schüler.)
 
+**[Anleitung für Lehrkräfte](docs/anleitung/README.md):** Notenfuchs Schritt für Schritt,
+vom Schuljahresbeginn bis zum Zeugnis.
+
 ## Notenfuchs betreiben
 
 Notenfuchs läuft als Docker-Container zusammen mit PostgreSQL. Das Einzige, was
@@ -215,11 +218,8 @@ nicht nötig - Cloudflare übernimmt HTTPS.
    `https://notenfuchs.example.com/auth-callback` setzen.
 5. **`docker compose up -d`** ausführen.
 
-In den Cloudflare-Einstellungen der Domain sollten zwei Funktionen ausgeschaltet
-sein: **Email Address Obfuscation** (unter Scrape Shield) schreibt E-Mail-Adressen in
-Seiten um - Notenfuchs zeigt E-Mail-Adressen von Lehrkräften an, z. B. beim
-Hinzufügen einer Lehrkraft zu einer Klasse. **Rocket Loader** verändert, wie
-JavaScript geladen wird, und kann das Noten-Raster stören.
+In den Cloudflare-Einstellungen der Domain sollte **Rocket Loader** ausgeschaltet
+sein: Es verändert, wie JavaScript geladen wird, und kann das Noten-Raster stören.
 
 Pocket ID ist vollständig optional - die zugrunde liegende OIDC-Anbindung ist
 provider-unabhängig, sodass du stattdessen `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID` /
@@ -227,6 +227,24 @@ provider-unabhängig, sodass du stattdessen `OIDC_ISSUER_URL` / `OIDC_CLIENT_ID`
 standardkonformen Provider richten und `docker-compose.oidc.yml` komplett weglassen
 kannst - siehe "Alternative: OIDC (externes SSO)" unter "Authentifizierung" weiter
 unten für die benötigten Umgebungsvariablen und eine Clerk-Anleitung.
+
+### Admins und Rückmeldungen der Lehrkräfte
+
+Über „Fehler melden“ oben rechts auf jeder Seite können Lehrkräfte Fehler und Ideen
+schicken. Gespeichert werden nur die Art der Seite (z. B. `/subjects/{id}/grid`, ohne
+konkrete Nummern oder Inhalte), die Nachricht und der Zeitpunkt, nicht wer sie geschickt
+hat.
+
+Lesen können sie Admins unter **Rückmeldungen** in der Kopfzeile; dort lassen sie sich auch
+als erledigt löschen. Wer Admin ist:
+
+- **Lokale Anmeldung (Option A):** der eine Nutzer `lehrer`.
+- **Pocket ID (Option B):** wer in der Pocket-ID-Gruppe `notenfuchs-admins` ist. Lege die
+  Gruppe in Pocket ID unter „User Groups“ an und füge dich hinzu; den Namen änderst du mit
+  `NOTENFUCHS_ADMIN_GROUP` in der `.env`. Notenfuchs fragt dafür beim Anmelden den Scope
+  `groups` ab. Nach dem Hinzufügen einmal ab- und wieder anmelden.
+- **Anderer OIDC-Provider:** ebenso über eine Gruppe im Claim `groups`. Lehnt dein Provider
+  den Scope `groups` ab, setze `OIDC_SCOPES=profile`; Admins gibt es dann nicht.
 
 ### Für die Entwicklung: aus dem Quellcode ausführen
 
@@ -300,24 +318,20 @@ Browser beteiligt), der `SchoolClass`/`Subject`-Zeilen mit unterschiedlichen
 `ClassTeacher`/`SubjectTeacher`-Eigentümern anlegt und die Mandantentrennung direkt
 gegen `OwnershipGuard` prüft - siehe "Datenzugriff pro Lehrkraft" oben.
 
-### Screenshots im README neu erzeugen
+### Screenshots und Anleitung neu erzeugen
 
-Die Bilder unter "Screenshots" oben sind nicht von Hand aufgenommen, sondern werden
-von `ReadmeScreenshotIT` (`src/test/java/de/notenfuchs/e2e`) generiert - es steuert
-die echte Oberfläche über einen Browser genau wie die anderen Playwright-ITs und
-schreibt dann verlustfreie, metadatenbereinigte PNGs nach `screenshots/`. Er ist vom
-Standardlauf `./mvnw verify` ausgeschlossen (siehe `pom.xml`), da es sich um einen
-manuellen, bei Bedarf auszuführenden Schritt handelt, nicht um einen Regressionstest -
-führe ihn explizit aus, wann immer sich die Oberfläche so weit ändert, dass die
-aktuellen Screenshots veraltet sind:
+Die Bilder oben und in der [Anleitung](docs/anleitung/README.md) sind nicht von Hand
+aufgenommen. `WalkthroughIT` (`src/test/java/de/notenfuchs/e2e`) klickt die Abläufe der
+Anleitung in der echten App durch und läuft bei jedem `./mvnw verify` als normaler Test mit.
+Dabei prüft er auch, dass jede in der Anleitung genannte Beschriftung (**„…“**) in der App
+noch vorkommt. Die Bilder schreibt er nur auf Wunsch, und dann allein gestartet:
 
 ```bash
-./mvnw verify -Dit.test=ReadmeScreenshotIT
+./mvnw verify -Dit.test=WalkthroughIT -Dscreenshots=true
 ```
 
-Prüfe danach `git diff --stat screenshots/` und committe nur, wenn sich tatsächlich
-etwas geändert hat - ein erneuter Lauf ohne sichtbare UI-Änderung erzeugt
-byteidentische Dateien, unabhängig davon, an welchem Tag er läuft.
+Ein Lauf ohne sichtbare Änderung erzeugt byteidentische Dateien; committe nur, was
+`git status` als geändert zeigt.
 
 ## Das Notenmodell
 
@@ -437,10 +451,10 @@ anpassen): `https://your-domain.example/auth-callback`. Dies wird von
 `/auth-callback`. Logout ist unter `/logout` verfügbar (RP-initiiertes Logout,
 `quarkus.oidc.logout.*`), das danach zurück auf `/` leitet.
 
-Standardmäßig fordert die App die Scopes `openid profile email` an (`openid` wird
-automatisch von Quarkus hinzugefügt; `profile` und `email` sind explizit
-konfiguriert), damit Name/E-Mail des angemeldeten Nutzers über den
-OIDC-UserInfo-Endpunkt verfügbar sind.
+Die App fordert nur die Scopes `openid profile` an (`openid` fügt Quarkus automatisch
+hinzu), damit der Name des angemeldeten Nutzers verfügbar ist. E-Mail-Adressen fragt
+Notenfuchs bewusst nicht ab und speichert sie nicht. Im mitgelieferten Pocket-ID-Setup
+brauchen Konten deshalb auch keine E-Mail-Adresse (`REQUIRE_USER_EMAIL=false`).
 
 Optional zeigt `OIDC_ACCOUNT_URL` (z. B. die Kontoseite des Providers, bei Pocket ID
 `<POCKET_ID_APP_URL>/settings/account`) einen Link "Konto" neben "Logout" an, über
@@ -472,7 +486,7 @@ OIDC-Clients und das Ausstellen von Registrierungslinks).
    tatsächlich ein Client-Secret hat) - Clerk vermarktet sich primär als
    Auth-Provider mit eigenen SDKs, die generische OIDC/OAuth-Anwendungsunterstützung
    ist eher ein Nebenfeature, prüfe daher die genaue Discovery-URL und
-   Scope-Unterstützung (`profile`, `email`) gegen Clerks aktuelle
+   Scope-Unterstützung (`profile`) gegen Clerks aktuelle
    OAuth-Dokumentation für dein Konto, statt Keycloak-ähnliche Standardwerte
    anzunehmen.
 
@@ -502,7 +516,7 @@ Entwicklung nicht darauf.
 ### Nutzeridentität im Code
 
 `de.notenfuchs.security.CurrentUser` (Request-scoped Bean) stellt das
-OIDC-Subject, die E-Mail und den Anzeigenamen des angemeldeten Nutzers für die
+OIDC-Subject und den Anzeigenamen des angemeldeten Nutzers für die
 Verwendung in REST-Resources oder Qute-Templates bereit - siehe den Javadoc dieser
 Klasse für Details. `CurrentUser.effectiveSubject()` ist der Wert, der tatsächlich
 für die Zuordnung der Daten pro Lehrkraft verwendet wird (siehe unten).
@@ -673,6 +687,9 @@ kein Node-Build-Schritt.
   ändert sich dadurch nie. Ein Klick auf einen Schülernamen öffnet seine Seite im Fach
   (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte und
   „Was braucht … in der nächsten Leistung?“ – druckbar, z. B. fürs Elterngespräch
+- `/classes/{id}/export` - die ganze Klasse als `.xlsx`: für Klassen-Admins ein Blatt
+  „Notenübersicht“ mit den Endnoten aller Fächer, dazu für jedes Fach, das man selbst
+  unterrichtet, ein Blatt mit allen Noten (wie der Export des einzelnen Fachs)
 - `/subjects/{id}/grid/export` - lädt dasselbe Raster als `.xlsx`-Arbeitsmappe
   herunter (Apache POI), für Lehrkräfte, die die Noten außerhalb der App haben
   möchten
