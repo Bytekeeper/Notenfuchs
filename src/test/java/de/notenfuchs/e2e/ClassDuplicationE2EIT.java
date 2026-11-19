@@ -69,6 +69,7 @@ class ClassDuplicationE2EIT {
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -106,6 +107,7 @@ class ClassDuplicationE2EIT {
         // New class is independently editable: add a student to it.
         String newClassExtraStudent = "E2E-Dup-Neu-Extra-" + unique;
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(newClassName)).click();
+        AddPanels.open(page, "+ Schüler hinzufügen");
         page.locator("#studentName").fill(newClassExtraStudent);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
         assertThat(studentRow(newClassExtraStudent)).hasCount(1);
@@ -122,6 +124,7 @@ class ClassDuplicationE2EIT {
 
         String sourceClassExtraStudent = "E2E-Dup-Alt-Extra-" + unique;
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        AddPanels.open(page, "+ Schüler hinzufügen");
         page.locator("#studentName").fill(sourceClassExtraStudent);
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
         assertThat(studentRow(sourceClassExtraStudent)).hasCount(1);
@@ -133,6 +136,7 @@ class ClassDuplicationE2EIT {
 
     private void createClass(String className) {
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

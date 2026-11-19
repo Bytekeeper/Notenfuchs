@@ -134,6 +134,7 @@ class GradeGridE2EIT {
         // We're already on the grid page with one category ("E2E-Kategorie-<unique>", 2
         // assessments). Go back to the subject page and add a second, still-empty category.
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -170,6 +171,7 @@ class GradeGridE2EIT {
         // category, then a third with its own assessment - the empty one must not make
         // "LeistungNachLuecke" unreachable.
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -179,6 +181,8 @@ class GradeGridE2EIT {
         Locator secondCategoryCard = page.locator(".card")
                 .filter(new Locator.FilterOptions().setHasText("E2E-LeereKategorie-" + unique));
         assertThat(secondCategoryCard).isVisible();
+
+        AddPanels.open(page, "+ Kategorie anlegen");
 
         page.locator("#categoryName").fill("E2E-KategorieNachLuecke-" + unique);
         page.locator("#weightPercent").fill("0");
@@ -395,6 +399,7 @@ class GradeGridE2EIT {
         String categoryName = "E2E-Kategorie-Punkte-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -410,6 +415,8 @@ class GradeGridE2EIT {
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+
+        AddPanels.open(page, "+ Kategorie anlegen");
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
@@ -437,6 +444,7 @@ class GradeGridE2EIT {
         String categoryName = "E2E-Kategorie-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -455,6 +463,7 @@ class GradeGridE2EIT {
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
         // Subject detail page: one category, weighted 100%, with two assessments.
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

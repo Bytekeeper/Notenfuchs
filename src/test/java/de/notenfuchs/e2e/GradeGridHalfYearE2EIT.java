@@ -60,6 +60,7 @@ class GradeGridHalfYearE2EIT {
         String categoryName = "E2E-HJ-Kategorie-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -71,7 +72,7 @@ class GradeGridHalfYearE2EIT {
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
         cutoffWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
+        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
 
         openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
@@ -84,6 +85,7 @@ class GradeGridHalfYearE2EIT {
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -171,6 +173,7 @@ class GradeGridHalfYearE2EIT {
         String subjectName = "E2E-HJ-Luecke-Fach-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -181,7 +184,7 @@ class GradeGridHalfYearE2EIT {
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
         cutoffWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
+        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
 
         openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
@@ -241,6 +244,7 @@ class GradeGridHalfYearE2EIT {
     private static void addCategoryWithAssessments(Page page, String categoryName,
                                                      String firstName, String firstDate,
                                                      String secondName, String secondDate) {
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("0");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -283,6 +287,7 @@ class GradeGridHalfYearE2EIT {
         String categoryName = "E2E-HJ-Anzeige-Kategorie-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -293,7 +298,7 @@ class GradeGridHalfYearE2EIT {
         cutoffWrap.locator(".rename-toggle").click();
         cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
         cutoffWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
+        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
 
         // Switch to "Halbe Noten" with no tendency threshold - the tendency input stays enabled,
         // since it's meaningful for both modes (unlike the earlier, since-reverted design where
@@ -322,6 +327,7 @@ class GradeGridHalfYearE2EIT {
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -411,6 +417,7 @@ class GradeGridHalfYearE2EIT {
         String categoryName = "E2E-Race-Kategorie-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -440,6 +447,7 @@ class GradeGridHalfYearE2EIT {
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

@@ -22,7 +22,8 @@
         </tbody>
     </table>
 
-    <h3>Lehrkraft hinzufügen</h3>
+    <details class="add-panel">
+    <summary>+ Lehrkraft hinzufügen</summary>
     <div class="card">
         {#if availableTeachers.isEmpty}
             <p class="hint">Keine weiteren Lehrkräfte verfügbar - sie erscheinen hier, sobald sie sich einmal angemeldet haben.</p>
@@ -47,4 +48,5 @@
             </form>
         {/if}
     </div>
+    </details>
 </div>

@@ -7,7 +7,8 @@
 <h2>Kategorien</h2>
 {#include fragments/categoryList /}
 
-<h3>Neue Kategorie anlegen</h3>
+<details class="add-panel"{#if categories.isEmpty} open{/if}>
+<summary>+ Kategorie anlegen</summary>
 <div class="card">
     <form class="inline-form" hx-post="/subjects/{subject.id}/categories" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
         <div class="form-field">
@@ -21,5 +22,6 @@
         <button type="submit">Anlegen</button>
     </form>
 </div>
+</details>
 
 {/include}

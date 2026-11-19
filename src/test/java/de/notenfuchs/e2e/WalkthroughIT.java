@@ -107,6 +107,7 @@ class WalkthroughIT {
     @Test
     @Order(1)
     void schuljahresbeginn() throws IOException {
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(CLASS);
         page.locator("#schoolYear").fill(YEAR);
         shot("schuljahresbeginn-klasse-anlegen");
@@ -125,9 +126,11 @@ class WalkthroughIT {
         } finally {
             Files.deleteIfExists(csv);
         }
-        assertThat(page.locator("#student-list-fragment tbody tr")).hasCount(4);
+        assertThat(page.locator("#student-list-fragment tbody tr:not(.edit-row)")).hasCount(4);
 
         createSubject("Deutsch", null);
+        // The add forms open for an empty class and stay open until the next visit.
+        page.reload();
         shot("schuljahresbeginn-klassenseite");
 
         clickLink("Deutsch");
@@ -230,7 +233,7 @@ class WalkthroughIT {
         page.locator("#half-year-cutoff-fragment .rename-toggle").click();
         page.locator("#half-year-cutoff-fragment input[name='halfYearCutoff']").fill("2026-01-31");
         page.locator("#half-year-cutoff-fragment .rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("2026-01-31");
+        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
         shot("zeugnis-einstellungen");
 
         clickTab("Fächer & Schüler");
@@ -287,7 +290,8 @@ class WalkthroughIT {
         clickLink(CLASS);
         page.onceDialog(Dialog::accept);
         page.locator("#student-list-fragment tr").filter(new Locator.FilterOptions().setHasText("Milan Weber"))
-                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        page.locator("tr.edit-row.editing").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
         assertThat(page.locator(".left-student-list")).containsText("Milan Weber");
         record();
 
@@ -296,6 +300,7 @@ class WalkthroughIT {
         shotOf("unterjaehrig-ausgetreten", page.locator(".grid-wrapper"));
 
         clickTab("Lehrkräfte");
+        AddPanels.open(page, "+ Lehrkraft hinzufügen");
         page.locator("#teacherSubject").selectOption(new SelectOption().setLabel("Frau Beispiel"));
         clickButton("Zugriff gewähren");
         assertThat(page.locator("#subject-teachers-fragment tbody tr")).hasCount(2);
@@ -316,7 +321,7 @@ class WalkthroughIT {
 
         assertThat(page.locator("h1")).containsText("8b");
         // Milan left during the year, so only the other three move up.
-        assertThat(page.locator("#student-list-fragment tbody tr")).hasCount(3);
+        assertThat(page.locator("#student-list-fragment tbody tr:not(.edit-row)")).hasCount(3);
         shot("neues-schuljahr-neue-klasse");
 
         page.locator(".breadcrumbs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Übersicht")).click();
@@ -343,6 +348,7 @@ class WalkthroughIT {
     }
 
     private void createSubject(String name, String copyCategoriesFrom) {
+        AddPanels.open(page, "+ Fach anlegen");
         page.locator("#subjectName").fill(name);
         page.locator("#gradeScaleId").selectOption(new SelectOption().setLabel("DE 1-6"));
         if (copyCategoriesFrom != null) {

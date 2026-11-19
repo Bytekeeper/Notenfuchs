@@ -22,31 +22,7 @@
             <div class="year-heading">{group.schoolYear}</div>
             <div class="class-grid">
                 {#for c in group.classes}
-                    <div class="class-card">
-                        {#if adminClassIds.contains(c.id)}
-                        <div class="rename-wrap">
-                            <div class="rename-view">
-                                <a class="class-name" href="/classes/{c.id}">{c.name}</a>
-                                <div class="class-year">{c.schoolYear}</div>
-                                <div class="card-actions">
-                                    <button type="button" class="rename-toggle">Ändern</button>
-                                    <form hx-delete="/classes/{c.id}" hx-target="#home-fragment" hx-swap="outerHTML" hx-confirm="Klasse '{c.name}' wirklich löschen? Das löscht auch alle Schüler, Fächer und Noten dieser Klasse.">
-                                        <button type="submit" class="delete-btn">Löschen</button>
-                                    </form>
-                                </div>
-                            </div>
-                            <form class="rename-form" hx-patch="/classes/{c.id}/rename" hx-target="#home-fragment" hx-swap="outerHTML">
-                                <input type="text" name="name" value="{c.name}" required>
-                                <input type="text" name="schoolYear" value="{c.schoolYear}" data-original="{c.schoolYear}" required>
-                                <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-                                <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
-                            </form>
-                        </div>
-                        {#else}
-                        <a class="class-name" href="/classes/{c.id}">{c.name}</a>
-                        <div class="class-year">{c.schoolYear}</div>
-                        {/if}
-                    </div>
+                    <a class="class-card" href="/classes/{c.id}"><span class="class-name">{c.name}</span></a>
                 {/for}
             </div>
         {/for}

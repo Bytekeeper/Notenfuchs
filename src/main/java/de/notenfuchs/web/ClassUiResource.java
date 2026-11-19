@@ -265,11 +265,9 @@ public class ClassUiResource {
     @Path("/{id}")
     @Produces(MediaType.TEXT_HTML)
     @Transactional
-    public TemplateInstance delete(@PathParam("id") Long id) {
-        String subject = currentUser.effectiveSubject();
-        SchoolClass entity = guard.requireClassAdmin(id, subject);
-        entity.delete();
-        return withHomeData(homeFragment.instance(), subject);
+    public Response delete(@PathParam("id") Long id) {
+        guard.requireClassAdmin(id, currentUser.effectiveSubject()).delete();
+        return Response.ok().header("HX-Redirect", "/classes").build();
     }
 
     @PATCH
@@ -277,17 +275,17 @@ public class ClassUiResource {
     @Produces(MediaType.TEXT_HTML)
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Transactional
-    public TemplateInstance rename(@PathParam("id") Long id, @FormParam("name") String name,
-                                    @FormParam("schoolYear") String schoolYear) {
-        String subject = currentUser.effectiveSubject();
-        SchoolClass entity = guard.requireClassAdmin(id, subject);
+    public Response rename(@PathParam("id") Long id, @FormParam("name") String name,
+                           @FormParam("schoolYear") String schoolYear) {
+        SchoolClass entity = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         if (name != null && !name.isBlank()) {
             entity.name = name;
         }
         if (schoolYear != null && !schoolYear.isBlank()) {
             entity.schoolYear = schoolYear;
         }
-        return withHomeData(homeFragment.instance(), subject);
+        // The name is in the page header, so reload rather than swap a fragment.
+        return Response.ok().header("HX-Redirect", "/classes/" + id + "/settings").build();
     }
 
     /**
@@ -809,8 +807,7 @@ public class ClassUiResource {
         return template
                 .data("mySubjects", mySubjects)
                 .data("openGradesBySubject", openGradeCounts(mySubjects))
-                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)))
-                .data("adminClassIds", adminClassIds(subject));
+                .data("yearGroups", groupByYear(guard.listAccessibleClasses(subject)));
     }
 
     /** Per Fach, a label like "5 Noten offen"; only Fächer with something missing are in the map. */
@@ -832,21 +829,6 @@ public class ClassUiResource {
                 .toList();
     }
 
-    /**
-     * Ids of the classes the given teacher is an ADMIN-tier {@link ClassTeacher} on - used by
-     * {@code fragments/home.html} to hide Ändern/Löschen for classes the viewer sees in
-     * their list (via {@link OwnershipGuard#listAccessibleClasses}) but isn't an admin of, since
-     * both would otherwise 404 via {@link OwnershipGuard#requireClassAdmin}.
-     */
-    private Set<Long> adminClassIds(String currentSubject) {
-        List<ClassTeacher> myAdminRows = ClassTeacher.list(
-                "teacherSubject = ?1 and role = ?2", currentSubject, ClassTeacherRole.ADMIN);
-        Set<Long> ids = new HashSet<>();
-        for (ClassTeacher row : myAdminRows) {
-            ids.add(row.schoolClass.id);
-        }
-        return ids;
-    }
 
     /**
      * Ids of this class's Subjects the given teacher actually teaches - used by

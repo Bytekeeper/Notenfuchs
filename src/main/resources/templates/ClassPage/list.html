@@ -5,7 +5,8 @@
 
 {#include fragments/home /}
 
-<h2>Neue Klasse anlegen</h2>
+<details class="add-panel"{#if yearGroups.isEmpty} open{/if}>
+<summary>+ Klasse anlegen</summary>
 <div class="card">
     <form class="inline-form" hx-post="/classes" hx-target="#home-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
         <div class="form-field">
@@ -19,5 +20,6 @@
         <button type="submit">Anlegen</button>
     </form>
 </div>
+</details>
 
 {/include}
