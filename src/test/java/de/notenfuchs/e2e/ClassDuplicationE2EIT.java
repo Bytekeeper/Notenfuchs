@@ -72,11 +72,10 @@ class ClassDuplicationE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        Leistungen.add(page, categoryCard, assessmentName, null, false);
         assertThat(categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .isVisible();
 

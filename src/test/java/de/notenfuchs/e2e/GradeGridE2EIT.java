@@ -137,7 +137,7 @@ class GradeGridE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
@@ -174,7 +174,7 @@ class GradeGridE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
         // Wait for the htmx swap to land before submitting again - otherwise the second fill()
         // races the first request's still-in-flight outerHTML swap (see CLAUDE.md's note on
         // GradeGridHalfYearE2EIT for the same gotcha).
@@ -186,12 +186,11 @@ class GradeGridE2EIT {
 
         page.locator("#categoryName").fill("E2E-KategorieNachLuecke-" + unique);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator thirdCategoryCard = page.locator(".card")
                 .filter(new Locator.FilterOptions().setHasText("E2E-KategorieNachLuecke-" + unique));
-        thirdCategoryCard.locator("form.inline-form input[name='name']").fill("LeistungNachLuecke");
-        thirdCategoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        Leistungen.add(page, thirdCategoryCard, "LeistungNachLuecke", null, false);
         assertThat(thirdCategoryCard.locator("table.entity-list tbody tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
@@ -321,19 +320,15 @@ class GradeGridE2EIT {
         assertThat(page.locator(".derived-grade")).hasText("1");
         assertThat(page.locator(".average-final")).hasText("1");
 
-        // Go back to the "Leistungen & Gewichtung" tab and
-        // change the ">=60 points" band's grade from 1 to 2 - the default bands render
-        // best-to-worst, so this is the first band row.
+        // On "Leistungen & Gewichtung", change the ">=60 points" band's grade from 1 to 2 in the
+        // Leistung dialog - the default bands render best-to-worst, so this is the first band row.
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
-        Locator bandForm = page.locator(".band-form").nth(0);
-        Locator gradeValueInput = bandForm.locator("input[name='gradeValue']");
-        gradeValueInput.fill("2");
-        gradeValueInput.evaluate("el => el.blur()");
-        // No Speichern button - a band autosaves on blur like a grade-grid cell (see
-        // notenfuchs.js). Wait for the save-confirmation flash before navigating away, since
-        // the PATCH now fires in the background rather than a synchronous button click.
-        assertThat(gradeValueInput).hasClass(java.util.regex.Pattern.compile(".*\\bstate-saved\\b.*"));
+        page.locator("tr.assessment-row").filter(new Locator.FilterOptions().setHasText(assessmentName))
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        Locator dialog = page.locator("#assessment-dialog");
+        dialog.locator("input[name='bandGrades']").nth(0).fill("2");
+        page.waitForNavigation(() -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click());
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
@@ -367,17 +362,11 @@ class GradeGridE2EIT {
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
-        Locator row = page.locator("table.entity-list tbody tr")
-                .filter(new Locator.FilterOptions().setHasText(assessmentName)).first();
-        // The row's single "Ändern" (in its actions cell) opens a combined edit row below,
-        // wired via data-rename-target rather than DOM nesting - see RenameE2EIT's
-        // openAssessmentEditRow for the same pattern.
-        Locator toggle = row.locator(".rename-toggle");
-        String targetId = toggle.getAttribute("data-rename-target");
-        toggle.click();
-        Locator editRow = page.locator("#" + targetId);
-        editRow.locator("select[name='roundingMode']").selectOption("COMMERCIAL");
-        editRow.locator(".rename-save").click();
+        page.locator("tr.assessment-row").filter(new Locator.FilterOptions().setHasText(assessmentName))
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        Locator dialog = page.locator("#assessment-dialog");
+        dialog.locator("select[name='roundingMode']").selectOption("COMMERCIAL");
+        page.waitForNavigation(() -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click());
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
@@ -420,13 +409,10 @@ class GradeGridE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.locator("form.inline-form input[name='pointsBased']").check();
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
-        // Leaving the page before the background save lands would cut it off.
+        Leistungen.add(page, categoryCard, assessmentName, null, true);
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
@@ -466,22 +452,15 @@ class GradeGridE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        // .assessment-row is the one visible <tr> per Leistung - each also has a sibling
-        // .assessment-edit-row (its hidden combined-edit form), which a plain :not(.empty-row)
-        // count would otherwise double-count.
         Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr.assessment-row");
 
-        // Scoped to the "add assessment" form specifically - the category card also has an
-        // inline-rename form with its own input[name='name'] (see RenameE2EIT).
-        categoryCard.locator("form.inline-form input[name='name']").fill("Test1");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        Leistungen.add(page, categoryCard, "Test1", null, false);
         assertThat(assessmentRows).hasCount(1);
 
-        categoryCard.locator("form.inline-form input[name='name']").fill("Test2");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        Leistungen.add(page, categoryCard, "Test2", null, false);
         assertThat(assessmentRows).hasCount(2);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();

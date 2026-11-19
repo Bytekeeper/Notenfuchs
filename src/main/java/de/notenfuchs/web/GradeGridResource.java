@@ -165,7 +165,8 @@ public class GradeGridResource {
     /**
      * Adds a Leistung from the grade table. A plain form POST answered with a redirect (not htmx):
      * the new column changes the whole table layout, so re-rendering the page is simpler than
-     * patching it. {@code focus} tells the page which column to put the cursor in.
+     * patching it. {@code focus} tells the page which column to put the cursor in. The same dialog
+     * on "Leistungen & Gewichtung" sends {@code returnTo=setup} to come back there instead.
      */
     @POST
     @Path("/assessments")
@@ -177,7 +178,8 @@ public class GradeGridResource {
                                   @FormParam("date") LocalDate date,
                                   @FormParam("factor") BigDecimal factor,
                                   @FormParam("pointsBased") String pointsBasedRaw,
-                                  @FormParam("roundingMode") String roundingModeRaw) {
+                                  @FormParam("roundingMode") String roundingModeRaw,
+                                  @FormParam("returnTo") String returnTo) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
@@ -189,7 +191,7 @@ public class GradeGridResource {
         }
         Assessment assessment = subjectUi.createAssessment(category, subject.gradeScale, name.strip(), date, factor,
                 pointsBasedRaw, roundingModeRaw);
-        return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+        return backFromDialog(id, assessment.id, returnTo);
     }
 
     @POST
@@ -204,7 +206,8 @@ public class GradeGridResource {
                                      @FormParam("pointsBased") String pointsBasedRaw,
                                      @FormParam("roundingMode") String roundingModeRaw,
                                      @FormParam("bandPoints") List<BigDecimal> bandPoints,
-                                     @FormParam("bandGrades") List<BigDecimal> bandGrades) {
+                                     @FormParam("bandGrades") List<BigDecimal> bandGrades,
+                                     @FormParam("returnTo") String returnTo) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
         boolean wasPointsBased = assessment.pointsBased;
@@ -224,7 +227,13 @@ public class GradeGridResource {
                 band.persist();
             }
         }
-        return Redirects.seeOther("/subjects/" + id + "/grid?focus=" + assessment.id).build();
+        return backFromDialog(id, assessment.id, returnTo);
+    }
+
+    private static Response backFromDialog(Long subjectId, Long assessmentId, String returnTo) {
+        return "setup".equals(returnTo)
+                ? Redirects.seeOther("/subjects/" + subjectId).build()
+                : Redirects.seeOther("/subjects/" + subjectId + "/grid?focus=" + assessmentId).build();
     }
 
     /**
@@ -287,10 +296,11 @@ public class GradeGridResource {
     @POST
     @Path("/assessments/{assessmentId}/delete")
     @Transactional
-    public Response deleteAssessment(@PathParam("id") Long id, @PathParam("assessmentId") Long assessmentId) {
+    public Response deleteAssessment(@PathParam("id") Long id, @PathParam("assessmentId") Long assessmentId,
+                                     @FormParam("returnTo") String returnTo) {
         guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         requireAssessmentOfSubject(assessmentId, id).delete();
-        return Redirects.seeOther("/subjects/" + id + "/grid").build();
+        return Redirects.seeOther("setup".equals(returnTo) ? "/subjects/" + id : "/subjects/" + id + "/grid").build();
     }
 
     /**
@@ -316,8 +326,8 @@ public class GradeGridResource {
         return Redirects.seeOther(target).build();
     }
 
-    /** Each points-based Leistung's Notenschlüssel as "60:1;20:6" (best first), read by the grid's edit dialog. */
-    private static Map<Long, String> bandSpecs(Long subjectId) {
+    /** Each points-based Leistung's Notenschlüssel as "60:1;20:6" (best first), read by the Leistung dialog. */
+    static Map<Long, String> bandSpecs(Long subjectId) {
         Map<Long, StringBuilder> specs = new HashMap<>();
         for (PointsGradeBand band : PointsGradeBand.<PointsGradeBand>list(
                 "assessment.category.subject.id = ?1 order by points desc", subjectId)) {

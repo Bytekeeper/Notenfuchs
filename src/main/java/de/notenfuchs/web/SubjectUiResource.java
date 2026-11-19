@@ -266,25 +266,6 @@ public class SubjectUiResource {
         return categoryFragment(subject);
     }
 
-    @POST
-    @Path("/{id}/categories/{categoryId}/assessments")
-    @Produces(MediaType.TEXT_HTML)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Transactional
-    public TemplateInstance addAssessment(@PathParam("id") Long id,
-                                           @PathParam("categoryId") Long categoryId,
-                                           @FormParam("name") String name,
-                                           @FormParam("date") LocalDate date,
-                                           @FormParam("factor") BigDecimal factor,
-                                           @FormParam("pointsBased") String pointsBasedRaw,
-                                           @FormParam("roundingMode") String roundingModeRaw) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        GradeCategory category = guard.requireTeachesCategory(categoryId, currentSubject);
-        createAssessment(category, subject.gradeScale, name, date, factor, pointsBasedRaw, roundingModeRaw);
-        return categoryFragment(subject);
-    }
-
     /** Shared with {@code GradeGridResource}: the Fach header's switcher lists the viewer's Fächer of the same year. */
     List<Subject> switchSubjects(Subject subject) {
         return guard.listTaughtSubjectsInYear(currentUser.effectiveSubject(), subject.schoolClass.schoolYear);
@@ -308,53 +289,10 @@ public class SubjectUiResource {
         return assessment;
     }
 
-    @DELETE
-    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}")
-    @Produces(MediaType.TEXT_HTML)
-    @Transactional
-    public TemplateInstance deleteAssessment(@PathParam("id") Long id,
-                                              @PathParam("categoryId") Long categoryId,
-                                              @PathParam("assessmentId") Long assessmentId) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
-        assessment.delete();
-        return categoryFragment(subject);
-    }
-
     /**
-     * Updates every editable field of an assessment - name, factor, points-based
-     * configuration, (for a points-based assessment) rounding mode, and date - from one
-     * combined edit form (a single "Ändern" opens all of them together, rather than a
-     * separate toggle per field). Date is submitted as a normal field of that same form, so
-     * an empty value unambiguously means "clear the date" - the form always carries the
-     * field's current value unless the teacher edits it. Flipping {@code pointsBased} either
-     * direction wipes this assessment's existing {@link Grade}s - a grade entered in one mode
-     * (direct value vs. raw points) has no meaning in the other - and switching TO
-     * points-based seeds a starting Notenschlüssel if none exists yet (see
-     * {@link #seedDefaultBands}).
+     * Shared with the grade table's Leistung dialog. Flipping {@code pointsBased} clears the grades
+     * (a grade in one mode means nothing in the other) and a switch to points seeds default bands.
      */
-    @PATCH
-    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/rename")
-    @Produces(MediaType.TEXT_HTML)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Transactional
-    public TemplateInstance renameAssessment(@PathParam("id") Long id,
-                                              @PathParam("categoryId") Long categoryId,
-                                              @PathParam("assessmentId") Long assessmentId,
-                                              @FormParam("name") String name,
-                                              @FormParam("factor") BigDecimal factor,
-                                              @FormParam("pointsBased") String pointsBasedRaw,
-                                              @FormParam("roundingMode") String roundingModeRaw,
-                                              @FormParam("date") LocalDate date) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
-        updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
-        return categoryFragment(subject);
-    }
-
-    /** Shared with the grade table ({@code GradeGridResource}); see {@link #renameAssessment} for the rules. */
     void updateAssessment(Assessment assessment, GradeScale scale, String name, BigDecimal factor,
                           String pointsBasedRaw, String roundingModeRaw, LocalDate date) {
         if (name != null && !name.isBlank()) {
@@ -375,65 +313,6 @@ public class SubjectUiResource {
             seedDefaultBands(assessment, scale);
         }
         assessment.date = date;
-    }
-
-    @POST
-    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/bands")
-    @Produces(MediaType.TEXT_HTML)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Transactional
-    public TemplateInstance addBand(@PathParam("id") Long id,
-                                     @PathParam("categoryId") Long categoryId,
-                                     @PathParam("assessmentId") Long assessmentId,
-                                     @FormParam("points") BigDecimal points,
-                                     @FormParam("gradeValue") BigDecimal gradeValue) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        Assessment assessment = guard.requireTeachesAssessment(assessmentId, currentSubject);
-        PointsGradeBand band = new PointsGradeBand();
-        band.assessment = assessment;
-        band.points = points;
-        band.gradeValue = gradeValue;
-        band.persist();
-        return categoryFragment(subject);
-    }
-
-    @PATCH
-    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/bands/{bandId}")
-    @Produces(MediaType.TEXT_HTML)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    @Transactional
-    public TemplateInstance updateBand(@PathParam("id") Long id,
-                                        @PathParam("categoryId") Long categoryId,
-                                        @PathParam("assessmentId") Long assessmentId,
-                                        @PathParam("bandId") Long bandId,
-                                        @FormParam("points") BigDecimal points,
-                                        @FormParam("gradeValue") BigDecimal gradeValue) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        PointsGradeBand band = guard.requireTeachesPointsGradeBand(bandId, currentSubject);
-        if (points != null) {
-            band.points = points;
-        }
-        if (gradeValue != null) {
-            band.gradeValue = gradeValue;
-        }
-        return categoryFragment(subject);
-    }
-
-    @DELETE
-    @Path("/{id}/categories/{categoryId}/assessments/{assessmentId}/bands/{bandId}")
-    @Produces(MediaType.TEXT_HTML)
-    @Transactional
-    public TemplateInstance deleteBand(@PathParam("id") Long id,
-                                        @PathParam("categoryId") Long categoryId,
-                                        @PathParam("assessmentId") Long assessmentId,
-                                        @PathParam("bandId") Long bandId) {
-        String currentSubject = currentUser.effectiveSubject();
-        Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        PointsGradeBand band = guard.requireTeachesPointsGradeBand(bandId, currentSubject);
-        band.delete();
-        return categoryFragment(subject);
     }
 
     /** A checkbox form field arrives as "true"/"on" when checked, or absent (null) when not. */
@@ -458,11 +337,6 @@ public class SubjectUiResource {
     }
 
     private TemplateInstance categoryFragment(Subject subject) {
-        // The band editor's min/max attributes read subject.gradeScale (a LAZY association).
-        // These callers are all @Transactional endpoints, and Qute renders the returned
-        // TemplateInstance after the method returns - once the transaction (and its Hibernate
-        // session) has already closed - so the proxy must be force-initialized here first.
-        org.hibernate.Hibernate.initialize(subject.gradeScale);
         CategoryListData data = categoryListData(subject.id);
         return categoryListFragment
                 .data("subject", subject)
@@ -496,16 +370,15 @@ public class SubjectUiResource {
      */
     private List<CategoryView> categoryViews(Long subjectId) {
         List<GradeCategory> categories = GradeCategory.list("subject.id", subjectId);
+        Map<Long, String> bandSpecs = GradeGridResource.bandSpecs(subjectId);
         List<CategoryView> result = new ArrayList<>();
         for (GradeCategory category : categories) {
             List<Assessment> assessments = Assessment.list("category.id", category.id);
             List<AssessmentView> assessmentViews = new ArrayList<>();
             for (Assessment assessment : assessments) {
-                List<PointsGradeBand> bands = assessment.pointsBased
-                        ? PointsGradeBand.list("assessment.id = ?1 order by points desc", assessment.id)
-                        : List.of();
                 assessmentViews.add(new AssessmentView(assessment.id, assessment.name, assessment.date,
-                        assessment.factor, assessment.pointsBased, bands, assessment.roundingMode));
+                        assessment.factor, assessment.pointsBased, bandSpecs.getOrDefault(assessment.id, ""),
+                        assessment.roundingMode));
             }
             result.add(new CategoryView(category.id, category.name, category.weightPercent, assessmentViews));
         }
@@ -519,14 +392,9 @@ public class SubjectUiResource {
     public record CategoryView(Long id, String name, BigDecimal weightPercent, List<AssessmentView> assessments) {
     }
 
-    /**
-     * View model exposing an {@link Assessment} together with its {@link PointsGradeBand}s
-     * (only loaded/populated when {@code pointsBased}), since {@code Assessment} has no
-     * back-reference to its bands. {@code roundingMode} only matters while {@code pointsBased}
-     * is true.
-     */
+    /** {@code bandSpec} is the Notenschlüssel in the form the Leistung dialog reads ("60:1;20:6"). */
     public record AssessmentView(Long id, String name, LocalDate date, BigDecimal factor,
-                                  boolean pointsBased, List<PointsGradeBand> bands, RoundingMode roundingMode) {
+                                  boolean pointsBased, String bandSpec, RoundingMode roundingMode) {
     }
 
 }

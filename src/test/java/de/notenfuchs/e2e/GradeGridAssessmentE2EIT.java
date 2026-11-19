@@ -168,7 +168,7 @@ class GradeGridAssessmentE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
         assertThat(page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName))).hasCount(1);
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Notenerfassung")).click();

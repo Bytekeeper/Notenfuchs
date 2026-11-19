@@ -152,8 +152,8 @@ class ClassDuplicationIT {
     }
 
     private Long createAssessment(Long subjectId, Long categoryId, String name) throws Exception {
-        http.post("/subjects/" + subjectId + "/categories/" + categoryId + "/assessments",
-                Map.of("name", name, "factor", "1"));
+        http.post("/subjects/" + subjectId + "/grid/assessments",
+                Map.of("categoryId", categoryId.toString(), "name", name, "factor", "1"));
         Assessment created = Assessment.find("name", name).firstResult();
         return created.id;
     }

@@ -29,10 +29,9 @@ page needs something that isn't here, add it here first, then build it.
 |---|---|---|
 | A list of records (students, Fächer, Leistungen, teachers) | `table.entity-list`, one row per record, a header row; secondary facts (Kürzel, scale, "seit …") as small `.row-meta` text under or next to the name | Cards per record, free-floating text rows, columns that are mostly empty |
 | A form that is the page's job (settings, login) | `.card` around the form | |
-| A form you need rarely (new class, Fach, student, Kategorie, colleague) | `details.add-panel` with a `summary` like "+ Fach anlegen", `.card` inside; `open` while its list is empty; opening it and each add put the cursor in its first field, so Enter adds the next entry | A form that is always open |
-| A form you use often in a group (new Leistung in a Kategorie) | an open one-line `form.inline-form` under the group's list | Hiding it behind a click |
+| A form to add to a list (new class, Fach, student, Kategorie, colleague) | `details.add-panel` with a `summary` like "+ Fach anlegen"; `.card` inside unless it already sits in a card; `open` while its list is empty; opening it and each add put the cursor in its first field, so Enter adds the next entry. A panel inside an htmx fragment needs an `id`, so it stays open after an add from it | A form that is always open |
 | A group with its own sub-list (a Kategorie with its Leistungen) | one `.card` per group: header with "Ändern", then the table | |
-| A form that needs focus or a preview (Leistung, feedback) | `<dialog>` | A separate page |
+| A form that needs focus or a preview (Leistung with its Notenschlüssel, feedback) | `<dialog>`, the same one wherever the thing is edited (the Leistung dialog serves the grade grid and "Leistungen & Gewichtung") | A separate page; a second editor for the same thing |
 | Navigation targets on the home page (Fächer, classes) | `a.class-card` tiles, the whole tile is the link, no buttons on it | Tiles for data you compare; actions on a tile |
 | Explanations | `.hint` (muted, small), one or two sentences | Long help text on the page; that belongs in `docs/anleitung/` |
 
@@ -96,6 +95,6 @@ meaning.
 ## Grids
 
 The grade and Verhaltensnoten grids are the exception to "rows with actions": every cell is
-an input that saves when you leave it (one save at a time, see `queueSave`). The student
+an input that saves when you leave it (one save at a time, see `saveChain` in `notenfuchs.js`). The student
 column stays in place when you scroll sideways; averages are in the last columns. Nothing else
 on a grid page competes with the grid.
