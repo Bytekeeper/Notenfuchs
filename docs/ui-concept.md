@@ -95,6 +95,6 @@ meaning.
 ## Grids
 
 The grade and Verhaltensnoten grids are the exception to "rows with actions": every cell is
-an input that saves when you leave it (one save at a time, see `queueSave`). The student
+an input that saves when you leave it (one save at a time, see `saveChain` in `notenfuchs.js`). The student
 column stays in place when you scroll sideways; averages are in the last columns. Nothing else
 on a grid page competes with the grid.

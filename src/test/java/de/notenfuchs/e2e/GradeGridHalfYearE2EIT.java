@@ -390,7 +390,7 @@ class GradeGridHalfYearE2EIT {
      * Regression test for two real bugs: an older save's answer arriving after a newer one used to
      * overwrite the newer averages (a fast 2.05 then 2.2 could end on the stale "2" instead of
      * "2-"), and overlapping saves could leave a column average computed before a neighbor's save
-     * landed. notenfuchs.js now sends one save at a time ({@code queueSave}); each answer is held
+     * landed. notenfuchs.js now handles one save at a time ({@code saveChain}); each answer is held
      * back here so that overlapping requests would show up.
      */
     @Test
