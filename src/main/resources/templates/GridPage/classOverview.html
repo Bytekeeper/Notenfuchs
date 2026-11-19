@@ -39,7 +39,7 @@
             </tbody>
             {#if !leftRows.isEmpty}
             <tbody class="left-students">
-                <tr class="left-heading"><td class="student-cell">Ausgetreten</td></tr>
+                <tr class="left-heading"><th>Ausgetreten</th><th colspan="{#if anyAtRiskScale}{leftRows.get(0).cells.size + 1}{#else}{leftRows.get(0).cells.size}{/if}"></th></tr>
                 {#for row in leftRows}
                 <tr>
                     <td class="student-cell">{row.studentName}</td>

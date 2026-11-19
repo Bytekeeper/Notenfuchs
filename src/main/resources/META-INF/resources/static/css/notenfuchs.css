@@ -708,13 +708,8 @@ table.grade-grid td.student-cell a:hover { color: var(--color-primary); }
 /* Students who left the class: read-only rows below the active ones. */
 table.grade-grid tbody.left-students td { color: var(--color-text-muted); }
 table.grade-grid tbody.left-students td.readonly-cell { text-align: center; font-size: 0.9rem; }
-table.grade-grid tr.left-heading td {
-    padding-top: 1rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-top: 2px solid var(--color-border);
-}
+/* Their heading row looks like the table head; its label stays in place when scrolling sideways. */
+table.grade-grid tr.left-heading th:first-child { position: sticky; left: 0; z-index: 1; }
 
 /* "Fehler melden" in the header (base.html), styled like the other header links. */
 .user-info .feedback-open {
