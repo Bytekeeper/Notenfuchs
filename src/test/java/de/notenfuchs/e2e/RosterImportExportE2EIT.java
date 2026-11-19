@@ -138,7 +138,8 @@ class RosterImportExportE2EIT {
         String leftName = "E2E-Weg-" + unique;
         createClassWithStudent("E2E-Roster-Klasse-" + unique, leftName);
         page.onceDialog(Dialog::accept);
-        studentRow(leftName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
+        studentRow(leftName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        page.locator("tr.edit-row.editing").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
         assertThat(page.locator(".left-student-list")).containsText(leftName);
 
         Path csvFile = Files.createTempFile("roster-import-left-" + unique, ".csv");
@@ -155,6 +156,7 @@ class RosterImportExportE2EIT {
 
     private void createClassWithStudent(String className, String studentName) {
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

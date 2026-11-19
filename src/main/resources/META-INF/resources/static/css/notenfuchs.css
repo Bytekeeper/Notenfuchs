@@ -313,11 +313,7 @@ a.class-card:hover .class-name { color: var(--color-primary-dark); }
     align-items: center;
 }
 .card-actions { margin-top: 0.65rem; }
-/* A plain .btn (e.g. the Fach row's "Noten" link) sits at the larger default button size -
-   next to .rename-toggle in the same actions group that reads as a size mismatch even though
-   both share the same tonal fill. Match it to .rename-toggle's compact sizing here instead of
-   sizing every .btn.secondary in the app down, since standalone secondary buttons (Neues Fach
-   anlegen dialogs, Als CSV exportieren, etc.) should keep their normal size. */
+/* A .btn inside a row's actions matches the compact .rename-toggle next to it. */
 .row-actions .btn {
     padding: 0.3rem 0.7rem;
     font-size: 0.82rem;
@@ -333,19 +329,7 @@ a.class-card:hover .class-name { color: var(--color-primary-dark); }
     .section-columns { grid-template-columns: 1fr; }
 }
 
-.subject-list-item {
-    padding: 0.6rem 0;
-    border-bottom: 1px solid var(--color-border);
-}
-.subject-list-item:last-child { border-bottom: none; }
-.subject-list-item .rename-wrap { display: block; }
-.subject-list-item .rename-view {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-}
-.subject-list-item .subject-meta { font-size: 0.8rem; color: var(--color-text-muted); }
+.row-meta { font-size: 0.8rem; color: var(--color-text-muted); }
 .subject-teachers-more { display: inline-block; margin-left: 0.25rem; }
 .subject-teachers-more summary { cursor: pointer; color: var(--color-text-muted); display: inline; }
 .subject-teachers-more ul { margin: 0.25rem 0 0 1rem; padding: 0; }
@@ -358,18 +342,39 @@ a.class-card:hover .class-name { color: var(--color-primary-dark); }
     gap: 0.75rem;
 }
 
-/* Leistungs-Zeile: a single "Ändern" (in the row's actions cell) opens a combined edit row
-   below with every editable field (name, factor, punktebasiert, Rundung, Datum) together -
-   one save instead of two separate inline forms per row. The edit row IS the .rename-wrap
-   (no extra nesting div), so .rename-toggle/.rename-cancel's existing .closest(".rename-wrap")
-   lookups keep working unchanged; only the display toggle needs data-rename-target, since the
-   toggle button lives in a sibling row, not inside this one. */
-tr.assessment-edit-row.rename-wrap {
-    display: none;
+/* Edit row: a row's "Ändern" opens a full-width row below it with every field and the rare
+   actions (Ausgetreten, Löschen), so the list itself shows one button per row. The edit row
+   is a separate <tr> because a row can't sit inside another row's cell; data-rename-target
+   wires the toggle to it. */
+tr.edit-row.rename-wrap { display: none; }
+tr.edit-row.rename-wrap.editing { display: table-row; }
+tr.edit-row.editing .rename-form, .category-head.editing .rename-form { display: flex; }
+tr.edit-row td { background: var(--color-tonal); }
+/* Tonal buttons would vanish on the tonal edit row. */
+tr.edit-row .rename-form button:not(.delete-btn) { background: var(--color-surface); }
+tr.edit-row .rename-form button:not(.delete-btn):hover { background: var(--color-tonal-hover); }
+/* The actions column shrinks to its buttons, so stacked lists line them up at the right. */
+.entity-list td:has(> .row-actions) { width: 1%; white-space: nowrap; }
+.rare-actions { margin-left: auto; display: inline-flex; gap: 0.35rem; align-items: center; }
+/* The hidden edit row is the table's last row, so the visible last row needs the rule too. */
+tr:has(+ tr.edit-row:last-child:not(.editing)) td { border-bottom: none; }
+
+/* A rarely used form (new Fach, new student, CSV import) stays closed behind one line. */
+.add-panel { margin: 0.5rem 0; }
+.add-panel > summary {
+    display: inline-flex;
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--radius);
+    background: var(--color-tonal);
+    cursor: pointer;
+    font-size: 0.95rem;
+    list-style: none;
 }
-tr.assessment-edit-row.rename-wrap.editing {
-    display: table-row;
-}
+.add-panel > summary::-webkit-details-marker { display: none; }
+.add-panel > summary:hover { background: var(--color-tonal-hover); }
+.add-panel[open] > summary { margin-bottom: 0.5rem; }
+
+.list-actions { margin: 0.5rem 0; }
 
 .file-field {
     position: relative;

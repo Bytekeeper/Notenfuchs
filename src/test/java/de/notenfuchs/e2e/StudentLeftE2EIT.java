@@ -46,6 +46,7 @@ class StudentLeftE2EIT {
         String leaver = "E2E-Geht-" + unique;
 
         page.navigate("http://host.testcontainers.internal:" + rootUrl.getPort() + "/");
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
@@ -74,7 +75,10 @@ class StudentLeftE2EIT {
         // Class page: mark as left (confirm prompt), the student moves to "Ausgetreten".
         page.locator(".breadcrumbs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName(className)).click();
         page.onceDialog(Dialog::accept);
+        // "Ausgetreten" is a rare action, so it sits in the row's edit row behind "Ändern".
         studentList.locator("tr").filter(new Locator.FilterOptions().setHasText(leaver))
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        studentList.locator("tr.edit-row.editing")
                 .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
         assertThat(page.locator(".left-student-list")).containsText(leaver);
 
@@ -88,7 +92,9 @@ class StudentLeftE2EIT {
 
         // Taking the student back makes the cell editable again.
         page.locator(".breadcrumbs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName(className)).click();
-        page.locator(".left-student-list").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Wieder aufnehmen")).click();
+        page.locator(".left-student-list").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        page.locator(".left-student-list tr.edit-row.editing")
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Wieder aufnehmen")).click();
         assertThat(page.locator(".left-student-list")).hasCount(0);
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         assertThat(page.locator("tbody.left-students")).hasCount(0);

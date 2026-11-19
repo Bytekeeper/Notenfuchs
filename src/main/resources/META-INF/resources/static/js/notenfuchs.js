@@ -627,11 +627,8 @@
     document.addEventListener("click", function (ev) {
         const toggle = ev.target.closest(".rename-toggle");
         if (toggle) {
-            // Usually the toggle lives inside the .rename-wrap it opens. In a table row
-            // (e.g. the Schüler list), the row's Ändern/Löschen sit together in a shared
-            // actions cell instead - a separate table cell, so .closest() can't reach the
-            // .rename-wrap in the name cell. data-rename-target (an element id) covers that
-            // case explicitly rather than relying on DOM proximity.
+            // In a table list the toggle sits in the row and opens a separate edit row,
+            // which .closest() can't reach; data-rename-target names it instead.
             const wrap = toggle.closest(".rename-wrap")
                 || (toggle.dataset.renameTarget && document.getElementById(toggle.dataset.renameTarget));
             if (!wrap) {
