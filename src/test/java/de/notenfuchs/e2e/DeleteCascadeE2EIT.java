@@ -79,8 +79,7 @@ class DeleteCascadeE2EIT {
         page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
+        Leistungen.add(page, categoryCard, assessmentName, null, false);
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         // Enter a grade for the assessment via the real grid, so the Assessment now has a
@@ -96,8 +95,9 @@ class DeleteCascadeE2EIT {
                 .locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
 
         page.onDialog(dialog -> dialog.accept());
-        row.locator(".rename-toggle").click();
-        page.locator("tr.edit-row.editing button.delete-btn").click();
+        row.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        page.waitForNavigation(() -> page.locator("#assessment-dialog")
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung löschen")).click());
 
         assertThat(page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .hasCount(0);
@@ -142,8 +142,7 @@ class DeleteCascadeE2EIT {
         page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
+        Leistungen.add(page, categoryCard, assessmentName, null, false);
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();

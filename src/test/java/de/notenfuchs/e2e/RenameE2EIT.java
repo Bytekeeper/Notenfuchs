@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URL;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Browser-driven end-to-end coverage for renaming named entities (Klasse, Schüler, Fach,
@@ -192,7 +193,7 @@ class RenameE2EIT {
     }
 
     @Test
-    void assessmentCanBeRenamedFromTheSubjectDetailPage() {
+    void assessmentIsEditedInTheDialogFromTheSubjectDetailPage() {
         String unique = Long.toString(System.nanoTime());
         String className = "Rename-Klasse-Leistung-" + unique;
         String subjectName = "Rename-Fach-Leistung-" + unique;
@@ -205,30 +206,32 @@ class RenameE2EIT {
         createSubject(subjectName);
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+        String setupUrl = page.url();
 
         AddPanels.open(page, "+ Kategorie anlegen");
-
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
+        Leistungen.add(page, categoryCard, assessmentName, "2026-01-15", false);
 
-        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        // The row's single "Ändern" opens a combined edit row (name/factor/Punkte/Rundung/
-        // Datum together) - see openAssessmentEditRow.
-        Locator editRow = openEditRow(row);
-        editRow.locator(".rename-form input[name='name']").fill(renamedName);
-        editRow.locator(".rename-save").click();
+        // "Ändern" opens the grade grid's Leistung dialog, filled in.
+        Locator row = page.locator("tr.assessment-row").filter(new Locator.FilterOptions().setHasText(assessmentName));
+        row.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        Locator dialog = page.locator("#assessment-dialog");
+        assertThat(dialog.locator("#assessmentName")).hasValue(assessmentName);
+        assertThat(dialog.locator("#assessmentDate")).hasValue("2026-01-15");
+        dialog.locator("#assessmentName").fill(renamedName);
+        dialog.locator("#assessmentFactor").fill("2");
+        dialog.locator("#assessmentDate").fill("");
+        page.waitForNavigation(() -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click());
 
-        Locator categoryCardAfterRename = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        assertThat(categoryCardAfterRename.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName))).isVisible();
-
-        page.reload();
-        Locator categoryCardAfterReload = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        assertThat(categoryCardAfterReload.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName))).isVisible();
+        // Saving comes back to this page, not the grid.
+        assertEquals(setupUrl, page.url());
+        Locator renamedRow = page.locator("tr.assessment-row").filter(new Locator.FilterOptions().setHasText(renamedName));
+        assertThat(renamedRow.locator(".row-meta")).hasText(java.util.regex.Pattern.compile("^Faktor 2(\\.0+)?$"));
+        assertThat(renamedRow.locator("td").nth(1)).hasText("");
     }
 
     @Test
@@ -266,127 +269,6 @@ class RenameE2EIT {
         page.reload();
         Locator categoryCardAfterReload = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(categoryCardAfterReload.locator(".hint").first()).hasText(seventyFivePercent);
-    }
-
-    @Test
-    void assessmentFactorCanBeChangedFromTheSubjectDetailPage() {
-        String unique = Long.toString(System.nanoTime());
-        String className = "Rename-Klasse-Faktor-" + unique;
-        String subjectName = "Rename-Fach-Faktor-" + unique;
-        String categoryName = "Rename-Kategorie-Faktor-" + unique;
-        String assessmentName = "Rename-Leistung-Faktor-" + unique;
-
-        createClass(className);
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
-        createSubject(subjectName);
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
-        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
-
-        AddPanels.open(page, "+ Kategorie anlegen");
-
-        page.locator("#categoryName").fill(categoryName);
-        page.locator("#weightPercent").fill("100");
-        page.locator("form:has(#categoryName) button[type='submit']").click();
-
-        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
-
-        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        Locator editRow = openEditRow(row);
-        editRow.locator(".rename-form input[name='factor']").fill("2");
-        editRow.locator(".rename-save").click();
-
-        // The factor column is NUMERIC(5,2), so a reload may render "2" as "2.00" - match
-        // loosely on the DB-normalized scale rather than the exact typed value.
-        java.util.regex.Pattern factorTwo = java.util.regex.Pattern.compile("^\\(Faktor 2(\\.0+)?\\)$");
-
-        Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterSave.locator(".hint")).hasText(factorTwo);
-
-        page.reload();
-        Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterReload.locator(".hint")).hasText(factorTwo);
-    }
-
-    @Test
-    void assessmentDateCanBeChangedFromTheSubjectDetailPage() {
-        String unique = Long.toString(System.nanoTime());
-        String className = "Rename-Klasse-Datum-" + unique;
-        String subjectName = "Rename-Fach-Datum-" + unique;
-        String categoryName = "Rename-Kategorie-Datum-" + unique;
-        String assessmentName = "Rename-Leistung-Datum-" + unique;
-
-        createClass(className);
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
-        createSubject(subjectName);
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
-        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
-
-        AddPanels.open(page, "+ Kategorie anlegen");
-
-        page.locator("#categoryName").fill(categoryName);
-        page.locator("#weightPercent").fill("100");
-        page.locator("form:has(#categoryName) button[type='submit']").click();
-
-        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
-
-        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        Locator editRow = openEditRow(row);
-        editRow.locator(".rename-form input[name='date']").fill("2026-03-20");
-        editRow.locator(".rename-save").click();
-
-        // Second .rename-display in the row is the Datum column (the first is the Leistung
-        // name) - the combined edit form no longer lives inline in either display cell.
-        Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterSave.locator(".rename-display").nth(1)).hasText("20.03.2026");
-
-        page.reload();
-        Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterReload.locator(".rename-display").nth(1)).hasText("20.03.2026");
-    }
-
-    @Test
-    void assessmentDateCanBeClearedFromTheSubjectDetailPage() {
-        String unique = Long.toString(System.nanoTime());
-        String className = "Rename-Klasse-DatumLeeren-" + unique;
-        String subjectName = "Rename-Fach-DatumLeeren-" + unique;
-        String categoryName = "Rename-Kategorie-DatumLeeren-" + unique;
-        String assessmentName = "Rename-Leistung-DatumLeeren-" + unique;
-
-        createClass(className);
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
-        createSubject(subjectName);
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
-        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
-
-        AddPanels.open(page, "+ Kategorie anlegen");
-
-        page.locator("#categoryName").fill(categoryName);
-        page.locator("#weightPercent").fill("100");
-        page.locator("form:has(#categoryName) button[type='submit']").click();
-
-        Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
-        categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
-
-        Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        Locator editRow = openEditRow(row);
-        editRow.locator(".rename-form input[name='date']").fill("");
-        editRow.locator(".rename-save").click();
-
-        // Second .rename-display in the row is the Datum column (the first is the Leistung
-        // name) - the combined edit form no longer lives inline in either display cell.
-        Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterSave.locator(".rename-display").nth(1)).hasText("");
-
-        page.reload();
-        Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterReload.locator(".rename-display").nth(1)).hasText("");
     }
 
     /**

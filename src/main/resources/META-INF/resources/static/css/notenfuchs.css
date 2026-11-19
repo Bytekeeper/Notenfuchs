@@ -531,47 +531,6 @@ table.grade-grid th.region-header .region-hint {
     align-items: center;
 }
 
-.points-toggle-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.85rem;
-    color: var(--color-text-muted);
-}
-
-tr.bands-row td {
-    background: #fbfaf8;
-}
-
-.points-config .bands-table {
-    max-width: 24rem;
-    margin: 0.5rem 0;
-}
-
-.points-config .band-form {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-
-.points-config .band-form input[type="number"] {
-    width: 4.5rem;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-/* Points are stored with two decimals ("100.00"), and the number spinner takes room too. */
-.points-config .band-form input[name="points"] { width: 6.5rem; }
-
-.points-config .band-form input.state-saved {
-    background: var(--color-success-bg);
-    border-color: var(--color-success);
-}
-
-.points-config .band-form input.state-error {
-    background: var(--color-error-bg);
-    border-color: var(--color-error);
-}
-
 .points-cell {
     display: inline-flex;
     flex-direction: row;

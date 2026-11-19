@@ -414,9 +414,9 @@ class GradeGridHalfYearIT {
 
     private Long createAssessment(Long subjectId, Long categoryId, String name, LocalDate date) throws Exception {
         Map<String, String> form = date != null
-                ? Map.of("name", name, "factor", "1", "date", date.toString())
-                : Map.of("name", name, "factor", "1");
-        http.post("/subjects/" + subjectId + "/categories/" + categoryId + "/assessments", form);
+                ? Map.of("categoryId", categoryId.toString(), "name", name, "factor", "1", "date", date.toString())
+                : Map.of("categoryId", categoryId.toString(), "name", name, "factor", "1");
+        http.post("/subjects/" + subjectId + "/grid/assessments", form);
         return Assessment.find("name", name).<Assessment>firstResult().id;
     }
 

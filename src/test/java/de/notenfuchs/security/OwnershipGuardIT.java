@@ -6,7 +6,6 @@ import de.notenfuchs.domain.ClassTeacher;
 import de.notenfuchs.domain.ClassTeacherRole;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
-import de.notenfuchs.domain.PointsGradeBand;
 import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
@@ -179,32 +178,6 @@ class OwnershipGuardIT {
         assertThrows(NotFoundException.class, () -> guard.requireTeachesAssessment(assessment.id, "teacherA"));
         assertEquals(category.id, guard.requireTeachesCategory(category.id, "teacherB").id);
         assertEquals(assessment.id, guard.requireTeachesAssessment(assessment.id, "teacherB").id);
-    }
-
-    @Test
-    @TestTransaction
-    void requireTeachesPointsGradeBand_belongingToForeignClass_throwsNotFound() {
-        SchoolClass b = persistClass("teacherB");
-        Subject subject = persistSubject(b, "teacherB");
-        GradeCategory category = new GradeCategory();
-        category.subject = subject;
-        category.name = "Schriftlich";
-        category.weightPercent = new BigDecimal("100");
-        category.persist();
-        Assessment assessment = new Assessment();
-        assessment.category = category;
-        assessment.name = "Klausur 1";
-        assessment.factor = BigDecimal.ONE;
-        assessment.pointsBased = true;
-        assessment.persist();
-        PointsGradeBand band = new PointsGradeBand();
-        band.assessment = assessment;
-        band.points = new BigDecimal("50");
-        band.gradeValue = new BigDecimal("4");
-        band.persist();
-
-        assertThrows(NotFoundException.class, () -> guard.requireTeachesPointsGradeBand(band.id, "teacherA"));
-        assertEquals(band.id, guard.requireTeachesPointsGradeBand(band.id, "teacherB").id);
     }
 
     @Test
