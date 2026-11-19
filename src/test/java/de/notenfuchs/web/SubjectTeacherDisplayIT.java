@@ -98,7 +98,7 @@ class SubjectTeacherDisplayIT {
 
         String html = http.get("/classes/" + classId).body();
 
-        assertTrue(html.contains("unterrichtet von: " + otherTeacherLabel));
+        assertTrue(html.contains(otherTeacherLabel));
     }
 
     private void seedTeacher(String subject, String label) {

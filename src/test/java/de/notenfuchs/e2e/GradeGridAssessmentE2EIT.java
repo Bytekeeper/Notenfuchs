@@ -149,6 +149,7 @@ class GradeGridAssessmentE2EIT {
         String subjectName = "E2E-Fach-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -162,6 +163,8 @@ class GradeGridAssessmentE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+
+        AddPanels.open(page, "+ Kategorie anlegen");
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");

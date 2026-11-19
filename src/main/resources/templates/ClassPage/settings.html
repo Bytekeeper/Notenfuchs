@@ -4,6 +4,24 @@
 {#include ClassPage/classHeader activeTab='settings' /}
 
 <div class="card">
+    <h3 style="margin-top: 0;">Klasse</h3>
+    <form class="inline-form" hx-patch="/classes/{schoolClass.id}/rename">
+        <div class="form-field">
+            <label for="className">Name</label>
+            <input type="text" id="className" name="name" value="{schoolClass.name}" required>
+        </div>
+        <div class="form-field">
+            <label for="classSchoolYear">Schuljahr</label>
+            <input type="text" id="classSchoolYear" name="schoolYear" value="{schoolClass.schoolYear}" required>
+        </div>
+        <button type="submit">Speichern</button>
+        <span class="rare-actions">
+            <button type="button" class="delete-btn" hx-delete="/classes/{schoolClass.id}" hx-confirm="Klasse '{schoolClass.name}' wirklich löschen? Das löscht auch alle Schüler, Fächer und Noten dieser Klasse.">Klasse löschen</button>
+        </span>
+    </form>
+</div>
+
+<div class="card">
     <h3 style="margin-top: 0;">Halbjahr-Ansicht</h3>
     <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
     {#include fragments/halfYearCutoff /}

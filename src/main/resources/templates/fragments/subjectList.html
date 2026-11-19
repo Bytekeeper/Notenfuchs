@@ -2,59 +2,25 @@
     {#if subjects.isEmpty}
         <p class="hint">Noch keine Fächer angelegt.</p>
     {#else}
-        {#for s in subjects}
-            <div class="subject-list-item">
-                {#if taughtSubjectIds.contains(s.id)}
-                <div class="rename-wrap">
-                    <div class="rename-view">
-                        <div>
+        <table class="entity-list">
+            <thead>
+                <tr><th>Fach</th><th>Lehrkraft</th><th></th></tr>
+            </thead>
+            <tbody>
+                {#for s in subjects}
+                    {#let teaches=taughtSubjectIds.contains(s.id)}
+                    <tr class="subject-list-item">
+                        <td>
+                            {#if teaches}
                             <a href="/subjects/{s.id}/grid">{s.name}</a>
-                            <div class="subject-meta">
-                                {s.gradeScale.name} · {s.roundingMode}
-                                {#if s.primaryTeacherLabel}
-                                    · {s.primaryTeacherLabel}
-                                    {#if !s.otherTeacherLabels.isEmpty}
-                                    <details class="subject-teachers-more">
-                                        <summary>+{s.otherTeacherLabels.size} weitere</summary>
-                                        <ul>
-                                            {#for label in s.otherTeacherLabels}
-                                            <li>{label}</li>
-                                            {/for}
-                                        </ul>
-                                    </details>
-                                    {/if}
-                                {#else}
-                                    · keine Lehrkraft
-                                {/if}
-                            </div>
-                        </div>
-                        <div class="row-actions">
-                            <button type="button" class="rename-toggle">Ändern</button>
-                            {#if isClassAdmin || isClassTeacher}
-                            <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
-                                <button type="submit" class="delete-btn">Löschen</button>
-                            </form>
+                            {#else}
+                            {s.name}
                             {/if}
-                        </div>
-                    </div>
-                    <form class="rename-form" hx-patch="/classes/{schoolClass.id}/subjects/{s.id}/rename" hx-target="#subject-list-fragment" hx-swap="outerHTML">
-                        <input type="text" name="name" value="{s.name}" required>
-                        <select name="roundingMode" data-original="{s.roundingMode.name}">
-                            <option value="COMMERCIAL" {#if s.roundingMode.name == 'COMMERCIAL'}selected{/if}>Standard (0,5 → aufgerundet)</option>
-                            <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
-                        </select>
-                        <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-                        <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
-                    </form>
-                </div>
-                {#else}
-                <div class="rename-view">
-                    <div>
-                        {s.name}
-                        <div class="subject-meta">
-                            {s.gradeScale.name} · {s.roundingMode}
+                            <div class="row-meta">{s.gradeScale.name} · {s.roundingMode}</div>
+                        </td>
+                        <td>
                             {#if s.primaryTeacherLabel}
-                                · unterrichtet von: {s.primaryTeacherLabel}
+                                {s.primaryTeacherLabel}
                                 {#if !s.otherTeacherLabels.isEmpty}
                                 <details class="subject-teachers-more">
                                     <summary>+{s.otherTeacherLabels.size} weitere</summary>
@@ -66,23 +32,45 @@
                                 </details>
                                 {/if}
                             {#else}
-                                · keine Lehrkraft
+                                <span class="hint">keine</span>
                             {/if}
-                        </div>
-                    </div>
-                    {#if isClassAdmin}
-                    <div class="row-actions">
-                        <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
-                            <button type="submit" class="delete-btn">Löschen</button>
-                        </form>
-                    </div>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                {#if teaches}
+                                <button type="button" class="rename-toggle" data-rename-target="subject-edit-{s.id}">Ändern</button>
+                                {#else if isClassAdmin}
+                                {! An admin who doesn't teach the Fach may only delete it, so there is nothing to open. !}
+                                <form hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">
+                                    <button type="submit" class="delete-btn">Löschen</button>
+                                </form>
+                                {/if}
+                            </div>
+                        </td>
+                    </tr>
+                    {#if teaches}
+                    <tr class="edit-row rename-wrap" id="subject-edit-{s.id}">
+                        <td colspan="3">
+                            <form class="rename-form" hx-patch="/classes/{schoolClass.id}/subjects/{s.id}/rename" hx-target="#subject-list-fragment" hx-swap="outerHTML">
+                                <input type="text" name="name" value="{s.name}" data-original="{s.name}" aria-label="Name" required>
+                                <select name="roundingMode" data-original="{s.roundingMode.name}" aria-label="Rundung">
+                                    <option value="COMMERCIAL" {#if s.roundingMode.name == 'COMMERCIAL'}selected{/if}>Standard (0,5 → aufgerundet)</option>
+                                    <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
+                                </select>
+                                <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
+                                <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
+                                {#if isClassAdmin || isClassTeacher}
+                                <span class="rare-actions">
+                                    <button type="button" class="delete-btn" hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">Löschen</button>
+                                </span>
+                                {/if}
+                            </form>
+                        </td>
+                    </tr>
                     {/if}
-                </div>
-                {/if}
-            </div>
-        {/for}
-        {#if isClassAdmin || !taughtSubjectIds.isEmpty}
-        <p class="subject-list-export"><a class="btn secondary" href="/classes/{schoolClass.id}/export" title="{#if isClassAdmin}Notenübersicht aller Fächer und{#else}Je{/if} ein Blatt pro eigenem Fach">Klasse als Excel exportieren</a></p>
-        {/if}
+                    {/let}
+                {/for}
+            </tbody>
+        </table>
     {/if}
 </div>

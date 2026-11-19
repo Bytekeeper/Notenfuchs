@@ -87,7 +87,7 @@
             </tbody>
             {#if !leftRows.isEmpty}
             <tbody class="left-students">
-                <tr class="left-heading"><td class="student-cell">Ausgetreten – nur lesend</td></tr>
+                <tr class="left-heading"><th>Ausgetreten – nur lesend</th><th colspan="{leftRows.get(0).cells.size + 1}"></th></tr>
                 {#for row in leftRows}
                 <tr>
                     <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}">{row.student.effectiveName}</a></td>

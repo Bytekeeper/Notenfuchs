@@ -60,6 +60,7 @@ class BehaviorGridE2EIT {
         String subjectB = "VN-E2E-B-Fach-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

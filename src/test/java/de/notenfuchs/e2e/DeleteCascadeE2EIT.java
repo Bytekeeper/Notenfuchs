@@ -54,6 +54,7 @@ class DeleteCascadeE2EIT {
         String assessmentName = "Cascade-Leistung-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -71,6 +72,8 @@ class DeleteCascadeE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
+        AddPanels.open(page, "+ Kategorie anlegen");
+
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -86,13 +89,15 @@ class DeleteCascadeE2EIT {
         Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
         cell0.fill("2");
         cell0.evaluate("el => el.blur()");
+        assertThat(cell0).hasClass(java.util.regex.Pattern.compile(".*\\bstate-saved\\b.*"));
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator row = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName))
                 .locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
 
         page.onDialog(dialog -> dialog.accept());
-        row.locator("form button.delete-btn").click();
+        row.locator(".rename-toggle").click();
+        page.locator("tr.edit-row.editing button.delete-btn").click();
 
         assertThat(page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName)))
                 .hasCount(0);
@@ -112,6 +117,7 @@ class DeleteCascadeE2EIT {
         String assessmentName = "Cascade-Leistung-Kat-" + unique;
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -129,6 +135,8 @@ class DeleteCascadeE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
+        AddPanels.open(page, "+ Kategorie anlegen");
+
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -142,12 +150,14 @@ class DeleteCascadeE2EIT {
         Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
         cell0.fill("2");
         cell0.evaluate("el => el.blur()");
+        assertThat(cell0).hasClass(java.util.regex.Pattern.compile(".*\\bstate-saved\\b.*"));
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
         Locator card = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
 
         page.onDialog(dialog -> dialog.accept());
-        card.locator("> div form button.delete-btn").filter(new Locator.FilterOptions().setHasText("Kategorie löschen")).click();
+        card.locator(".category-head .rename-toggle").click();
+        card.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Kategorie löschen")).click();
 
         assertThat(page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName))).hasCount(0);
 

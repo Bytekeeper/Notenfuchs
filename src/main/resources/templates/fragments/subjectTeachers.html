@@ -21,12 +21,13 @@
         </tbody>
     </table>
 
-    <h3>Lehrkraft hinzufügen</h3>
+    <details class="add-panel">
+    <summary>+ Lehrkraft hinzufügen</summary>
     <div class="card">
         {#if availableTeachers.isEmpty}
             <p class="hint">Keine weiteren Lehrkräfte verfügbar - sie erscheinen hier, sobald sie sich einmal angemeldet haben.</p>
         {#else}
-            <form class="inline-form" hx-post="/subjects/{subject.id}/teachers" hx-target="#subject-teachers-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+            <form class="inline-form" hx-post="/subjects/{subject.id}/teachers" hx-target="#subject-teachers-fragment" hx-swap="outerHTML">
                 <div class="form-field">
                     <label for="teacherSubject">Lehrkraft</label>
                     <select id="teacherSubject" name="teacherSubject" required>
@@ -39,4 +40,5 @@
             </form>
         {/if}
     </div>
+    </details>
 </div>

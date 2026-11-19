@@ -65,6 +65,7 @@ class ClassTeacherE2EIT {
         seedTeacher(colleagueSubject, colleagueLabel);
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -81,6 +82,7 @@ class ClassTeacherE2EIT {
         // The seeded colleague is selectable and gets added as a second ADMIN (not the default
         // FACHLEHRER tier) - this test is about the symmetric two-admin add/remove flow, not the
         // role split itself (see OwnershipGuardIT/ClassTeacherIT for role-specific coverage).
+        AddPanels.open(page, "+ Lehrkraft hinzufügen");
         page.locator("#teacherSubject").selectOption(new SelectOption().setValue(colleagueSubject));
         page.locator("#classTeacherRole").selectOption("ADMIN");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Zugriff gewähren")).click();

@@ -52,46 +52,44 @@ class RenameE2EIT {
     }
 
     @Test
-    void classCanBeRenamedFromTheClassList() {
+    void classCanBeRenamedInItsSettings() {
         String unique = Long.toString(System.nanoTime());
         String className = "Rename-Klasse-" + unique;
         String renamedName = className + "-neu";
 
         createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Einstellungen")).click();
 
-        Locator wrap = page.locator(".class-card").filter(new Locator.FilterOptions().setHasText(className))
-                .locator(".rename-wrap");
-        renameInline(wrap, renamedName);
+        page.locator("#className").fill(renamedName);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Speichern").setExact(true)).first().click();
 
-        assertThat(page.locator(".class-card .class-name").filter(new Locator.FilterOptions().setHasText(renamedName)))
-                .hasText(renamedName);
-        assertThat(page.locator(".class-card .class-name").getByText(className, new Locator.GetByTextOptions().setExact(true)))
-                .hasCount(0);
-
-        // Renamed value must be persisted, not just reflected in the swapped-in fragment.
-        page.reload();
-        assertThat(page.locator(".class-card .class-name").filter(new Locator.FilterOptions().setHasText(renamedName)))
-                .hasText(renamedName);
+        assertThat(page.locator("h1")).containsText(renamedName);
+        page.navigate(baseUrl() + "classes");
+        assertThat(page.locator("a.class-card").filter(new Locator.FilterOptions().setHasText(renamedName))).hasCount(1);
     }
 
     @Test
-    void cancellingTheInlineFormLeavesTheNameUnchanged() {
+    void discardingAnEditRowKeepsTheOldValues() {
         String unique = Long.toString(System.nanoTime());
         String className = "Rename-Cancel-Klasse-" + unique;
+        String studentName = "Rename-Cancel-Schueler-" + unique;
 
         createClass(className);
+        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
+        AddPanels.open(page, "+ Schüler hinzufügen");
+        page.locator("#studentName").fill(studentName);
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
-        Locator wrap = page.locator(".class-card").filter(new Locator.FilterOptions().setHasText(className))
-                .locator(".rename-wrap");
-        wrap.locator(".rename-toggle").click();
-        assertThat(wrap).hasClass(java.util.regex.Pattern.compile(".*editing.*"));
+        Locator row = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(studentName));
+        Locator editRow = openEditRow(row);
+        editRow.locator("input[name='name']").fill(studentName + "-should-not-be-saved");
+        editRow.locator(".rename-cancel").click();
+        assertThat(editRow).not().hasClass(java.util.regex.Pattern.compile(".*editing.*"));
 
-        wrap.locator(".rename-form input[name='name']").fill(className + "-should-not-be-saved");
-        wrap.locator(".rename-cancel").click();
-
-        assertThat(wrap).not().hasClass(java.util.regex.Pattern.compile(".*editing.*"));
-        assertThat(page.locator(".class-card .class-name").filter(new Locator.FilterOptions().setHasText(className)))
-                .hasText(className);
+        // Reopening shows the stored name again, not the discarded input.
+        openEditRow(row);
+        assertThat(editRow.locator("input[name='name']")).hasValue(studentName);
     }
 
     @Test
@@ -108,11 +106,7 @@ class RenameE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen")).click();
 
         Locator row = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(studentName));
-        // Unlike the other renameInline() call sites, the Schüler row's Ändern button lives in
-        // its own actions cell (next to Löschen), not inside the name cell's .rename-wrap - pass
-        // the whole row so renameInline()'s unscoped .rename-toggle/.rename-form/.rename-save
-        // lookups still resolve to the row's single (wrap-external) toggle and (wrap-internal) form.
-        renameInline(row, renamedName);
+        renameInEditRow(row, renamedName);
 
         Locator renamedRow = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(renamedName));
         assertThat(renamedRow).isVisible();
@@ -133,7 +127,7 @@ class RenameE2EIT {
         createSubject(subjectName);
 
         Locator item = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
-        renameInline(item.locator(".rename-wrap"), renamedName);
+        renameInEditRow(item, renamedName);
 
         assertThat(page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(renamedName).setExact(true))).isVisible();
 
@@ -153,18 +147,17 @@ class RenameE2EIT {
         createSubject(subjectName);
 
         Locator item = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
-        Locator wrap = item.locator(".rename-wrap");
-        wrap.locator(".rename-toggle").click();
+        Locator wrap = openEditRow(item);
         wrap.locator(".rename-form select[name='roundingMode']").selectOption("IN_FAVOR_OF_STUDENT");
         wrap.locator(".rename-save").click();
 
         java.util.regex.Pattern favorOfStudent = java.util.regex.Pattern.compile(".*Zugunsten des Schülers.*");
         Locator itemAfterSave = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
-        assertThat(itemAfterSave.locator(".subject-meta")).hasText(favorOfStudent);
+        assertThat(itemAfterSave.locator(".row-meta")).hasText(favorOfStudent);
 
         page.reload();
         Locator itemAfterReload = page.locator(".subject-list-item").filter(new Locator.FilterOptions().setHasText(subjectName));
-        assertThat(itemAfterReload.locator(".subject-meta")).hasText(favorOfStudent);
+        assertThat(itemAfterReload.locator(".row-meta")).hasText(favorOfStudent);
     }
 
     @Test
@@ -180,6 +173,8 @@ class RenameE2EIT {
         createSubject(subjectName);
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+
+        AddPanels.open(page, "+ Kategorie anlegen");
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
@@ -211,6 +206,8 @@ class RenameE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
+        AddPanels.open(page, "+ Kategorie anlegen");
+
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -222,7 +219,7 @@ class RenameE2EIT {
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
         // The row's single "Ändern" opens a combined edit row (name/factor/Punkte/Rundung/
         // Datum together) - see openAssessmentEditRow.
-        Locator editRow = openAssessmentEditRow(row);
+        Locator editRow = openEditRow(row);
         editRow.locator(".rename-form input[name='name']").fill(renamedName);
         editRow.locator(".rename-save").click();
 
@@ -246,6 +243,8 @@ class RenameE2EIT {
         createSubject(subjectName);
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
+
+        AddPanels.open(page, "+ Kategorie anlegen");
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("50");
@@ -283,6 +282,8 @@ class RenameE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
+        AddPanels.open(page, "+ Kategorie anlegen");
+
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -292,7 +293,7 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        Locator editRow = openAssessmentEditRow(row);
+        Locator editRow = openEditRow(row);
         editRow.locator(".rename-form input[name='factor']").fill("2");
         editRow.locator(".rename-save").click();
 
@@ -322,6 +323,8 @@ class RenameE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
+        AddPanels.open(page, "+ Kategorie anlegen");
+
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -332,18 +335,18 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        Locator editRow = openAssessmentEditRow(row);
+        Locator editRow = openEditRow(row);
         editRow.locator(".rename-form input[name='date']").fill("2026-03-20");
         editRow.locator(".rename-save").click();
 
         // Second .rename-display in the row is the Datum column (the first is the Leistung
         // name) - the combined edit form no longer lives inline in either display cell.
         Locator rowAfterSave = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterSave.locator(".rename-display").nth(1)).hasText("2026-03-20");
+        assertThat(rowAfterSave.locator(".rename-display").nth(1)).hasText("20.03.2026");
 
         page.reload();
         Locator rowAfterReload = page.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        assertThat(rowAfterReload.locator(".rename-display").nth(1)).hasText("2026-03-20");
+        assertThat(rowAfterReload.locator(".rename-display").nth(1)).hasText("20.03.2026");
     }
 
     @Test
@@ -360,6 +363,8 @@ class RenameE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
+        AddPanels.open(page, "+ Kategorie anlegen");
+
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -370,7 +375,7 @@ class RenameE2EIT {
         categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
-        Locator editRow = openAssessmentEditRow(row);
+        Locator editRow = openEditRow(row);
         editRow.locator(".rename-form input[name='date']").fill("");
         editRow.locator(".rename-save").click();
 
@@ -388,21 +393,20 @@ class RenameE2EIT {
      * Drives the inline click-to-edit control scoped to a single {@code .rename-wrap}:
      * click the pencil, fill the revealed input, click save.
      */
+    private void renameInEditRow(Locator displayRow, String newName) {
+        Locator editRow = openEditRow(displayRow);
+        editRow.locator(".rename-form input[name='name']").fill(newName);
+        editRow.locator(".rename-save").click();
+    }
+
     private void renameInline(Locator wrap, String newName) {
         wrap.locator(".rename-toggle").click();
         wrap.locator(".rename-form input[name='name']").fill(newName);
         wrap.locator(".rename-save").click();
     }
 
-    /**
-     * A Leistung's single "Ändern" button lives in the display row's actions cell, not inside
-     * the .rename-wrap it opens - the combined edit form (name/factor/Punkte/Rundung/Datum
-     * together) is a separate sibling {@code <tr>} below, wired via data-rename-target rather
-     * than DOM nesting (a table row can't itself be nested inside another row's cell). Reads
-     * the wired target id and returns that edit row as the .rename-wrap Locator callers then
-     * drive as usual (fill fields, click .rename-save/.rename-cancel).
-     */
-    private Locator openAssessmentEditRow(Locator displayRow) {
+    /** A list row's "Ändern" opens a separate edit row below it, wired via data-rename-target. */
+    private Locator openEditRow(Locator displayRow) {
         Locator toggle = displayRow.locator(".rename-toggle");
         String targetId = toggle.getAttribute("data-rename-target");
         toggle.click();
@@ -411,6 +415,7 @@ class RenameE2EIT {
 
     private void createClass(String className) {
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();

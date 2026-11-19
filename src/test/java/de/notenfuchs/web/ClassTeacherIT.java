@@ -227,20 +227,14 @@ class ClassTeacherIT {
         assertEquals(1, ClassTeacher.count("schoolClass.id", classId));
     }
 
-    /**
-     * The class list (/classes) shows every class the viewer has any kind of access to (via
-     * {@link OwnershipGuard#listAccessibleClasses}), including classes where they're only a
-     * {@code FACHLEHRER}-tier {@link ClassTeacher} - but {@link ClassUiResource#rename}/{@code
-     * #delete} are {@code requireClassAdmin}-gated, so {@code fragments/home.html} must hide
-     * Ändern/Löschen for those rows rather than offering a control that would 404.
-     */
+    /** Renaming and deleting a class live in its settings, which only the Klassenleitung may open. */
     @Test
-    void classList_hidesRenameAndDeleteForClassesWhereViewerIsNotAdmin() throws Exception {
+    void classSettingsRenameAndDelete_areRefusedForAClassLevelFachlehrer() throws Exception {
         String unique = Long.toString(System.nanoTime());
-        Long adminClassId = createClass("List-Admin-Klasse-" + unique, "2025/26");
-        Long fachlehrerClassId = QuarkusTransaction.requiringNew().call(() -> {
+        String name = "Settings-Fachlehrer-Klasse-" + unique;
+        Long classId = QuarkusTransaction.requiringNew().call(() -> {
             SchoolClass foreign = new SchoolClass();
-            foreign.name = "List-Fachlehrer-Klasse-" + unique;
+            foreign.name = name;
             foreign.schoolYear = "2025/26";
             foreign.persist();
             ClassTeacher admin = new ClassTeacher();
@@ -256,13 +250,11 @@ class ClassTeacherIT {
             return foreign.id;
         });
 
-        String html = http.get("/classes").body();
-
-        assertTrue(html.contains("List-Admin-Klasse-" + unique));
-        assertTrue(html.contains("hx-delete=\"/classes/" + adminClassId + "\""));
-        assertTrue(html.contains("List-Fachlehrer-Klasse-" + unique));
-        assertFalse(html.contains("hx-delete=\"/classes/" + fachlehrerClassId + "\""));
-        assertFalse(html.contains("hx-patch=\"/classes/" + fachlehrerClassId + "/rename\""));
+        assertEquals(404, http.get("/classes/" + classId + "/settings").statusCode());
+        assertEquals(404, http.patch("/classes/" + classId + "/rename", Map.of("name", "Umbenannt")).statusCode());
+        assertEquals(404, http.delete("/classes/" + classId).statusCode());
+        String stored = QuarkusTransaction.requiringNew().call(() -> SchoolClass.<SchoolClass>findById(classId).name);
+        assertEquals(name, stored);
     }
 
     private String seedTeacher(String subject) {

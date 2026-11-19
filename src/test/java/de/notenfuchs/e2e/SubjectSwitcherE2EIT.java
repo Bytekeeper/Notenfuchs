@@ -43,6 +43,7 @@ class SubjectSwitcherE2EIT {
         String second = "E2E-Zweites-" + unique;
 
         page.navigate("http://host.testcontainers.internal:" + rootUrl.getPort() + "/");
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen").setExact(true)).click();

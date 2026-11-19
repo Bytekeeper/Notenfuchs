@@ -68,6 +68,7 @@ class SubjectTeacherE2EIT {
         seedTeacher(colleagueSubject, colleagueLabel);
 
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
@@ -88,6 +89,7 @@ class SubjectTeacherE2EIT {
                 .hasCount(0);
 
         // The seeded colleague is selectable and gets added.
+        AddPanels.open(page, "+ Lehrkraft hinzufügen");
         page.locator("#teacherSubject").selectOption(new SelectOption().setValue(colleagueSubject));
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Zugriff gewähren")).click();
         assertThat(teachersFragment.locator("tbody tr")).hasCount(2);

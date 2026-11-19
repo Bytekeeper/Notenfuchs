@@ -2,7 +2,7 @@
     <div class="rename-wrap">
         <span class="rename-view">
             {#if schoolClass.halfYearCutoff}
-                <span class="rename-display">{schoolClass.halfYearCutoff}</span>
+                <span class="rename-display">{schoolClass.halfYearCutoff.format('dd.MM.yyyy')}</span>
             {#else}
                 <span class="rename-display hint">kein Stichtag gesetzt</span>
             {/if}

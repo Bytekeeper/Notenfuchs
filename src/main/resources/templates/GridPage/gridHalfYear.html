@@ -3,7 +3,7 @@
 
 {#include SubjectPage/subjectHeader activeTab='grid' /}
 <p class="hint">Notenskala {subject.gradeScale.name} ({subject.gradeScale.min}–{subject.gradeScale.max}, {#if subject.gradeScale.lowerIsBetter}niedriger ist besser{#else}höher ist besser{/if}) · Rundung: {subject.roundingMode}</p>
-<p class="hint">Halbjahres-Stichtag: {cutoff} {#if isClassAdmin}(<a href="/classes/{subject.schoolClass.id}/settings">ändern</a>){/if} · Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr.</p>
+<p class="hint">Halbjahres-Stichtag: {cutoff.format('dd.MM.yyyy')} {#if isClassAdmin}(<a href="/classes/{subject.schoolClass.id}/settings">ändern</a>){/if} · Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr.</p>
 <p class="hint">1./2.-HJ-Anzeige: {subject.schoolClass.halfYearGradeDisplay}{#if subject.schoolClass.halfYearTendencyThreshold} (± {subject.schoolClass.halfYearTendencyThreshold} Tendenz){/if} {#if isClassAdmin}(<a href="/classes/{subject.schoolClass.id}/settings">ändern</a>){/if} · Jahresnote bleibt immer eine ganze Note.</p>
 
 {#if gridEmpty}
@@ -172,7 +172,7 @@
             </tbody>
             {#if !leftRows.isEmpty}
             <tbody class="left-students">
-                <tr class="left-heading"><td class="student-cell">Ausgetreten – nur lesend</td></tr>
+                <tr class="left-heading"><th>Ausgetreten – nur lesend</th><th colspan="{#if undatedColumns.isEmpty}{leftRows.get(0).h1Cells.size + leftRows.get(0).h2Cells.size + 3}{#else}{leftRows.get(0).undatedCells.size + leftRows.get(0).h1Cells.size + leftRows.get(0).h2Cells.size + 3}{/if}"></th></tr>
                 {#for row in leftRows}
                 <tr>
                     <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}">{row.student.effectiveName}</a></td>

@@ -15,9 +15,6 @@
                         </div>
                         <div class="row-actions">
                             <button type="button" class="rename-toggle">Ändern</button>
-                            <form hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">
-                                <button type="submit" class="delete-btn">Kategorie löschen</button>
-                            </form>
                         </div>
                     </div>
                     <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
@@ -25,6 +22,9 @@
                         <input type="number" name="weightPercent" step="0.01" min="0" max="100" value="{cat.weightPercent}" data-original="{cat.weightPercent}" required>
                         <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
                         <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
+                        <span class="rare-actions">
+                            <button type="button" class="delete-btn" hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">Kategorie löschen</button>
+                        </span>
                     </form>
                 </div>
 
@@ -43,18 +43,15 @@
                                         <span class="hint">(Faktor {a.factor}{#if a.pointsBased} · punktebasiert · Rundung: {a.roundingMode}{/if})</span>
                                     </td>
                                     <td>
-                                        <span class="rename-display" style="white-space: nowrap;">{a.date ?: ''}</span>
+                                        <span class="rename-display" style="white-space: nowrap;">{#if a.date}{a.date.format('dd.MM.yyyy')}{/if}</span>
                                     </td>
                                     <td>
                                         <div class="row-actions">
                                             <button type="button" class="rename-toggle" data-rename-target="assessment-edit-{a.id}">Ändern</button>
-                                            <form hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Leistung '{a.name}' wirklich löschen? Das löscht auch alle zugehörigen Noten.">
-                                                <button type="submit" class="delete-btn">Löschen</button>
-                                            </form>
                                         </div>
                                     </td>
                                 </tr>
-                                <tr class="assessment-edit-row rename-wrap" id="assessment-edit-{a.id}">
+                                <tr class="assessment-edit-row edit-row rename-wrap" id="assessment-edit-{a.id}">
                                     <td colspan="3">
                                         <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
                                             <input type="text" name="name" value="{a.name}" data-original="{a.name}" required>
@@ -71,6 +68,9 @@
                                             </label>
                                             <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
                                             <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
+                                            <span class="rare-actions">
+                                                <button type="button" class="delete-btn" hx-delete="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Leistung '{a.name}' wirklich löschen? Das löscht auch alle zugehörigen Noten.">Löschen</button>
+                                            </span>
                                         </form>
                                     </td>
                                 </tr>

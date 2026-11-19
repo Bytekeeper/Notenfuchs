@@ -2,16 +2,15 @@
 
 ## Klasse anlegen
 
-Auf der **„Übersicht“** tragen Sie unter „Neue Klasse anlegen“ den Namen und das Schuljahr
-ein und klicken auf **„Anlegen“**.
+Auf der **„Übersicht“** klicken Sie auf **„+ Klasse anlegen“**, tragen den Namen und das
+Schuljahr ein und klicken auf **„Anlegen“**.
 
 ![Neue Klasse auf der Übersicht anlegen](bilder/schuljahresbeginn-klasse-anlegen.png)
 
 ## Schüler importieren
 
-Öffnen Sie die Klasse. Unter **„Schülerliste (CSV)“** wählen Sie eine CSV-Datei aus, zum
-Beispiel den Export aus der Schulverwaltung, und klicken auf **„Vorschau anzeigen“**.
-Notenfuchs versteht eine Spalte „Name“ oder getrennte Spalten „Vorname“ und „Nachname“,
+Öffnen Sie die Klasse. Unter der Schülerliste klicken Sie auf **„Importieren“** und wählen
+eine CSV-Datei aus, zum Beispiel den Export aus der Schulverwaltung. Notenfuchs versteht eine Spalte „Name“ oder getrennte Spalten „Vorname“ und „Nachname“,
 mit Semikolon oder Komma getrennt.
 
 Die Vorschau zeigt, welche Schüler neu sind und welche es schon gibt. Erst mit
@@ -19,12 +18,14 @@ Die Vorschau zeigt, welche Schüler neu sind und welche es schon gibt. Erst mit
 
 ![Vorschau des Schüler-Imports](bilder/schuljahresbeginn-import-vorschau.png)
 
-Einzelne Schüler tragen Sie unter **„Schüler hinzufügen“** ein. Statt des echten Namens
+Einzelne Schüler tragen Sie unter **„+ Schüler hinzufügen“** ein. Bei einer neuen Klasse ist
+dieses Formular schon aufgeklappt. Nach jedem **„Hinzufügen“** steht der Cursor wieder im
+Namensfeld: So tippen Sie eine Liste von Papier mit Name und Enter ab. Statt des echten Namens
 können Sie auch nur ein Kürzel verwenden.
 
 ## Fach anlegen
 
-Unter **„Neues Fach anlegen“** geben Sie den Namen des Fachs, die Notenskala und die
+Unter **„+ Fach anlegen“** geben Sie den Namen des Fachs, die Notenskala und die
 Rundung ein und klicken auf **„Anlegen“**.
 
 ![Klassenseite mit dem neuen Fach](bilder/schuljahresbeginn-klassenseite.png)

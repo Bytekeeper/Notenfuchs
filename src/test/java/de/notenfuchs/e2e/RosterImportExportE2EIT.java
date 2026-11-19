@@ -72,7 +72,6 @@ class RosterImportExportE2EIT {
             Files.write(csvFile, csv.getBytes(StandardCharsets.UTF_8));
 
             page.locator("#rosterFile").setInputFiles(csvFile);
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Vorschau anzeigen")).click();
 
             // Preview page: one duplicate (the pre-existing student) and two new rows, one
             // blank line skipped.
@@ -109,7 +108,7 @@ class RosterImportExportE2EIT {
         createClassWithStudent(className, studentName);
 
         Download download = page.waitForDownload(() ->
-                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Als CSV exportieren")).click());
+                page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Exportieren").setExact(true)).click());
         assertTrue(download.suggestedFilename().endsWith(".csv"));
 
         Path savedPath = Files.createTempFile("notenfuchs-roster-export-" + unique, ".csv");
@@ -138,14 +137,14 @@ class RosterImportExportE2EIT {
         String leftName = "E2E-Weg-" + unique;
         createClassWithStudent("E2E-Roster-Klasse-" + unique, leftName);
         page.onceDialog(Dialog::accept);
-        studentRow(leftName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
+        studentRow(leftName).getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        page.locator("tr.edit-row.editing").getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ausgetreten")).click();
         assertThat(page.locator(".left-student-list")).containsText(leftName);
 
         Path csvFile = Files.createTempFile("roster-import-left-" + unique, ".csv");
         try {
             Files.write(csvFile, ("Name\r\n" + leftName + "\r\n").getBytes(StandardCharsets.UTF_8));
             page.locator("#rosterFile").setInputFiles(csvFile);
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Vorschau anzeigen")).click();
 
             assertThat(page.locator("tr[data-status='duplicate']")).containsText("Wieder aufnehmen");
         } finally {
@@ -155,6 +154,7 @@ class RosterImportExportE2EIT {
 
     private void createClassWithStudent(String className, String studentName) {
         page.navigate(baseUrl());
+        AddPanels.open(page, "+ Klasse anlegen");
         page.locator("#name").fill(className);
         page.locator("#schoolYear").fill("2025/26");
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
