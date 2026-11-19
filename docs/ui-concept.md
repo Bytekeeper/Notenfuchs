@@ -29,8 +29,7 @@ page needs something that isn't here, add it here first, then build it.
 |---|---|---|
 | A list of records (students, Fächer, Leistungen, teachers) | `table.entity-list`, one row per record, a header row; secondary facts (Kürzel, scale, "seit …") as small `.row-meta` text under or next to the name | Cards per record, free-floating text rows, columns that are mostly empty |
 | A form that is the page's job (settings, login) | `.card` around the form | |
-| A form you need rarely (new class, Fach, student, Kategorie, colleague) | `details.add-panel` with a `summary` like "+ Fach anlegen", `.card` inside; `open` while its list is empty; opening it and each add put the cursor in its first field, so Enter adds the next entry | A form that is always open |
-| A form you use often in a group (new Leistung in a Kategorie) | an open one-line `form.inline-form` under the group's list | Hiding it behind a click |
+| A form to add to a list (new class, Fach, student, Kategorie, Leistung, Notenschlüssel-Stufe, colleague) | `details.add-panel` with a `summary` like "+ Fach anlegen"; `.card` inside unless it already sits in a card; `open` while its list is empty; opening it and each add put the cursor in its first field, so Enter adds the next entry. A panel inside an htmx fragment needs an `id`, so it stays open after an add from it | A form that is always open |
 | A group with its own sub-list (a Kategorie with its Leistungen) | one `.card` per group: header with "Ändern", then the table | |
 | A form that needs focus or a preview (Leistung, feedback) | `<dialog>` | A separate page |
 | Navigation targets on the home page (Fächer, classes) | `a.class-card` tiles, the whole tile is the link, no buttons on it | Tiles for data you compare; actions on a tile |

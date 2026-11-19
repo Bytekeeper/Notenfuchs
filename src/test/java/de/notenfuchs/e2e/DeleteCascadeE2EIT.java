@@ -76,11 +76,11 @@ class DeleteCascadeE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         // Enter a grade for the assessment via the real grid, so the Assessment now has a
@@ -139,11 +139,11 @@ class DeleteCascadeE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();

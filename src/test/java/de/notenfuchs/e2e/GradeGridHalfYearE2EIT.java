@@ -88,7 +88,7 @@ class GradeGridHalfYearE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         // .assessment-row is the one visible <tr> per Leistung - each also has a sibling
@@ -99,7 +99,7 @@ class GradeGridHalfYearE2EIT {
         // Dated before the cutoff -> lands in 1. Halbjahr.
         categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         // Wait for the htmx swap to land before touching the (freshly re-rendered) add-form
         // again - otherwise the second fill races the first request's in-flight response.
         assertThat(assessmentRows).hasCount(1);
@@ -107,7 +107,7 @@ class GradeGridHalfYearE2EIT {
         // Dated after the cutoff -> lands in 2. Halbjahr.
         categoryCard.locator("form.inline-form input[name='name']").fill("H2-Klausur");
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-02-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(assessmentRows).hasCount(2);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
@@ -247,7 +247,7 @@ class GradeGridHalfYearE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         Locator assessmentRows = categoryCard.locator("table.entity-list tbody tr.assessment-row");
@@ -256,14 +256,14 @@ class GradeGridHalfYearE2EIT {
         if (firstName != null) {
             categoryCard.locator("form.inline-form input[name='name']").fill(firstName);
             categoryCard.locator("form.inline-form input[name='date']").fill(firstDate);
-            categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+            categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
             expectedCount++;
             assertThat(assessmentRows).hasCount(expectedCount);
         }
         if (secondName != null) {
             categoryCard.locator("form.inline-form input[name='name']").fill(secondName);
             categoryCard.locator("form.inline-form input[name='date']").fill(secondDate);
-            categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+            categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
             expectedCount++;
             assertThat(assessmentRows).hasCount(expectedCount);
         }
@@ -330,12 +330,12 @@ class GradeGridHalfYearE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(categoryCard.locator("table.entity-list tbody tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
@@ -450,12 +450,12 @@ class GradeGridHalfYearE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill("H1-Klausur");
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         // Leaving the page before the background save lands would cut it off.
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 

@@ -178,7 +178,7 @@ class RenameE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         // The category's own rename-wrap is the card header, rendered before any
@@ -210,11 +210,11 @@ class RenameE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
         // The row's single "Ändern" opens a combined edit row (name/factor/Punkte/Rundung/
@@ -248,7 +248,7 @@ class RenameE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("50");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         Locator wrap = categoryCard.locator(".rename-wrap").first();
@@ -286,11 +286,11 @@ class RenameE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
         Locator editRow = openEditRow(row);
@@ -327,12 +327,12 @@ class RenameE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
         Locator editRow = openEditRow(row);
@@ -367,12 +367,12 @@ class RenameE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
         categoryCard.locator("form.inline-form input[name='date']").fill("2026-01-15");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
 
         Locator row = categoryCard.locator("table.entity-list tbody tr").filter(new Locator.FilterOptions().setHasText(assessmentName));
         Locator editRow = openEditRow(row);

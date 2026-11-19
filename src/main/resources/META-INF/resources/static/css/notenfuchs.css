@@ -559,6 +559,9 @@ tr.bands-row td {
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
+/* Points are stored with two decimals ("100.00"), and the number spinner takes room too. */
+.points-config .band-form input[name="points"] { width: 6.5rem; }
+
 .points-config .band-form input.state-saved {
     background: var(--color-success-bg);
     border-color: var(--color-success);

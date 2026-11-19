@@ -137,7 +137,7 @@ class GradeGridE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
 
@@ -174,7 +174,7 @@ class GradeGridE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill("E2E-LeereKategorie-" + unique);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
         // Wait for the htmx swap to land before submitting again - otherwise the second fill()
         // races the first request's still-in-flight outerHTML swap (see CLAUDE.md's note on
         // GradeGridHalfYearE2EIT for the same gotcha).
@@ -186,12 +186,12 @@ class GradeGridE2EIT {
 
         page.locator("#categoryName").fill("E2E-KategorieNachLuecke-" + unique);
         page.locator("#weightPercent").fill("0");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator thirdCategoryCard = page.locator(".card")
                 .filter(new Locator.FilterOptions().setHasText("E2E-KategorieNachLuecke-" + unique));
         thirdCategoryCard.locator("form.inline-form input[name='name']").fill("LeistungNachLuecke");
-        thirdCategoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        thirdCategoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(thirdCategoryCard.locator("table.entity-list tbody tr.assessment-row")).hasCount(1);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
@@ -420,12 +420,12 @@ class GradeGridE2EIT {
 
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         categoryCard.locator("form.inline-form input[name='name']").fill(assessmentName);
         categoryCard.locator("form.inline-form input[name='pointsBased']").check();
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         // Leaving the page before the background save lands would cut it off.
         assertThat(categoryCard.locator("tr.assessment-row")).hasCount(1);
 
@@ -466,7 +466,7 @@ class GradeGridE2EIT {
         AddPanels.open(page, "+ Kategorie anlegen");
         page.locator("#categoryName").fill(categoryName);
         page.locator("#weightPercent").fill("100");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
+        page.locator("form:has(#categoryName) button[type='submit']").click();
 
         Locator categoryCard = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         // .assessment-row is the one visible <tr> per Leistung - each also has a sibling
@@ -477,11 +477,11 @@ class GradeGridE2EIT {
         // Scoped to the "add assessment" form specifically - the category card also has an
         // inline-rename form with its own input[name='name'] (see RenameE2EIT).
         categoryCard.locator("form.inline-form input[name='name']").fill("Test1");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(assessmentRows).hasCount(1);
 
         categoryCard.locator("form.inline-form input[name='name']").fill("Test2");
-        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Leistung hinzufügen")).click();
+        categoryCard.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Anlegen").setExact(true)).click();
         assertThat(assessmentRows).hasCount(2);
 
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();

@@ -108,7 +108,9 @@
                                                     {/if}
                                                 </tbody>
                                             </table>
-                                            <form class="inline-form" hx-post="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                                            <details class="add-panel" id="add-band-{a.id}"{#if a.bands.isEmpty} open{/if}>
+                                            <summary>+ Stufe anlegen</summary>
+                                            <form class="inline-form" hx-post="/subjects/{subject.id}/categories/{cat.id}/assessments/{a.id}/bands" hx-target="#category-list-fragment" hx-swap="outerHTML">
                                                 <div class="form-field">
                                                     <label>ab Punkten</label>
                                                     <input type="number" name="points" step="0.01" min="0" required>
@@ -117,8 +119,9 @@
                                                     <label>Note</label>
                                                     <input type="number" name="gradeValue" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" required>
                                                 </div>
-                                                <button type="submit">Stufe hinzufügen</button>
+                                                <button type="submit">Anlegen</button>
                                             </form>
+                                            </details>
                                         </div>
                                     </td>
                                 </tr>
@@ -128,7 +131,9 @@
                     </tbody>
                 </table>
 
-                <form class="inline-form" hx-post="/subjects/{subject.id}/categories/{cat.id}/assessments" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                <details class="add-panel" id="add-assessment-{cat.id}"{#if cat.assessments.isEmpty} open{/if}>
+                <summary>+ Leistung anlegen</summary>
+                <form class="inline-form" hx-post="/subjects/{subject.id}/categories/{cat.id}/assessments" hx-target="#category-list-fragment" hx-swap="outerHTML">
                     <div class="form-field">
                         <label>Name</label>
                         <input type="text" name="name" placeholder="z. B. Klassenarbeit 1" required>
@@ -151,8 +156,9 @@
                             <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
                         </select>
                     </div>
-                    <button type="submit">Leistung hinzufügen</button>
+                    <button type="submit">Anlegen</button>
                 </form>
+                </details>
             </div>
         {/for}
     {/if}

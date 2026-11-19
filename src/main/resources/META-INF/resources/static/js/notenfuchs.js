@@ -1144,19 +1144,50 @@ document.addEventListener("change", function (ev) {
         }
     }
 
-    // "toggle" doesn't bubble, so listen in the capture phase.
-    document.addEventListener("toggle", function (ev) {
-        const panel = ev.target;
-        if (panel.matches && panel.matches("details.add-panel") && panel.open) {
-            focusFirstField(panel);
+    // Focus moves happen a moment after the click or the response. Only move the cursor if it
+    // is still where that left it, never out of a field the teacher has started typing in.
+    function cursorIsFree(allowedPlace) {
+        const active = document.activeElement;
+        return !active || active === document.body || (allowedPlace && allowedPlace.contains(active));
+    }
+
+    // Only a click opens with focus: panels the server renders open must not scroll the page.
+    document.addEventListener("click", function (ev) {
+        const summary = ev.target.closest("details.add-panel > summary");
+        if (summary && !summary.parentElement.open) {
+            requestAnimationFrame(function () {
+                if (cursorIsFree(summary)) {
+                    focusFirstField(summary.parentElement);
+                }
+            });
         }
-    }, true);
+    });
 
     document.addEventListener("htmx:afterRequest", function (ev) {
         const form = ev.target;
         if (form.matches("details.add-panel form") && ev.detail.successful) {
             form.reset();
-            focusFirstField(form);
+            if (cursorIsFree(form)) {
+                focusFirstField(form);
+            }
+        }
+    });
+
+    // A panel inside the list fragment is re-rendered closed by the swap; reopen the one the
+    // teacher just added from, so the next entry needs no click either.
+    let panelToReopen = null;
+    document.addEventListener("htmx:beforeSwap", function (ev) {
+        const panel = ev.detail.requestConfig && ev.detail.requestConfig.elt.closest("details.add-panel[id]");
+        panelToReopen = panel && ev.detail.target.contains(panel) ? panel.id : null;
+    });
+    document.addEventListener("htmx:afterSettle", function () {
+        const panel = panelToReopen && document.getElementById(panelToReopen);
+        panelToReopen = null;
+        if (panel) {
+            panel.open = true;
+            if (cursorIsFree(null)) {
+                focusFirstField(panel);
+            }
         }
     });
 })();
