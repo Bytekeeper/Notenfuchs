@@ -693,10 +693,10 @@ kein Node-Build-Schritt.
   `e` / `u` in einer Zelle vermerkt „abwesend entschuldigt / unentschuldigt“ – allein
   (zählt dann nicht als fehlend) oder neben der Note (z. B. `6 u`); die Note selbst
   ändert sich dadurch nie. Noten mit Tendenz lassen sich als `2-` / `2+` eintippen
-  (zählt als 2,3 / 1,7, je nach `tendency_step` der Skala). Ein Klick auf einen
+  (zählt als 2,3 / 1,7, je nach `tendency_step` der Skala). „Details“ neben einem
   Schülernamen öffnet seine Seite im Fach
   (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte,
-  „Zeugnisnote festlegen“ und „Was braucht … in der nächsten Leistung?“ – druckbar,
+  „Zeugnisnote festlegen“ (direkt dorthin führt der Stift ✎ an der Endnote im Raster) und „Was braucht … in der nächsten Leistung?“ – druckbar,
   z. B. fürs Elterngespräch
 - `/classes/{id}/export` - die ganze Klasse als `.xlsx`: für Klassen-Admins ein Blatt
   „Notenübersicht“ mit den Endnoten aller Fächer, dazu für jedes Fach, das man selbst

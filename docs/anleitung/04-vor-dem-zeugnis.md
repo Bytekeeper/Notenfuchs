@@ -19,9 +19,9 @@ schlägt deshalb ein Datum in diesem Halbjahr vor.
 ## Zeugnisnote festlegen
 
 Manchmal soll auf dem Zeugnis eine andere Note stehen als die berechnete. Klicken Sie dazu
-in der Notentabelle auf den Namen des Schülers und auf seiner Seite auf
-**„Zeugnisnote festlegen“**. Tragen Sie die Note für das **„1. Halbjahr“** oder das
-**„Jahr“** ein und klicken auf **„Speichern“**. Die Jahresnote ist immer eine ganze Note;
+in der Notentabelle auf den Stift ✎ neben der Note im **„1. Halbjahr“** oder im **„Jahr“**.
+Die Seite des Schülers öffnet sich bei **„Zeugnisnote festlegen“**, der Cursor steht schon im
+passenden Feld. Tragen Sie die Note ein und klicken auf **„Speichern“**. Die Jahresnote ist immer eine ganze Note;
 im Halbjahr geht auch 2- oder 2,5.
 
 Die festgelegte Note gilt dann überall: in der Notentabelle, in der Notenübersicht und im

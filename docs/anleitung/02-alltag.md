@@ -42,7 +42,7 @@ Ein Klick auf den Namen einer Leistung im Tabellenkopf öffnet dasselbe Fenster.
 
 ## Ein Schüler im Fach
 
-Ein Klick auf einen Schülernamen öffnet seine Seite: alle Leistungen mit Datum und Note,
+**„Details“** rechts neben dem Namen eines Schülers öffnet seine Seite: alle Leistungen mit Datum und Note,
 die Durchschnitte und darunter, welche Note er in der nächsten Leistung braucht, um eine
 bestimmte Endnote zu erreichen. Kategorie und Faktor der nächsten Leistung wählen Sie
 selbst und klicken auf **„Berechnen“**. Mit **„Drucken“** nehmen Sie die Seite zum

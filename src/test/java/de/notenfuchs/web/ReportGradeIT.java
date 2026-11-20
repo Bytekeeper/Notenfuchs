@@ -86,9 +86,9 @@ class ReportGradeIT {
     void reportGrade_rejectsBadInputAndClearsWhenEmpty() throws Exception {
         Fixture f = fixture();
 
-        assertTrue(location(setReportGrades(f, Map.of("year", "2-"))).endsWith("reportGradeError=whole"));
-        assertTrue(location(setReportGrades(f, Map.of("year", "7"))).endsWith("reportGradeError=range"));
-        assertTrue(location(setReportGrades(f, Map.of("year", "gut"))).endsWith("reportGradeError=invalid"));
+        assertTrue(location(setReportGrades(f, Map.of("year", "2-"))).endsWith("reportGradeError=whole#zeugnisnote"));
+        assertTrue(location(setReportGrades(f, Map.of("year", "7"))).endsWith("reportGradeError=range#zeugnisnote"));
+        assertTrue(location(setReportGrades(f, Map.of("year", "gut"))).endsWith("reportGradeError=invalid#zeugnisnote"));
         assertNull(reportGrade(f, ReportGrade.Period.YEAR));
 
         setReportGrades(f, Map.of("year", "3"));

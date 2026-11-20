@@ -666,8 +666,6 @@ table.grade-grid td.status-cell.status-open { color: var(--color-primary-dark); 
 .assessment-dialog-preview { margin-top: 0.5rem; }
 
 /* Student page in a Fach (GridPage/student.html). */
-table.grade-grid td.student-cell a { color: inherit; }
-table.grade-grid td.student-cell a:hover { color: var(--color-primary); }
 .student-page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
 .student-page-heading .no-print { display: flex; align-items: center; gap: 1rem; }
 .student-averages { max-width: 28rem; }
@@ -703,3 +701,10 @@ table.distribution th, table.distribution td { white-space: nowrap; }
 table.distribution .count { text-align: center; font-variant-numeric: tabular-nums; }
 table.distribution td.zero { color: var(--color-text-muted); }
 table.distribution tr.group-heading th { text-transform: none; letter-spacing: 0; color: var(--color-text); }
+
+/* Grid student column: the name, and a visible "Details" button for the student's page. */
+.student-cell-inner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.student-cell-inner .student-details { padding: 0.15rem 0.5rem; font-size: 0.8rem; font-weight: 400; }
+/* ✎ next to a final grade: opens the student page at "Zeugnisnote festlegen". */
+td.average-cell .report-grade-edit { margin-left: 0.3rem; font-weight: 400; color: var(--color-text-muted); text-decoration: none; }
+td.average-cell .report-grade-edit:hover { color: var(--color-primary); }

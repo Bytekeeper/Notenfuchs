@@ -176,7 +176,9 @@ class WalkthroughIT {
         assertThat(page.locator(".assessment-average-raw")).hasText("3.43");
         shotOf("alltag-noten-eintragen", page.locator(".grid-wrapper"));
 
-        clickLink("Jonas Keller");
+        record();
+        page.locator("table.grade-grid tr").filter(new Locator.FilterOptions().setHasText("Jonas Keller"))
+                .getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Details")).click();
         assertThat(page.locator("h2").first()).containsText("Jonas Keller");
         shot("alltag-schuelerseite");
 
@@ -257,8 +259,9 @@ class WalkthroughIT {
         assertThat(page.locator("#assessmentDate")).hasValue(expectedDate);
         page.locator("#assessment-dialog .assessment-dialog-cancel").click();
 
-        clickLink("Jonas Keller");
-        AddPanels.open(page, "Zeugnisnote festlegen");
+        // The ✎ at the half-year grade opens the student page with the cursor in that field.
+        clickLink("Zeugnisnote 1. Halbjahr für Jonas Keller festlegen");
+        assertThat(page.locator("#reportGradeFirstHalf")).isFocused();
         page.locator("#reportGradeFirstHalf").fill("2-");
         page.locator("#reportGradeYear").fill("2");
         page.locator(".student-grades").getByRole(AriaRole.BUTTON,

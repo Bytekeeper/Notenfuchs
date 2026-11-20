@@ -83,7 +83,8 @@ public class StudentPageResource {
                                         @PathParam("studentId") Long studentId,
                                         @QueryParam("category") Long categoryId,
                                         @QueryParam("factor") BigDecimal factor,
-                                        @QueryParam("reportGradeError") String reportGradeError) {
+                                        @QueryParam("reportGradeError") String reportGradeError,
+                                        @QueryParam("zeugnisnote") String focusReportGrade) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
         Student student = requireStudentOfSubject(studentId, subject, currentSubject);
@@ -169,7 +170,10 @@ public class StudentPageResource {
                 .data("hasHalfYear", cutoff != null)
                 .data("firstHalfReportGrade", firstHalfReportGrade)
                 .data("yearReportGrade", yearReportGrade)
-                .data("reportGradeError", reportGradeMessage(reportGradeError, subject.gradeScale)));
+                .data("reportGradeError", reportGradeMessage(reportGradeError, subject.gradeScale))
+                // The grid's ✎ links here with the period whose field should get the cursor.
+                .data("focusReportGrade", "firstHalf".equals(focusReportGrade) && cutoff != null ? "firstHalf"
+                        : focusReportGrade != null ? "year" : null));
     }
 
     /**
@@ -199,15 +203,15 @@ public class StudentPageResource {
             yearValue = parseReportGrade(year, subject.gradeScale);
             firstHalfValue = hasHalfYear ? parseReportGrade(firstHalf, subject.gradeScale) : null;
         } catch (NumberFormatException e) {
-            return Redirects.seeOther(page + "?reportGradeError=invalid").build();
+            return Redirects.seeOther(page + "?reportGradeError=invalid#zeugnisnote").build();
         }
         if ((yearValue != null && !subject.gradeScale.contains(yearValue))
                 || (firstHalfValue != null && !subject.gradeScale.contains(firstHalfValue))) {
-            return Redirects.seeOther(page + "?reportGradeError=range").build();
+            return Redirects.seeOther(page + "?reportGradeError=range#zeugnisnote").build();
         }
         // "Jahr" is always a whole grade, the same as the computed one.
         if (yearValue != null && yearValue.stripTrailingZeros().scale() > 0) {
-            return Redirects.seeOther(page + "?reportGradeError=whole").build();
+            return Redirects.seeOther(page + "?reportGradeError=whole#zeugnisnote").build();
         }
 
         storeReportGrade(subject, student, ReportGrade.Period.YEAR, yearValue);
