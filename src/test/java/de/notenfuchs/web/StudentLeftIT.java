@@ -78,6 +78,28 @@ class StudentLeftIT {
     }
 
     @Test
+    void leftStudent_isNotCountedInTheNotenschluesselPreview() throws Exception {
+        Fixture f = fixture();
+        Long categoryId = Assessment.<Assessment>findById(f.assessmentId()).category.id;
+        http.post("/subjects/" + f.subjectId() + "/grid/assessments",
+                Map.of("categoryId", categoryId.toString(), "name", "Punkte-KA", "pointsBased", "true"));
+        Long pointsId = Assessment.find("category.id = ?1 and name = 'Punkte-KA'", categoryId).<Assessment>firstResult().id;
+        for (Map.Entry<Long, String> points : Map.of(f.annaId(), "60", f.benId(), "20").entrySet()) {
+            http.post("/subjects/" + f.subjectId() + "/grid/cell", Map.of("studentId", points.getKey().toString(),
+                    "assessmentId", pointsId.toString(), "value", points.getValue()));
+        }
+        http.post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());
+
+        JsonNode preview = json.readTree(http.post("/subjects/" + f.subjectId() + "/grid/assessments/" + pointsId
+                + "/band-preview", "bandPoints=60&bandGrades=1&bandPoints=20&bandGrades=6").body());
+
+        // Only Anna's 1 counts: grade 1 first, grade 6 last.
+        assertEquals(1, preview.get("distribution").get(0).get("count").asInt());
+        assertEquals(0, preview.get("distribution").get(5).get("count").asInt());
+        assertEquals("1", preview.get("average").asText());
+    }
+
+    @Test
     void newSchoolYear_copiesOnlyStudentsStillInTheClass() throws Exception {
         Fixture f = fixture();
         http.post("/classes/" + f.classId() + "/students/" + f.benId() + "/leave", Map.of());

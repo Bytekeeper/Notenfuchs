@@ -3,6 +3,8 @@ package de.notenfuchs.web;
 import de.notenfuchs.domain.Assessment;
 import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
+import de.notenfuchs.domain.GradeScale;
+import de.notenfuchs.domain.ReportGrade;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
@@ -18,13 +20,18 @@ import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -32,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static de.notenfuchs.web.GradeGridResource.formatOrNull;
 import static de.notenfuchs.web.GradeGridResource.gradesByKey;
 import static de.notenfuchs.web.GradeGridResource.plain;
 
@@ -74,13 +82,12 @@ public class StudentPageResource {
     public TemplateInstance studentPage(@PathParam("id") Long id,
                                         @PathParam("studentId") Long studentId,
                                         @QueryParam("category") Long categoryId,
-                                        @QueryParam("factor") BigDecimal factor) {
+                                        @QueryParam("factor") BigDecimal factor,
+                                        @QueryParam("reportGradeError") String reportGradeError,
+                                        @QueryParam("zeugnisnote") String focusReportGrade) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
-        Student student = guard.requireClassAccessStudent(studentId, currentSubject);
-        if (!student.schoolClass.id.equals(subject.schoolClass.id)) {
-            throw new NotFoundException("Student " + studentId + " not found");
-        }
+        Student student = requireStudentOfSubject(studentId, subject, currentSubject);
         List<GradeCategory> categories = GradeCategory.list("subject.id = ?1 order by id", id);
         List<Assessment> assessments = Assessment.list(
                 "category.subject.id = ?1 order by category.id, date nulls last, id", id);
@@ -92,12 +99,15 @@ public class StudentPageResource {
             Grade grade = grades.get(new GradeKey(assessment.id, studentId));
             BigDecimal value = grade != null ? grid.effectiveGradeValue(grade, assessment, subject.gradeScale) : null;
             String gradeText = value == null ? "–"
-                    : assessment.pointsBased ? plain(grade.points) + " Pkt. → " + plain(value) : plain(value);
+                    : assessment.pointsBased ? plain(grade.points) + " Pkt. → " + plain(value)
+                    : subject.gradeScale.format(value);
             leistungen.add(new StudentLeistungView(assessment.category.name, assessment.name, assessment.date,
                     assessment.factor, gradeText, grade != null && grade.absence != null ? grade.absence.label : null));
         }
 
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
+        String firstHalfReportGrade = formatOrNull(subject.gradeScale, reportGrade(subject, student, ReportGrade.Period.FIRST_HALF));
+        String yearReportGrade = formatOrNull(subject.gradeScale, reportGrade(subject, student, ReportGrade.Period.YEAR));
         List<AverageView> averages = new ArrayList<>();
         List<Assessment> currentHalf = null;
         String currentHalfName = null;
@@ -113,8 +123,10 @@ public class StudentPageResource {
             }
             SubjectAverageResult h1Average = average(categories, h1, grades, student, subject);
             SubjectAverageResult h2Average = average(categories, h2, grades, student, subject);
-            averages.add(new AverageView("1. Halbjahr", h1Average.rawAverage(), h1Average.finalGrade() != null ? grid.displayLabel(subject, h1Average) : null));
-            averages.add(new AverageView("2. Halbjahr", h2Average.rawAverage(), h2Average.finalGrade() != null ? grid.displayLabel(subject, h2Average) : null));
+            averages.add(new AverageView("1. Halbjahr", h1Average.rawAverage(),
+                    h1Average.finalGrade() != null ? grid.displayLabel(subject, h1Average) : null, firstHalfReportGrade));
+            averages.add(new AverageView("2. Halbjahr", h2Average.rawAverage(),
+                    h2Average.finalGrade() != null ? grid.displayLabel(subject, h2Average) : null, null));
             // A Leistung written today falls into the half that contains today.
             boolean firstHalf = halfYearPartitioner.classify(LocalDate.now(), cutoff) == HalfYearAssessmentPartitioner.Half.FIRST;
             currentHalf = firstHalf ? h1 : h2;
@@ -122,7 +134,7 @@ public class StudentPageResource {
         }
         SubjectAverageResult yearAverage = average(categories, assessments, grades, student, subject);
         averages.add(new AverageView("Jahr", yearAverage.rawAverage(),
-                yearAverage.finalGrade() != null ? yearAverage.finalGrade().toString() : null));
+                yearAverage.finalGrade() != null ? yearAverage.finalGrade().toString() : null, yearReportGrade));
 
         // A student who left gets no further Leistung, so there is nothing to work out for them.
         GradeCategory nextCategory = student.hasLeft() ? null : categories.stream()
@@ -154,7 +166,109 @@ public class StudentPageResource {
                 .data("nextCategory", nextCategory)
                 .data("nextFactor", plain(nextFactor))
                 .data("currentHalfName", currentHalfName)
-                .data("requirements", requirements));
+                .data("requirements", requirements)
+                .data("hasHalfYear", cutoff != null)
+                .data("firstHalfReportGrade", firstHalfReportGrade)
+                .data("yearReportGrade", yearReportGrade)
+                .data("reportGradeError", reportGradeMessage(reportGradeError, subject.gradeScale))
+                // The grid's ✎ links here with the period whose field should get the cursor.
+                .data("focusReportGrade", "firstHalf".equals(focusReportGrade) && cutoff != null ? "firstHalf"
+                        : focusReportGrade != null ? "year" : null));
+    }
+
+    /**
+     * Sets or clears (empty field) the Zeugnisnoten of one student. A plain form POST: on bad input
+     * it redirects back with an error code, since the page's averages need the full GET anyway.
+     */
+    @POST
+    @Path("/{studentId}/report-grades")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Transactional
+    public Response saveReportGrades(@PathParam("id") Long id,
+                                     @PathParam("studentId") Long studentId,
+                                     @FormParam("firstHalf") String firstHalf,
+                                     @FormParam("year") String year) {
+        String currentSubject = currentUser.effectiveSubject();
+        Subject subject = guard.requireTeachesSubject(id, currentSubject);
+        Student student = requireStudentOfSubject(studentId, subject, currentSubject);
+        if (student.hasLeft()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Schüler ist ausgetreten").build();
+        }
+        boolean hasHalfYear = subject.schoolClass.halfYearCutoff != null;
+        String page = "/subjects/" + id + "/grid/students/" + studentId;
+
+        BigDecimal yearValue;
+        BigDecimal firstHalfValue;
+        try {
+            yearValue = parseReportGrade(year, subject.gradeScale);
+            firstHalfValue = hasHalfYear ? parseReportGrade(firstHalf, subject.gradeScale) : null;
+        } catch (NumberFormatException e) {
+            return Redirects.seeOther(page + "?reportGradeError=invalid#zeugnisnote").build();
+        }
+        if ((yearValue != null && !subject.gradeScale.contains(yearValue))
+                || (firstHalfValue != null && !subject.gradeScale.contains(firstHalfValue))) {
+            return Redirects.seeOther(page + "?reportGradeError=range#zeugnisnote").build();
+        }
+        // "Jahr" is always a whole grade, the same as the computed one.
+        if (yearValue != null && yearValue.stripTrailingZeros().scale() > 0) {
+            return Redirects.seeOther(page + "?reportGradeError=whole#zeugnisnote").build();
+        }
+
+        storeReportGrade(subject, student, ReportGrade.Period.YEAR, yearValue);
+        if (hasHalfYear) {
+            storeReportGrade(subject, student, ReportGrade.Period.FIRST_HALF, firstHalfValue);
+        }
+        return Redirects.seeOther(page).build();
+    }
+
+    private Student requireStudentOfSubject(Long studentId, Subject subject, String currentSubject) {
+        Student student = guard.requireClassAccessStudent(studentId, currentSubject);
+        if (!student.schoolClass.id.equals(subject.schoolClass.id)) {
+            throw new NotFoundException("Student " + studentId + " not found");
+        }
+        return student;
+    }
+
+    private static BigDecimal parseReportGrade(String text, GradeScale scale) {
+        return text == null || text.isBlank() ? null : scale.parseGrade(text);
+    }
+
+    private static BigDecimal reportGrade(Subject subject, Student student, ReportGrade.Period period) {
+        ReportGrade grade = ReportGrade.find("subject.id = ?1 and student.id = ?2 and period = ?3",
+                subject.id, student.id, period).firstResult();
+        return grade != null ? grade.value : null;
+    }
+
+    private static void storeReportGrade(Subject subject, Student student, ReportGrade.Period period, BigDecimal value) {
+        ReportGrade existing = ReportGrade.find("subject.id = ?1 and student.id = ?2 and period = ?3",
+                subject.id, student.id, period).firstResult();
+        if (value == null) {
+            if (existing != null) {
+                existing.delete();
+            }
+            return;
+        }
+        if (existing != null) {
+            existing.value = value;
+            return;
+        }
+        ReportGrade grade = new ReportGrade();
+        grade.subject = subject;
+        grade.student = student;
+        grade.period = period;
+        grade.value = value;
+        grade.persist();
+    }
+
+    private static String reportGradeMessage(String code, GradeScale scale) {
+        if (code == null) {
+            return null;
+        }
+        return switch (code) {
+            case "range" -> "Die Note muss zwischen " + plain(scale.min) + " und " + plain(scale.max) + " liegen.";
+            case "whole" -> "Die Jahresnote ist immer eine ganze Note.";
+            default -> "Bitte eine Note eingeben, zum Beispiel 2 oder 2-.";
+        };
     }
 
     private static String requirementText(RequiredGradeService.Requirement requirement) {
@@ -198,7 +312,8 @@ public class StudentPageResource {
                                       String gradeText, String absenceLabel) {
     }
 
-    public record AverageView(String label, BigDecimal rawAverage, String grade) {
+    /** {@code reportGrade}: the Zeugnisnote set by hand, shown instead of {@code grade}; null if none. */
+    public record AverageView(String label, BigDecimal rawAverage, String grade, String reportGrade) {
     }
 
     public record RequirementRow(int targetGrade, String currentHalf, String year) {

@@ -163,18 +163,22 @@ class WalkthroughIT {
 
         // The cursor starts in the new column; Enter moves down a row and saves the cell left behind.
         assertThat(page.locator("input.grade-input[data-row='0']")).isFocused();
-        for (String value : new String[] {"2", "3", "e", "5"}) {
+        for (String value : new String[] {"2-", "3", "e", "5"}) {
             page.keyboard().type(value);
             page.keyboard().press("Enter");
         }
         page.locator("input.grade-input[data-row='3']").evaluate("el => el.blur()");
         page.waitForLoadState(LoadState.NETWORKIDLE);
         assertThat(page.locator("td.grade-cell-absent")).hasCount(1);
-        // (2 + 3 + 5) / 3: the absent cell doesn't count, and no save's answer may overwrite a later one.
-        assertThat(page.locator(".assessment-average-raw")).hasText("3.33");
+        // (2.3 + 3 + 5) / 3: "2-" counts 2.3, the absent cell doesn't count, and no save's answer may
+        // overwrite a later one.
+        assertThat(page.locator("input.grade-input[data-row='0']")).hasValue("2-");
+        assertThat(page.locator(".assessment-average-raw")).hasText("3.43");
         shotOf("alltag-noten-eintragen", page.locator(".grid-wrapper"));
 
-        clickLink("Jonas Keller");
+        record();
+        page.locator("table.grade-grid tr").filter(new Locator.FilterOptions().setHasText("Jonas Keller"))
+                .getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Details")).click();
         assertThat(page.locator("h2").first()).containsText("Jonas Keller");
         shot("alltag-schuelerseite");
 
@@ -221,6 +225,12 @@ class WalkthroughIT {
         assertThat(page.locator(".derived-grade").first()).hasText("1");
         shotOf("punkte-raster", page.locator(".grid-wrapper"));
 
+        clickTab("Notenspiegel");
+        assertThat(page.locator("table.distribution tr").filter(new Locator.FilterOptions().setHasText("Klassenarbeit 1"))
+                .locator("td.count").last()).hasText("4");
+        record();
+        shotOf("punkte-notenspiegel", page.locator(".grid-wrapper"));
+
         checkGuide("03-klassenarbeit-mit-punkten.md");
     }
 
@@ -248,6 +258,19 @@ class WalkthroughIT {
         page.locator("th.category-header .column-add[data-date]").nth(0).click();
         assertThat(page.locator("#assessmentDate")).hasValue(expectedDate);
         page.locator("#assessment-dialog .assessment-dialog-cancel").click();
+
+        // The ✎ at the half-year grade opens the student page with the cursor in that field.
+        clickLink("Zeugnisnote 1. Halbjahr für Jonas Keller festlegen");
+        assertThat(page.locator("#reportGradeFirstHalf")).isFocused();
+        page.locator("#reportGradeFirstHalf").fill("2-");
+        page.locator("#reportGradeYear").fill("2");
+        page.locator(".student-grades").getByRole(AriaRole.BUTTON,
+                new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(page.locator(".student-averages .report-grade")).hasText(new String[] {"2-", "2"});
+        shotOf("zeugnis-zeugnisnote", page.locator(".student-grades"));
+        record();
+        clickLink("← zurück zur Notenerfassung");
+        assertThat(page.locator("td.has-report-grade")).hasCount(2);
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Verhaltensnoten der Klasse")).click();
         String[] deutsch = {"2", "2", "3", "4"};

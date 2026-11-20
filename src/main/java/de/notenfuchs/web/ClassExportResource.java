@@ -86,7 +86,7 @@ public class ClassExportResource {
     private void writeOverviewSheet(XSSFWorkbook workbook, Long classId, List<Subject> subjects) {
         Map<Long, Map<Long, Integer>> finalGrades = new HashMap<>();
         for (StudentSubjectAverageResponse average : classAveragesResource.averages(classId)) {
-            finalGrades.computeIfAbsent(average.studentId, k -> new HashMap<>()).put(average.subjectId, average.finalGrade);
+            finalGrades.computeIfAbsent(average.studentId, k -> new HashMap<>()).put(average.subjectId, average.effectiveFinalGrade());
         }
         Sheet sheet = workbook.createSheet(OVERVIEW_SHEET);
         Row header = sheet.createRow(0);

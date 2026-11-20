@@ -79,12 +79,12 @@ public class ClassOverviewResource {
             int atRiskCount = 0;
             for (Subject subject : subjects) {
                 StudentSubjectAverageResponse average = studentAverages.get(subject.id);
-                Integer finalGrade = average != null ? average.finalGrade : null;
-                boolean atRisk = subject.gradeScale.isAtRisk(finalGrade);
+                boolean atRisk = average != null && subject.gradeScale.isAtRisk(average.effectiveFinalGrade());
                 if (atRisk) {
                     atRiskCount++;
                 }
-                cells.add(new CellView(average != null ? average.rawAverage : null, finalGrade, atRisk));
+                cells.add(average == null ? new CellView(null, null, null, false)
+                        : new CellView(average.rawAverage, average.finalGrade, average.reportGrade, atRisk));
             }
             RowView row = new RowView(student.id, student.effectiveName(), cells, atRiskCount);
             if (student.hasLeft()) {
@@ -131,7 +131,10 @@ public class ClassOverviewResource {
     public record SubjectStatus(long openGrades, long openBehaviorGrades) {
     }
 
-    /** {@code null} fields mean no grade entered yet for that (student, Subject) - rendered as "-". */
-    public record CellView(BigDecimal rawAverage, Integer finalGrade, boolean atRisk) {
+    /**
+     * {@code null} fields mean no grade entered yet for that (student, Subject) - rendered as "-".
+     * {@code reportGrade} is a Zeugnisnote set by hand; {@code atRisk} judges it instead of {@code finalGrade}.
+     */
+    public record CellView(BigDecimal rawAverage, Integer finalGrade, Integer reportGrade, boolean atRisk) {
     }
 }

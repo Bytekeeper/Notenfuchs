@@ -1,0 +1,42 @@
+{#include base}
+{#title}Notenspiegel – {subject.name}{/title}
+
+{#include SubjectPage/subjectHeader activeTab='distribution' /}
+{#if empty}
+<p class="hint">Noch keine Leistungen. Sobald Noten eingetragen sind, steht hier, wie oft jede Note vergeben wurde.</p>
+{#else}
+<p class="hint">Wie oft jede Note vergeben wurde. „2-“ zählt als 2, Punkte zählen mit ihrer gerundeten Note. Ausgetretene Schüler und leere Zellen zählen nicht.</p>
+<div class="grid-wrapper">
+<table class="distribution">
+    <thead>
+        <tr>
+            <th>Leistung</th>
+            <th>Datum</th>
+            {#for g in gradeColumns}<th class="count">{g}</th>{/for}
+            <th class="count">Ø</th>
+            <th class="count">Noten</th>
+        </tr>
+    </thead>
+    {#for group in groups}
+    <tbody>
+        {#if group.title}
+        <tr class="group-heading"><th colspan="{colspan}">{group.title}{#if group.note} <span class="row-meta">{group.note}</span>{/if}</th></tr>
+        {/if}
+        {#for row in group.rows}
+        <tr>
+            <td>{row.name}{#if row.categoryName} <span class="row-meta">{row.categoryName}</span>{/if}</td>
+            <td>{#if row.date}{row.date.format('dd.MM.yyyy')}{/if}</td>
+            {#for c in row.counts}<td class="count{#if c == 0} zero{/if}">{c}</td>{/for}
+            <td class="count">{row.average ?: '–'}</td>
+            <td class="count">{row.gradeCount}</td>
+        </tr>
+        {#else}
+        <tr class="empty-row"><td colspan="{colspan}">Keine Leistungen</td></tr>
+        {/for}
+    </tbody>
+    {/for}
+</table>
+</div>
+{/if}
+
+{/include}

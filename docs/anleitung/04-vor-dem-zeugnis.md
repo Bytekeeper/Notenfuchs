@@ -16,6 +16,21 @@ schlägt deshalb ein Datum in diesem Halbjahr vor.
 
 ![Notentabelle mit Halbjahren](bilder/zeugnis-halbjahre.png)
 
+## Zeugnisnote festlegen
+
+Manchmal soll auf dem Zeugnis eine andere Note stehen als die berechnete. Klicken Sie dazu
+in der Notentabelle auf den Stift ✎ neben der Note im **„1. Halbjahr“** oder im **„Jahr“**.
+Die Seite des Schülers öffnet sich bei **„Zeugnisnote festlegen“**, der Cursor steht schon im
+passenden Feld. Tragen Sie die Note ein und klicken auf **„Speichern“**. Die Jahresnote ist immer eine ganze Note;
+im Halbjahr geht auch 2- oder 2,5.
+
+Die festgelegte Note gilt dann überall: in der Notentabelle, in der Notenübersicht und im
+Excel-Export (Spalte „Zeugnisnote“). Die berechnete Note steht durchgestrichen daneben, so
+sehen Sie, wie weit beide auseinanderliegen. Ein leeres Feld lässt wieder die berechnete
+Note gelten.
+
+![Zeugnisnote auf der Seite eines Schülers](bilder/zeugnis-zeugnisnote.png)
+
 ## Verhaltensnoten
 
 Über **„Verhaltensnoten der Klasse“** im Fach (oder den Reiter **„Verhaltensnoten“** der
@@ -27,7 +42,8 @@ nur die Spalten Ihrer eigenen Fächer. Gelb markierte Zellen fehlen noch.
 ## Notenübersicht für die Klassenleitung
 
 Der Reiter **„Notenübersicht“** zeigt die Endnoten aller Fächer für jeden Schüler. Rot
-markiert sind Noten, bei denen ein Schüler gefährdet ist (5 oder schlechter). Unten steht je
+markiert sind Noten, bei denen ein Schüler gefährdet ist (5 oder schlechter). Eine
+festgelegte Zeugnisnote zählt dabei statt der berechneten. Unten steht je
 Fach, wie viele Noten (**„Noten offen“**) und Verhaltensnoten (**„Verhaltensnoten offen“**)
 noch fehlen.
 

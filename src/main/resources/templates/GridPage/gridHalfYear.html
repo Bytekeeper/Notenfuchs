@@ -89,7 +89,7 @@
             <tbody>
                 {#for row in rows}
                     <tr>
-                        <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}" title="Alle Leistungen und was noch nötig ist">{row.student.effectiveName}</a></td>
+                        <td class="student-cell"><div class="student-cell-inner"><span>{row.student.effectiveName}</span><a class="btn secondary student-details" href="/subjects/{subject.id}/grid/students/{row.student.id}" title="Alle Leistungen, Zeugnisnote und was noch nötig ist">Details</a></div></td>
                         {#if !undatedColumns.isEmpty}
                             {#for cell in row.undatedCells}
                                 <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}{#if cell.absence} grade-cell-absent{/if}"{#if cell.due} data-due="true"{/if}>
@@ -134,8 +134,9 @@
                                 {/if}
                             </td>
                         {/for}
-                        <td class="average-cell">
-                            <span class="average-final" data-student-id="{row.student.id}" data-scope="h1">{row.h1DisplayLabel ?: '–'}</span>
+                        <td class="average-cell{#if row.h1ReportGrade} has-report-grade{/if}">
+                            {#if row.h1ReportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{row.h1ReportGrade}</span>{/if}
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="h1">{row.h1DisplayLabel ?: '–'}</span><a class="report-grade-edit no-print" href="/subjects/{subject.id}/grid/students/{row.student.id}?zeugnisnote=firstHalf" title="Zeugnisnote 1. Halbjahr festlegen" aria-label="Zeugnisnote 1. Halbjahr für {row.student.effectiveName} festlegen">✎</a>
                             <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="h1">{row.h1RawAverage ?: '–'}</span>
                         </td>
                         {#for cell in row.h2Cells}
@@ -163,8 +164,9 @@
                             <span class="average-final" data-student-id="{row.student.id}" data-scope="h2">{row.h2DisplayLabel ?: '–'}</span>
                             <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="h2">{row.h2RawAverage ?: '–'}</span>
                         </td>
-                        <td class="average-cell">
-                            <span class="average-final" data-student-id="{row.student.id}" data-scope="jahr">{row.jahrFinalGrade ?: '–'}</span>
+                        <td class="average-cell{#if row.jahrReportGrade} has-report-grade{/if}">
+                            {#if row.jahrReportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{row.jahrReportGrade}</span>{/if}
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="jahr">{row.jahrFinalGrade ?: '–'}</span><a class="report-grade-edit no-print" href="/subjects/{subject.id}/grid/students/{row.student.id}?zeugnisnote=year" title="Zeugnisnote Jahr festlegen" aria-label="Zeugnisnote Jahr für {row.student.effectiveName} festlegen">✎</a>
                             <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="jahr">{row.jahrRawAverage ?: '–'}</span>
                         </td>
                     </tr>
@@ -175,13 +177,13 @@
                 <tr class="left-heading"><th>Ausgetreten – nur lesend</th><th colspan="{#if undatedColumns.isEmpty}{leftRows.get(0).h1Cells.size + leftRows.get(0).h2Cells.size + 3}{#else}{leftRows.get(0).undatedCells.size + leftRows.get(0).h1Cells.size + leftRows.get(0).h2Cells.size + 3}{/if}"></th></tr>
                 {#for row in leftRows}
                 <tr>
-                    <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}">{row.student.effectiveName}</a></td>
+                    <td class="student-cell"><div class="student-cell-inner"><span>{row.student.effectiveName}</span><a class="btn secondary student-details" href="/subjects/{subject.id}/grid/students/{row.student.id}">Details</a></div></td>
                     {#if !undatedColumns.isEmpty}{#include GridPage/readonlyCells cells=row.undatedCells /}{/if}
                     {#include GridPage/readonlyCells cells=row.h1Cells /}
-                    <td class="average-cell"><span class="average-final">{row.h1DisplayLabel ?: '–'}</span><span class="raw-average">{row.h1RawAverage ?: '–'}</span></td>
+                    <td class="average-cell{#if row.h1ReportGrade} has-report-grade{/if}">{#if row.h1ReportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{row.h1ReportGrade}</span>{/if}<span class="average-final">{row.h1DisplayLabel ?: '–'}</span><span class="raw-average">{row.h1RawAverage ?: '–'}</span></td>
                     {#include GridPage/readonlyCells cells=row.h2Cells /}
                     <td class="average-cell"><span class="average-final">{row.h2DisplayLabel ?: '–'}</span><span class="raw-average">{row.h2RawAverage ?: '–'}</span></td>
-                    <td class="average-cell"><span class="average-final">{row.jahrFinalGrade ?: '–'}</span><span class="raw-average">{row.jahrRawAverage ?: '–'}</span></td>
+                    <td class="average-cell{#if row.jahrReportGrade} has-report-grade{/if}">{#if row.jahrReportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{row.jahrReportGrade}</span>{/if}<span class="average-final">{row.jahrFinalGrade ?: '–'}</span><span class="raw-average">{row.jahrRawAverage ?: '–'}</span></td>
                 </tr>
                 {/for}
             </tbody>
@@ -232,8 +234,8 @@
         + neben einer Kategorie: neue Leistung · Name einer Leistung anklicken: ändern oder löschen ·
         e / u: abwesend entschuldigt / unentschuldigt, allein oder neben der Note (z. B. „6 u“) – ändert die Note nicht ·
         Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
-        Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
-        Zelle leeren + verlassen löscht die Note. Punktebasierte Leistungen: Punktzahl eingeben,
+        Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·{#if subject.gradeScale.tendencyStep} 2- / 2+: Note mit Tendenz ·{/if}
+        Zelle leeren + verlassen löscht die Note. „Details“: die Seite des Schülers mit allen Leistungen. ✎ an der Endnote: dort die Zeugnisnote von Hand festlegen (die berechnete steht dann durchgestrichen daneben). Punktebasierte Leistungen: Punktzahl eingeben,
         die Note wird automatisch nach dem Notenschlüssel berechnet und angezeigt (z. B. „65 → 1").
         1. HJ / 2. HJ: Durchschnitt nur aus den Leistungen des jeweiligen Halbjahres · Jahr: wie gewohnt über alle Leistungen.
     </p>

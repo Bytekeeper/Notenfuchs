@@ -47,7 +47,7 @@
             <tbody>
                 {#for row in rows}
                     <tr>
-                        <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}" title="Alle Leistungen und was noch nötig ist">{row.student.effectiveName}</a></td>
+                        <td class="student-cell"><div class="student-cell-inner"><span>{row.student.effectiveName}</span><a class="btn secondary student-details" href="/subjects/{subject.id}/grid/students/{row.student.id}" title="Alle Leistungen, Zeugnisnote und was noch nötig ist">Details</a></div></td>
                         {#for cell in row.cells}
                             <td class="grade-cell {#if cell.categoryStart}category-start{/if}{#if cell.open} grade-cell-open{/if}{#if cell.absence} grade-cell-absent{/if}"{#if cell.due} data-due="true"{/if}>
                                 {#if cell.assessmentId}
@@ -78,8 +78,9 @@
                                 {/if}
                             </td>
                         {/for}
-                        <td class="average-cell">
-                            <span class="average-final" data-student-id="{row.student.id}" data-scope="jahr">{row.finalGrade ?: '–'}</span>
+                        <td class="average-cell{#if row.reportGrade} has-report-grade{/if}">
+                            {#if row.reportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{row.reportGrade}</span>{/if}
+                            <span class="average-final" data-student-id="{row.student.id}" data-scope="jahr">{row.finalGrade ?: '–'}</span><a class="report-grade-edit no-print" href="/subjects/{subject.id}/grid/students/{row.student.id}?zeugnisnote=year" title="Zeugnisnote Jahr festlegen" aria-label="Zeugnisnote Jahr für {row.student.effectiveName} festlegen">✎</a>
                             <span class="raw-average average-raw" data-student-id="{row.student.id}" data-scope="jahr">{row.rawAverage ?: '–'}</span>
                         </td>
                     </tr>
@@ -90,9 +91,10 @@
                 <tr class="left-heading"><th>Ausgetreten – nur lesend</th><th colspan="{leftRows.get(0).cells.size + 1}"></th></tr>
                 {#for row in leftRows}
                 <tr>
-                    <td class="student-cell"><a href="/subjects/{subject.id}/grid/students/{row.student.id}">{row.student.effectiveName}</a></td>
+                    <td class="student-cell"><div class="student-cell-inner"><span>{row.student.effectiveName}</span><a class="btn secondary student-details" href="/subjects/{subject.id}/grid/students/{row.student.id}">Details</a></div></td>
                     {#include GridPage/readonlyCells cells=row.cells /}
-                    <td class="average-cell">
+                    <td class="average-cell{#if row.reportGrade} has-report-grade{/if}">
+                        {#if row.reportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{row.reportGrade}</span>{/if}
                         <span class="average-final">{row.finalGrade ?: '–'}</span>
                         <span class="raw-average">{row.rawAverage ?: '–'}</span>
                     </td>
@@ -122,8 +124,8 @@
         + neben einer Kategorie: neue Leistung · Name einer Leistung anklicken: ändern oder löschen ·
         e / u: abwesend entschuldigt / unentschuldigt, allein oder neben der Note (z. B. „6 u“) – ändert die Note nicht ·
         Tab / Shift+Tab: nächste/vorherige Zelle · Enter / Shift+Enter: Zelle darunter/darüber ·
-        Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·
-        Zelle leeren + verlassen löscht die Note. Punktebasierte Leistungen: Punktzahl eingeben,
+        Pfeiltasten: Navigation · Komma oder Punkt als Dezimaltrennzeichen (z. B. 2,3) ·{#if subject.gradeScale.tendencyStep} 2- / 2+: Note mit Tendenz ·{/if}
+        Zelle leeren + verlassen löscht die Note. „Details“: die Seite des Schülers mit allen Leistungen. ✎ an der Endnote: dort die Zeugnisnote von Hand festlegen (die berechnete steht dann durchgestrichen daneben). Punktebasierte Leistungen: Punktzahl eingeben,
         die Note wird automatisch nach dem Notenschlüssel berechnet und angezeigt (z. B. „65 → 1").
     </p>
 {/if}

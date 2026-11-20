@@ -96,13 +96,16 @@
                         return resp.json();
                     })
                     .then(function (data) {
-                        input.dataset.lastSaved = normalized;
                         setState(input, "saved");
                         setTimeout(function () {
                             input.classList.remove("state-saved");
                         }, 1200);
+                        // The server may write it differently ("2,3" comes back as "2-"); compare
+                        // against that, or the next blur would save the same grade again.
+                        input.dataset.lastSaved = normalized;
                         if (typeof data.displayValue === "string") {
                             input.value = data.displayValue;
+                            input.dataset.lastSaved = normalizeValue(data.displayValue);
                         }
                         grid.afterSave(root, input, data);
                     })
