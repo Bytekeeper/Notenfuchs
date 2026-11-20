@@ -257,7 +257,7 @@ public class GradeGridResource {
         Map<Integer, Integer> countByGrade = new HashMap<>();
         List<BigDecimal> derived = new ArrayList<>();
         for (Grade grade : Grade.<Grade>list(
-                "assessment.id = ?1 and points is not null", assessment.id)) {
+                "assessment.id = ?1 and points is not null and student.leftOn is null", assessment.id)) {
             BigDecimal value = pointsConversionService.convert(grade.points, bands, scale, assessment.roundingMode);
             derived.add(value);
             Integer whole = gradeService.calculateAssessmentAverage(List.of(value), scale, subject.roundingMode).finalGrade();
