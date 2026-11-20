@@ -1,0 +1,57 @@
+site_name: Notenfuchs
+site_description: Notenverwaltung für Lehrkräfte – selbst gehostet, quelloffen.
+site_url: https://notenfuchs.bytekeeper.org/
+repo_url: https://github.com/Bytekeeper/Notenfuchs
+repo_name: Bytekeeper/Notenfuchs
+edit_uri: ""
+
+docs_dir: docs
+# Developer notes live in docs/ too but are not for teachers.
+exclude_docs: |
+  ui-concept.md
+  usability-plan.md
+  use-cases.md
+
+nav:
+  - Start: index.md
+  - Anleitung:
+      - anleitung/README.md
+      - anleitung/01-schuljahresbeginn.md
+      - anleitung/02-alltag.md
+      - anleitung/03-klassenarbeit-mit-punkten.md
+      - anleitung/04-vor-dem-zeugnis.md
+      - anleitung/05-unterjaehrig.md
+      - anleitung/06-neues-schuljahr.md
+  - Datenschutz: datenschutz.md
+
+theme:
+  name: material
+  language: de
+  custom_dir: overrides
+  features:
+    - navigation.sections
+    - navigation.footer
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Dunkles Design
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Helles Design
+
+markdown_extensions:
+  - attr_list
+  - admonition
+  - toc:
+      permalink: true
+
+extra:
+  # Self-hosted GoatCounter; the snippet is only rendered when this is set (see overrides/main.html).
+  goatcounter_endpoint: https://stats.bytekeeper.org/count
