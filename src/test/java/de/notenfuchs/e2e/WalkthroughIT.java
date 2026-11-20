@@ -223,6 +223,12 @@ class WalkthroughIT {
         assertThat(page.locator(".derived-grade").first()).hasText("1");
         shotOf("punkte-raster", page.locator(".grid-wrapper"));
 
+        clickTab("Notenspiegel");
+        assertThat(page.locator("table.distribution tr").filter(new Locator.FilterOptions().setHasText("Klassenarbeit 1"))
+                .locator("td.count").last()).hasText("4");
+        record();
+        shotOf("punkte-notenspiegel", page.locator(".grid-wrapper"));
+
         checkGuide("03-klassenarbeit-mit-punkten.md");
     }
 

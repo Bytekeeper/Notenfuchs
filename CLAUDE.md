@@ -36,6 +36,7 @@ Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only 
   - `SubjectUiResource`: "Leistungen & Gewichtung" tab (categories; Leistungen open the grid's Leistung dialog) and Fach teachers; owns the create/update rules for a Leistung (`createAssessment`/`updateAssessment`).
   - `GradeGridResource`: grade grid (classic and half-year view), cell save, xlsx export, the Leistung dialog endpoints (add/edit/delete, Notenschlüssel, `band-preview`), starter categories.
   - `StudentPageResource`: one student in one Fach, incl. "Was braucht …" and setting the Zeugnisnoten.
+  - `GradeDistributionResource`: "Notenspiegel" tab, counts per whole grade per Leistung and for the Zeugnisnoten (reuses the grid's half split and averages).
   - `BehaviorGridResource`: Verhaltensnoten grid. `ClassOverviewResource`: admin-only Notenübersicht. `OpenGrades`: the "offen" rule and counts.
   - `ClassExportResource`: class-wide xlsx. Admins get a "Notenübersicht" sheet (final grades of every Fach); everyone gets a full sheet per Fach they teach, written by `GradeGridResource#addSubjectSheet` (the same code as the Fach export). It never widens access.
 - Templates in `src/main/resources/templates/`; tab headers `ClassPage/classHeader.html` and `SubjectPage/subjectHeader.html` (every tab page passes `activeTab`; class pages also `isClassAdmin`, Fach pages `switchSubjects`). Grid JS: `static/js/notenfuchs.js`.
@@ -106,6 +107,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 | Absence mark | `GradeAbsenceIT` |
 | Students who left | `StudentLeftIT`, `StudentLeftE2EIT` |
 | Student page, "Was braucht …" | `RequiredGradeServiceTest`, `StudentPageIT` |
+| Notenspiegel tab | `GradeDistributionIT`, `WalkthroughIT` |
 | Tendency entry ("2-"), Zeugnisnote | `GradeScaleTest`, `ReportGradeIT`, `GradeGridE2EIT`, `WalkthroughIT` |
 | Home page, Fach switcher | `MySubjectsIT`, `SubjectSwitcherE2EIT` |
 | New Fach setup (copy, starter) | `SubjectSetupIT` |

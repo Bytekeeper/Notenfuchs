@@ -681,7 +681,9 @@ kein Node-Build-Schritt.
   (Notenübersicht), `/teachers` (Lehrkräfte) und `/settings` (Einstellungen)
 - `/subjects/{id}` - die Notenkategorien und Leistungen eines Fachs verwalten
   (Reiter "Leistungen & Gewichtung"); `/subjects/{id}/teachers` - die Lehrkräfte
-  des Fachs
+  des Fachs; `/subjects/{id}/distribution` - der Notenspiegel: pro Leistung, wie oft
+  jede ganze Note vergeben wurde (`2-` zählt als 2, Punkte mit ihrer gerundeten Note),
+  dazu Durchschnitt und Anzahl, und ganz unten dasselbe für die Zeugnisnoten
 - `/subjects/{id}/grid` - das Noteneingabe-Raster: Schüler als Zeilen, Leistungen als
   Spalten (gruppiert nach Kategorie), jede Zelle speichert bei Blur/Verlassen
   automatisch über einen kleinen `fetch()`-Aufruf, mit einer live berechneten

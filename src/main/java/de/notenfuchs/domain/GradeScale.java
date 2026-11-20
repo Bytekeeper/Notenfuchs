@@ -8,6 +8,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Defines a grading scale, e.g. the German "1-6" scale (1 = best, 6 = worst)
@@ -83,6 +85,18 @@ public class GradeScale extends PanacheEntity {
             }
         }
         return value.stripTrailingZeros().toPlainString();
+    }
+
+    /** Every whole grade of the scale, best first: the columns of a Notenspiegel. */
+    public List<Integer> wholeGradesBestFirst() {
+        int best = lowerIsBetter ? min.intValue() : max.intValue();
+        int worst = lowerIsBetter ? max.intValue() : min.intValue();
+        int step = best <= worst ? 1 : -1;
+        List<Integer> grades = new ArrayList<>();
+        for (int g = best; g != worst + step; g += step) {
+            grades.add(g);
+        }
+        return grades;
     }
 
     public boolean contains(BigDecimal value) {

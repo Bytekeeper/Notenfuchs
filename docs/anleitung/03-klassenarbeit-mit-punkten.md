@@ -29,3 +29,13 @@ Unter **„Rundung (bei Punkten)“** wählen Sie, ob die Note immer zugunsten d
 oder kaufmännisch gerundet wird.
 
 ![Notentabelle mit Punkten und den daraus berechneten Noten](bilder/punkte-raster.png)
+
+## Notenspiegel für alle Leistungen
+
+Der Reiter **„Notenspiegel“** zeigt für jede Leistung des Fachs, wie oft jede Note vergeben
+wurde, dazu den Durchschnitt und die Zahl der Noten. Eine 2- zählt dabei als 2, Punkte
+zählen mit ihrer gerundeten Note. Ganz unten stehen die Zeugnisnoten: die von Hand
+festgelegte, sonst die berechnete. Die Seite lässt sich drucken, zum Beispiel für die
+Genehmigung einer Klassenarbeit.
+
+![Notenspiegel mit allen Leistungen und den Zeugnisnoten](bilder/punkte-notenspiegel.png)

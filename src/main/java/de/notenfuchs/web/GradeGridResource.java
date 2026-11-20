@@ -256,17 +256,15 @@ public class GradeGridResource {
         GradeScale scale = subject.gradeScale;
         Map<Integer, Integer> countByGrade = new HashMap<>();
         List<BigDecimal> derived = new ArrayList<>();
-        for (Grade grade : Grade.<Grade>list("assessment.id = ?1 and points is not null", assessment.id)) {
+        for (Grade grade : Grade.<Grade>list(
+                "assessment.id = ?1 and points is not null", assessment.id)) {
             BigDecimal value = pointsConversionService.convert(grade.points, bands, scale, assessment.roundingMode);
             derived.add(value);
             Integer whole = gradeService.calculateAssessmentAverage(List.of(value), scale, subject.roundingMode).finalGrade();
             countByGrade.merge(whole, 1, Integer::sum);
         }
-        int best = scale.lowerIsBetter ? scale.min.intValue() : scale.max.intValue();
-        int worst = scale.lowerIsBetter ? scale.max.intValue() : scale.min.intValue();
-        int step = best <= worst ? 1 : -1;
         List<BandPreview.GradeCount> distribution = new ArrayList<>();
-        for (int g = best; g != worst + step; g += step) {
+        for (int g : scale.wholeGradesBestFirst()) {
             distribution.add(new BandPreview.GradeCount(g, countByGrade.getOrDefault(g, 0)));
         }
         BigDecimal average = gradeService.calculateAssessmentAverage(derived, scale, subject.roundingMode).rawAverage();
@@ -509,7 +507,7 @@ public class GradeGridResource {
      * category actually has an undated Assessment - see the "Ohne Datum" block's "only rendered
      * if undated Assessments exist" rule.
      */
-    private HalfSplit splitByHalf(List<CategoryColumns> allColumns, LocalDate cutoff) {
+    HalfSplit splitByHalf(List<CategoryColumns> allColumns, LocalDate cutoff) {
         List<CategoryColumns> undated = new ArrayList<>();
         List<CategoryColumns> h1 = new ArrayList<>();
         List<CategoryColumns> h2 = new ArrayList<>();
@@ -625,7 +623,7 @@ public class GradeGridResource {
      * category with none of this block's Assessments graded for a student is excluded, not
      * treated as a zero) is entirely {@link GradeService}'s existing behavior - untouched.
      */
-    private List<SubjectAverageResult> subjectAveragesForBlock(List<CategoryColumns> blockColumns,
+    List<SubjectAverageResult> subjectAveragesForBlock(List<CategoryColumns> blockColumns,
                                                                  List<Student> students, Subject subject,
                                                                  Map<GradeKey, Grade> grades) {
         List<SubjectAverageResult> result = new ArrayList<>();
@@ -848,7 +846,7 @@ public class GradeGridResource {
         return bands.stream().map(b -> new PointsGradeBandData(b.points, b.gradeValue)).toList();
     }
 
-    private Map<Long, List<PointsGradeBandData>> bandsByAssessment(List<Assessment> assessments) {
+    Map<Long, List<PointsGradeBandData>> bandsByAssessment(List<Assessment> assessments) {
         Map<Long, List<PointsGradeBandData>> byAssessment = new HashMap<>();
         for (Assessment assessment : assessments) {
             if (assessment.pointsBased) {
@@ -1308,7 +1306,7 @@ public class GradeGridResource {
     }
 
     /** One category's Assessments split three ways by {@link HalfYearAssessmentPartitioner}. */
-    private record HalfSplit(List<CategoryColumns> undated, List<CategoryColumns> h1, List<CategoryColumns> h2) {
+    record HalfSplit(List<CategoryColumns> undated, List<CategoryColumns> h1, List<CategoryColumns> h2) {
     }
 
     /** Output of {@link #buildBlockCells}: one column block's cells (per student) and footers. */

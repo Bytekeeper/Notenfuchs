@@ -696,3 +696,10 @@ table.grade-grid tr.left-heading th:first-child { position: sticky; left: 0; z-i
 .feedback-thanks { color: var(--color-success); }
 .feedback-list .feedback-time { white-space: nowrap; }
 .feedback-list .feedback-message { white-space: pre-wrap; }
+
+/* Notenspiegel tab: one row per Leistung, one count column per whole grade. */
+table.distribution { border: none; border-radius: 0; }
+table.distribution th, table.distribution td { white-space: nowrap; }
+table.distribution .count { text-align: center; font-variant-numeric: tabular-nums; }
+table.distribution td.zero { color: var(--color-text-muted); }
+table.distribution tr.group-heading th { text-transform: none; letter-spacing: 0; color: var(--color-text); }
