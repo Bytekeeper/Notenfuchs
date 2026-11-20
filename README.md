@@ -373,6 +373,11 @@ Für einen gegebenen Schüler und ein Fach:
      der ganzen Zahl hin gerundet wird, die für den Schüler besser ist, basierend auf
      dem `lowerIsBetter`-Flag der Skala (z. B. auf der DE-1-6-Skala: 2,50 -> 2, die
      bessere Note).
+5. Eine **Zeugnisnote**, die die Lehrkraft auf der Seite des Schülers von Hand
+   festlegt (Jahr, mit Halbjahres-Stichtag auch 1. Halbjahr), gilt statt der Endnote:
+   in der Notentabelle, der Notenübersicht (auch für „gefährdet“) und im Export. Die
+   Berechnung selbst ändert sich dadurch nicht; die berechnete Endnote steht
+   durchgestrichen daneben.
 
 Diese Logik befindet sich in `GradeService`
 (`src/main/java/de/notenfuchs/service/GradeService.java`) als reiner,
@@ -657,7 +662,8 @@ die Daten dieser Lehrkraft, und eine fremde oder unbekannte ID liefert 404:
   `?studentId=` / `?subjectId=`) - Verhaltensnoten, unabhängig von der akademischen Note oben
 - `GET /api/grade-scales`, `GET /api/grade-scales/{id}` (schreibgeschützt, für alle Lehrkräfte gemeinsam)
 - `GET /api/school-classes/{classId}/averages` - berechneter Rohdurchschnitt + Endnote für
-  jede Kombination aus Schüler x Fach in dieser Klasse
+  jede Kombination aus Schüler x Fach in dieser Klasse, dazu `reportGrade`, falls eine
+  Zeugnisnote fürs Jahr von Hand festgelegt ist
 
 ## Web-Frontend
 
@@ -684,9 +690,12 @@ kein Node-Build-Schritt.
   löschen. Fehlende Noten von Leistungen, deren Datum erreicht ist, werden markiert.
   `e` / `u` in einer Zelle vermerkt „abwesend entschuldigt / unentschuldigt“ – allein
   (zählt dann nicht als fehlend) oder neben der Note (z. B. `6 u`); die Note selbst
-  ändert sich dadurch nie. Ein Klick auf einen Schülernamen öffnet seine Seite im Fach
-  (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte und
-  „Was braucht … in der nächsten Leistung?“ – druckbar, z. B. fürs Elterngespräch
+  ändert sich dadurch nie. Noten mit Tendenz lassen sich als `2-` / `2+` eintippen
+  (zählt als 2,3 / 1,7, je nach `tendency_step` der Skala). Ein Klick auf einen
+  Schülernamen öffnet seine Seite im Fach
+  (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte,
+  „Zeugnisnote festlegen“ und „Was braucht … in der nächsten Leistung?“ – druckbar,
+  z. B. fürs Elterngespräch
 - `/classes/{id}/export` - die ganze Klasse als `.xlsx`: für Klassen-Admins ein Blatt
   „Notenübersicht“ mit den Endnoten aller Fächer, dazu für jedes Fach, das man selbst
   unterrichtet, ein Blatt mit allen Noten (wie der Export des einzelnen Fachs)

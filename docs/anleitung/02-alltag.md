@@ -21,8 +21,9 @@ tragen Sie den Namen, das Datum (heute ist vorbelegt) und den Faktor ein und kli
 
 Nach dem Speichern steht der Cursor schon in der neuen Spalte. Tippen Sie die Note ein;
 Enter springt zum nächsten Schüler, Tab zur nächsten Spalte. Jede Zelle speichert sich
-beim Verlassen von selbst. Komma und Punkt gehen beide (2,3). Eine geleerte Zelle löscht
-die Note.
+beim Verlassen von selbst. Komma und Punkt gehen beide (2,3). Eine Note mit Tendenz tippen
+Sie als 2- oder 2+: Sie zählt als 2,3 oder 1,7 und bleibt als 2- oder 2+ stehen. Eine
+geleerte Zelle löscht die Note.
 
 War ein Schüler nicht da, tragen Sie **e** (entschuldigt) oder **u** (unentschuldigt) ein,
 allein oder neben der Note, zum Beispiel „6 u“. Der Vermerk ändert die Note nie; eine

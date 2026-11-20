@@ -5,6 +5,7 @@ import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
+import de.notenfuchs.domain.ReportGrade;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
@@ -26,7 +27,9 @@ import jakarta.ws.rs.core.MediaType;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Given a school class, computes the per-student, per-subject weighted grade average
@@ -62,6 +65,11 @@ public class ClassAveragesResource {
             subjects = subjects.stream().filter(s -> guard.teachesSubject(s, currentSubject)).toList();
         }
 
+        Map<Long, Map<Long, BigDecimal>> reportGrades = new HashMap<>();
+        for (Subject subject : subjects) {
+            reportGrades.put(subject.id, ReportGrade.bySubject(subject.id, ReportGrade.Period.YEAR));
+        }
+
         List<StudentSubjectAverageResponse> result = new ArrayList<>();
 
         for (Student student : students) {
@@ -89,10 +97,12 @@ public class ClassAveragesResource {
                 SubjectAverageResult average = gradeService.calculateSubjectAverage(
                         categoryDataList, subject.gradeScale, subject.roundingMode);
 
+                BigDecimal reportGrade = reportGrades.get(subject.id).get(student.id);
                 result.add(new StudentSubjectAverageResponse(
                         student.id, student.effectiveName(),
                         subject.id, subject.name,
-                        average.rawAverage(), average.finalGrade()));
+                        average.rawAverage(), average.finalGrade(),
+                        reportGrade != null ? reportGrade.intValue() : null));
             }
         }
 

@@ -28,7 +28,8 @@
                     <tr>
                         <td class="student-cell">{row.studentName}</td>
                         {#for cell in row.cells}
-                            <td class="average-cell{#if cell.atRisk} at-risk{/if}">
+                            <td class="average-cell{#if cell.atRisk} at-risk{/if}{#if cell.reportGrade} has-report-grade{/if}">
+                                {#if cell.reportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{cell.reportGrade}</span>{/if}
                                 <span class="average-final">{cell.finalGrade ?: '–'}</span>
                                 <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>
                             </td>
@@ -44,7 +45,8 @@
                 <tr>
                     <td class="student-cell">{row.studentName}</td>
                     {#for cell in row.cells}
-                    <td class="average-cell">
+                    <td class="average-cell{#if cell.reportGrade} has-report-grade{/if}">
+                        {#if cell.reportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{cell.reportGrade}</span>{/if}
                         <span class="average-final">{cell.finalGrade ?: '–'}</span>
                         <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>
                     </td>

@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GradeScaleTest {
@@ -26,6 +28,42 @@ class GradeScaleTest {
     void noThresholdOrNoGrade_isNeverAtRisk() {
         assertFalse(scale(true, null).isAtRisk(6));
         assertFalse(scale(true, "5").isAtRisk(null));
+    }
+
+    @Test
+    void tendency_plusIsAlwaysTheBetterSide() {
+        GradeScale german = scale(true, null);
+        german.tendencyStep = new BigDecimal("0.3");
+        assertEquals(new BigDecimal("2.3"), german.parseGrade("2-"));
+        assertEquals(new BigDecimal("1.7"), german.parseGrade(" 2 + "));
+        assertEquals(new BigDecimal("2.3"), german.parseGrade("2,3"));
+
+        GradeScale higherIsBetter = scale(false, null);
+        higherIsBetter.tendencyStep = new BigDecimal("0.3");
+        assertEquals(new BigDecimal("12.3"), higherIsBetter.parseGrade("12+"));
+        assertEquals(new BigDecimal("11.7"), higherIsBetter.parseGrade("12-"));
+    }
+
+    @Test
+    void tendency_isRejectedWithoutStepOrAfterADecimal() {
+        GradeScale german = scale(true, null);
+        assertThrows(NumberFormatException.class, () -> german.parseGrade("2-"));
+        german.tendencyStep = new BigDecimal("0.3");
+        assertThrows(NumberFormatException.class, () -> german.parseGrade("2.5-"));
+        assertThrows(NumberFormatException.class, () -> german.parseGrade("-"));
+    }
+
+    @Test
+    void format_turnsTheTendencyValuesBackIntoPlusAndMinus() {
+        GradeScale german = scale(true, null);
+        german.tendencyStep = new BigDecimal("0.3");
+        assertEquals("2-", german.format(new BigDecimal("2.30")));
+        assertEquals("2+", german.format(new BigDecimal("1.70")));
+        assertEquals("2", german.format(new BigDecimal("2.00")));
+        assertEquals("2.5", german.format(new BigDecimal("2.50")));
+
+        german.tendencyStep = null;
+        assertEquals("2.3", german.format(new BigDecimal("2.30")));
     }
 
     private static GradeScale scale(boolean lowerIsBetter, String atRiskFrom) {

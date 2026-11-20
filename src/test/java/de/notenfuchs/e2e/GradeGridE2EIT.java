@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
@@ -97,6 +99,28 @@ class GradeGridE2EIT {
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='0']")).hasValue("2");
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='1']")).hasValue("4");
         assertThat(page.locator(".average-final")).hasText("3");
+    }
+
+    @Test
+    void aGradeTheServerWritesDifferentlyIsNotSavedAgainOnTheNextBlur() {
+        setUpSubjectWithGrid(Long.toString(System.nanoTime()));
+        Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        List<String> saves = new ArrayList<>();
+        page.onRequest(request -> {
+            if (request.url().endsWith("/grid/cell")) {
+                saves.add(request.postData());
+            }
+        });
+
+        cell0.fill("2,3");
+        cell0.evaluate("el => el.blur()");
+        assertThat(cell0).hasValue("2-");
+        assertThat(page.locator(".average-raw")).hasText("2.3");
+        cell0.focus();
+        cell0.evaluate("el => el.blur()");
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+
+        assertEquals(1, saves.size(), saves.toString());
     }
 
     @Test

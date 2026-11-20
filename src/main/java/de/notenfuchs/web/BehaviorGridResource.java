@@ -112,7 +112,7 @@ public class BehaviorGridResource {
             int colIndex = 0;
             for (Subject subject : subjects) {
                 BehaviorGrade grade = grades.get(new GradeKey(subject.id, student.id));
-                String displayValue = grade != null ? plain(grade.value) : null;
+                String displayValue = grade != null ? subject.gradeScale.format(grade.value) : null;
                 if (grade != null) {
                     studentValues.add(grade.value);
                     // A student who left is shown read-only but not counted in the Fach average.
@@ -183,18 +183,14 @@ public class BehaviorGridResource {
 
         BigDecimal enteredValue;
         try {
-            enteredValue = new BigDecimal(trimmed.replace(",", "."));
+            enteredValue = subject.gradeScale.parseGrade(trimmed);
         } catch (NumberFormatException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Ungültiger Notenwert: '" + rawValue + "'").build();
         }
 
-        BigDecimal min = subject.gradeScale.min;
-        BigDecimal max = subject.gradeScale.max;
-        if (enteredValue.compareTo(min) < 0 || enteredValue.compareTo(max) > 0) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Note muss zwischen " + plain(min) + " und " + plain(max) + " liegen")
-                    .build();
+        if (!subject.gradeScale.contains(enteredValue)) {
+            return GradeGridResource.outOfScale(subject.gradeScale);
         }
 
         if (existing != null) {
@@ -227,7 +223,7 @@ public class BehaviorGridResource {
         BigDecimal studentAverage = behaviorGradeService.average(studentValues);
         boolean studentBorderline = behaviorGradeService.isBorderline(studentAverage);
 
-        String displayValue = enteredValue != null ? plain(enteredValue) : "";
+        String displayValue = enteredValue != null ? subject.gradeScale.format(enteredValue) : "";
         String studentRawAverageStr = studentAverage != null ? plain(studentAverage) : null;
         String subjectRawAverageStr = subjectAverage.rawAverage() != null ? plain(subjectAverage.rawAverage()) : null;
 

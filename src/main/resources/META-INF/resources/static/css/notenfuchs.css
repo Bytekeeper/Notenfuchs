@@ -486,6 +486,14 @@ td.average-cell .raw-average {
     color: var(--color-text-muted);
 }
 
+/* A Zeugnisnote set by hand replaces the computed grade, which stays visible, struck through. */
+td.has-report-grade .average-final {
+    margin-left: 0.3rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+}
+
 table.grade-grid tfoot td {
     border-top: 2px solid var(--color-border);
 }
@@ -639,7 +647,9 @@ table.grade-grid td.grade-cell-absent input {
 
 /* Notenübersicht: at-risk final grades and what is still missing per Fach. */
 table.grade-grid td.at-risk { background: var(--color-error-bg); }
-table.grade-grid td.at-risk .average-final { color: var(--color-error); }
+table.grade-grid td.at-risk .average-final,
+table.grade-grid td.at-risk .report-grade { color: var(--color-error); }
+table.grade-grid td.at-risk.has-report-grade .average-final { color: var(--color-text-muted); }
 table.grade-grid td.at-risk-count { color: var(--color-error); font-weight: 600; }
 table.grade-grid td.status-cell { color: var(--color-success); }
 table.grade-grid td.status-cell.status-open { color: var(--color-primary-dark); font-weight: 600; }

@@ -163,15 +163,17 @@ class WalkthroughIT {
 
         // The cursor starts in the new column; Enter moves down a row and saves the cell left behind.
         assertThat(page.locator("input.grade-input[data-row='0']")).isFocused();
-        for (String value : new String[] {"2", "3", "e", "5"}) {
+        for (String value : new String[] {"2-", "3", "e", "5"}) {
             page.keyboard().type(value);
             page.keyboard().press("Enter");
         }
         page.locator("input.grade-input[data-row='3']").evaluate("el => el.blur()");
         page.waitForLoadState(LoadState.NETWORKIDLE);
         assertThat(page.locator("td.grade-cell-absent")).hasCount(1);
-        // (2 + 3 + 5) / 3: the absent cell doesn't count, and no save's answer may overwrite a later one.
-        assertThat(page.locator(".assessment-average-raw")).hasText("3.33");
+        // (2.3 + 3 + 5) / 3: "2-" counts 2.3, the absent cell doesn't count, and no save's answer may
+        // overwrite a later one.
+        assertThat(page.locator("input.grade-input[data-row='0']")).hasValue("2-");
+        assertThat(page.locator(".assessment-average-raw")).hasText("3.43");
         shotOf("alltag-noten-eintragen", page.locator(".grid-wrapper"));
 
         clickLink("Jonas Keller");
@@ -248,6 +250,18 @@ class WalkthroughIT {
         page.locator("th.category-header .column-add[data-date]").nth(0).click();
         assertThat(page.locator("#assessmentDate")).hasValue(expectedDate);
         page.locator("#assessment-dialog .assessment-dialog-cancel").click();
+
+        clickLink("Jonas Keller");
+        AddPanels.open(page, "Zeugnisnote festlegen");
+        page.locator("#reportGradeFirstHalf").fill("2-");
+        page.locator("#reportGradeYear").fill("2");
+        page.locator(".student-grades").getByRole(AriaRole.BUTTON,
+                new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(page.locator(".student-averages .report-grade")).hasText(new String[] {"2-", "2"});
+        shotOf("zeugnis-zeugnisnote", page.locator(".student-grades"));
+        record();
+        clickLink("← zurück zur Notenerfassung");
+        assertThat(page.locator("td.has-report-grade")).hasCount(2);
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Verhaltensnoten der Klasse")).click();
         String[] deutsch = {"2", "2", "3", "4"};

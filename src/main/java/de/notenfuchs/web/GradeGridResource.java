@@ -6,6 +6,7 @@ import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
+import de.notenfuchs.domain.ReportGrade;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.security.CurrentUser;
@@ -403,12 +404,14 @@ public class GradeGridResource {
     private List<RowView> rowViews(List<CategoryColumns> columns, List<Student> students, Subject subject,
                                    Map<GradeKey, Grade> grades, BlockBuild build) {
         List<SubjectAverageResult> averages = subjectAveragesForBlock(columns, students, subject, grades);
+        Map<Long, BigDecimal> reportGrades = ReportGrade.bySubject(subject.id, ReportGrade.Period.YEAR);
         List<RowView> rows = new ArrayList<>();
         for (int i = 0; i < students.size(); i++) {
             Student student = students.get(i);
             SubjectAverageResult average = averages.get(i);
             rows.add(new RowView(i, new StudentView(student.id, student.effectiveName()),
-                    build.cellsByStudent().get(i), average.rawAverage(), average.finalGrade()));
+                    build.cellsByStudent().get(i), average.rawAverage(), average.finalGrade(),
+                    formatOrNull(subject.gradeScale, reportGrades.get(student.id))));
         }
         return rows;
     }
@@ -474,6 +477,8 @@ public class GradeGridResource {
         List<SubjectAverageResult> h1Averages = subjectAveragesForBlock(split.h1(), students, subject, grades);
         List<SubjectAverageResult> h2Averages = subjectAveragesForBlock(split.h2(), students, subject, grades);
         List<SubjectAverageResult> jahrAverages = subjectAveragesForBlock(allColumns, students, subject, grades);
+        Map<Long, BigDecimal> h1ReportGrades = ReportGrade.bySubject(subject.id, ReportGrade.Period.FIRST_HALF);
+        Map<Long, BigDecimal> jahrReportGrades = ReportGrade.bySubject(subject.id, ReportGrade.Period.YEAR);
 
         List<HalfYearRowView> rows = new ArrayList<>();
         for (int i = 0; i < students.size(); i++) {
@@ -484,10 +489,11 @@ public class GradeGridResource {
             rows.add(new HalfYearRowView(i, new StudentView(student.id, student.effectiveName()),
                     undatedBuild.cellsByStudent().get(i),
                     h1Build.cellsByStudent().get(i), h1Avg.rawAverage(), h1Avg.finalGrade(),
-                    displayLabel(subject, h1Avg),
+                    displayLabel(subject, h1Avg), formatOrNull(subject.gradeScale, h1ReportGrades.get(student.id)),
                     h2Build.cellsByStudent().get(i), h2Avg.rawAverage(), h2Avg.finalGrade(),
                     displayLabel(subject, h2Avg),
-                    jahrAvg.rawAverage(), jahrAvg.finalGrade()));
+                    jahrAvg.rawAverage(), jahrAvg.finalGrade(),
+                    formatOrNull(subject.gradeScale, jahrReportGrades.get(student.id))));
         }
         return new HalfYearBuild(rows, undatedBuild, h1Build, h2Build);
     }
@@ -553,32 +559,33 @@ public class GradeGridResource {
             int localIndex = 0;
             for (CategoryColumns cc : blockColumns) {
                 if (cc.assessments().isEmpty()) {
-                    cells.add(new CellView(colIndex, null, true, null, null, false, null, false, false));
+                    cells.add(new CellView(colIndex, null, true, null, null, null, false, null, false, false));
                     colIndex++;
                     continue;
                 }
                 boolean categoryStart = true;
                 for (Assessment assessment : cc.assessments()) {
                     Grade grade = grades.get(new GradeKey(assessment.id, student.id));
-                    String displayValue;
+                    String displayValue = null;
                     String derivedDisplay = null;
+                    BigDecimal gradeValue = null;
                     if (assessment.pointsBased) {
-                        displayValue = grade != null && grade.points != null ? plain(grade.points) : null;
                         if (grade != null && grade.points != null) {
-                            BigDecimal derived = pointsConversionService.convert(grade.points,
+                            displayValue = plain(grade.points);
+                            gradeValue = pointsConversionService.convert(grade.points,
                                     bandsByAssessment.get(assessment.id), subject.gradeScale, assessment.roundingMode);
-                            derivedDisplay = plain(derived);
-                            columnValues.get(localIndex).add(derived);
+                            derivedDisplay = plain(gradeValue);
                         }
-                    } else {
-                        displayValue = grade != null && grade.value != null ? plain(grade.value) : null;
-                        if (grade != null && grade.value != null) {
-                            columnValues.get(localIndex).add(grade.value);
-                        }
+                    } else if (grade != null && grade.value != null) {
+                        displayValue = subject.gradeScale.format(grade.value);
+                        gradeValue = grade.value;
+                    }
+                    if (gradeValue != null) {
+                        columnValues.get(localIndex).add(gradeValue);
                     }
                     Absence absence = grade != null ? grade.absence : null;
                     boolean due = OpenGrades.isDue(assessment, today);
-                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue, absence,
+                    cells.add(new CellView(colIndex, assessment.id, categoryStart, displayValue, gradeValue, absence,
                             assessment.pointsBased, derivedDisplay, due, due && grade == null));
                     categoryStart = false;
                     colIndex++;
@@ -703,8 +710,9 @@ public class GradeGridResource {
 
         BigDecimal enteredValue;
         try {
-            // Accept German comma decimals too, in case a client bypasses the JS normalization.
-            enteredValue = new BigDecimal(trimmed.replace(",", "."));
+            enteredValue = assessment.pointsBased
+                    ? new BigDecimal(trimmed.replace(",", "."))
+                    : subject.gradeScale.parseGrade(trimmed);
         } catch (NumberFormatException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(assessment.pointsBased ? "Ungültiger Punktwert: '" + rawValue + "'"
@@ -728,12 +736,8 @@ public class GradeGridResource {
                 grade.persist();
             }
         } else {
-            BigDecimal min = subject.gradeScale.min;
-            BigDecimal max = subject.gradeScale.max;
-            if (enteredValue.compareTo(min) < 0 || enteredValue.compareTo(max) > 0) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("Note muss zwischen " + plain(min) + " und " + plain(max) + " liegen")
-                        .build();
+            if (!subject.gradeScale.contains(enteredValue)) {
+                return outOfScale(subject.gradeScale);
             }
             if (existing != null) {
                 existing.value = enteredValue;
@@ -748,6 +752,12 @@ public class GradeGridResource {
         }
 
         return Response.ok(averagePayload(subject, student, assessment, enteredValue, absence)).build();
+    }
+
+    static Response outOfScale(GradeScale scale) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity("Note muss zwischen " + plain(scale.min) + " und " + plain(scale.max) + " liegen")
+                .build();
     }
 
     private static Grade newGrade(Assessment assessment, Student student) {
@@ -793,7 +803,9 @@ public class GradeGridResource {
         SubjectAverageResult assessmentAverage = gradeService.calculateAssessmentAverage(
                 assessmentValues, subject.gradeScale, subject.roundingMode);
 
-        String displayValue = cellText(enteredValue != null ? plain(enteredValue) : null, absence);
+        String number = enteredValue == null ? null
+                : assessment.pointsBased ? plain(enteredValue) : subject.gradeScale.format(enteredValue);
+        String displayValue = cellText(number, absence);
         String derivedGradeDisplay = null;
         if (assessment.pointsBased && enteredValue != null) {
             BigDecimal derived = pointsConversionService.convert(enteredValue,
@@ -860,6 +872,10 @@ public class GradeGridResource {
         return byKey;
     }
 
+    static String formatOrNull(GradeScale scale, BigDecimal value) {
+        return value != null ? scale.format(value) : null;
+    }
+
     static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
     }
@@ -889,6 +905,7 @@ public class GradeGridResource {
         int studentCol = 0;
         int avgRawCol = 1 + assessmentColumnCount;
         int avgFinalCol = avgRawCol + 1;
+        int reportCol = avgFinalCol + 1;
 
         Row headerRow1 = sheet.createRow(0);
         Row headerRow2 = sheet.createRow(1);
@@ -921,6 +938,8 @@ public class GradeGridResource {
         sheet.addMergedRegion(new CellRangeAddress(0, 1, avgRawCol, avgRawCol));
         setHeaderCell(headerRow1, avgFinalCol, "Note", headerStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 1, avgFinalCol, avgFinalCol));
+        setHeaderCell(headerRow1, reportCol, "Zeugnisnote", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 1, reportCol, reportCol));
 
         int rowNum = 2;
         // Students who left come last, marked, since their grades may still be needed for a report.
@@ -940,6 +959,7 @@ public class GradeGridResource {
             if (row.finalGrade() != null) {
                 xlsxRow.createCell(avgFinalCol).setCellValue(row.finalGrade());
             }
+            writeLabel(xlsxRow, reportCol, reportGradeOrComputed(row.reportGrade(), row.finalGrade()));
         }
 
         Row footerRow = sheet.createRow(rowNum);
@@ -955,7 +975,7 @@ public class GradeGridResource {
         }
 
         sheet.createFreezePane(1, 2);
-        for (int c = 0; c <= avgFinalCol; c++) {
+        for (int c = 0; c <= reportCol; c++) {
             sheet.autoSizeColumn(c);
         }
     }
@@ -989,7 +1009,9 @@ public class GradeGridResource {
         int h2AvgFinalCol = col++;
         int jahrAvgRawCol = col++;
         int jahrAvgFinalCol = col++;
-        int lastCol = jahrAvgFinalCol;
+        int h1ReportCol = col++;
+        int jahrReportCol = col++;
+        int lastCol = jahrReportCol;
 
         Row regionRow = sheet.createRow(0);
         Row categoryRow = sheet.createRow(1);
@@ -1022,6 +1044,13 @@ public class GradeGridResource {
         sheet.addMergedRegion(new CellRangeAddress(0, 0, jahrAvgRawCol, jahrAvgFinalCol));
         writeAverageHeader(sheet, categoryRow, jahrAvgRawCol, jahrAvgFinalCol, headerStyle);
 
+        setHeaderCell(regionRow, h1ReportCol, "Zeugnisnote", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, h1ReportCol, jahrReportCol));
+        setHeaderCell(categoryRow, h1ReportCol, "1. Halbjahr", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(1, 2, h1ReportCol, h1ReportCol));
+        setHeaderCell(categoryRow, jahrReportCol, "Jahr", headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(1, 2, jahrReportCol, jahrReportCol));
+
         int rowNum = 3;
         List<HalfYearRowView> exportRows = new ArrayList<>(data.rows());
         exportRows.addAll(data.leftRows());
@@ -1034,6 +1063,8 @@ public class GradeGridResource {
             writeCells(xlsxRow, row.h2Cells(), h2StartCol);
             writeAverageWithLabel(xlsxRow, h2AvgRawCol, h2AvgFinalCol, row.h2RawAverage(), row.h2DisplayLabel());
             writeAverage(xlsxRow, jahrAvgRawCol, jahrAvgFinalCol, row.jahrRawAverage(), row.jahrFinalGrade());
+            writeLabel(xlsxRow, h1ReportCol, row.h1ReportGrade() != null ? row.h1ReportGrade() : row.h1DisplayLabel());
+            writeLabel(xlsxRow, jahrReportCol, reportGradeOrComputed(row.jahrReportGrade(), row.jahrFinalGrade()));
         }
 
         Row footerRow = sheet.createRow(rowNum);
@@ -1112,9 +1143,8 @@ public class GradeGridResource {
 
     /** A grade stays a number so Excel can calculate with it; an absence without a grade becomes its letter. */
     private static void writeCell(Row xlsxRow, int col, CellView cell) {
-        String exportValue = cell.pointsBased() ? cell.derivedGradeDisplay() : cell.displayValue();
-        if (exportValue != null) {
-            xlsxRow.createCell(col).setCellValue(new BigDecimal(exportValue).doubleValue());
+        if (cell.gradeValue() != null) {
+            xlsxRow.createCell(col).setCellValue(cell.gradeValue().doubleValue());
         } else if (cell.absence() != null) {
             xlsxRow.createCell(col).setCellValue(cell.absence().code);
         }
@@ -1140,14 +1170,25 @@ public class GradeGridResource {
         if (rawAverage != null) {
             xlsxRow.createCell(rawCol).setCellValue(rawAverage.doubleValue());
         }
-        if (displayLabel != null) {
-            Cell cell = xlsxRow.createCell(finalCol);
+        writeLabel(xlsxRow, finalCol, displayLabel);
+    }
+
+    private static void writeLabel(Row xlsxRow, int col, String label) {
+        if (label != null) {
+            Cell cell = xlsxRow.createCell(col);
             try {
-                cell.setCellValue(new BigDecimal(displayLabel).doubleValue());
+                cell.setCellValue(new BigDecimal(label).doubleValue());
             } catch (NumberFormatException e) {
-                cell.setCellValue(displayLabel);
+                cell.setCellValue(label);
             }
         }
+    }
+
+    private static String reportGradeOrComputed(String reportGrade, Integer finalGrade) {
+        if (reportGrade != null) {
+            return reportGrade;
+        }
+        return finalGrade != null ? finalGrade.toString() : null;
     }
 
     private void writeFooterAverages(Row footerRow, List<CategoryFooter> footers, int startCol) {
@@ -1203,20 +1244,19 @@ public class GradeGridResource {
     }
 
     /**
-     * @param displayValue       the raw entered value: a direct grade for a normal assessment,
-     *                            or the raw points for a points-based one (never the derived grade)
-     * @param derivedGradeDisplay only set for a points-based assessment with a grade entered -
-     *                            the grade derived live from displayValue via the Notenschlüssel
+     * {@code displayValue} is the grade as typed ("2-") or the points, without the absence letter that
+     * {@link #inputValue} adds; {@code gradeValue} is the grade that counts (derived for points), for the xlsx.
+     * {@code derivedGradeDisplay} is only set for points: the grade from the Notenschlüssel.
      */
-    /** {@code displayValue} is the number only (the xlsx export parses it); {@link #inputValue} adds the absence letter. */
-    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue, Absence absence,
+    public record CellView(int colIndex, Long assessmentId, boolean categoryStart, String displayValue,
+                            BigDecimal gradeValue, Absence absence,
                             boolean pointsBased, String derivedGradeDisplay, boolean due, boolean open) {
         public String inputValue() {
             return cellText(displayValue, absence);
         }
     }
 
-    /** What a grade cell shows and accepts back: "2.3", "6 u", "e" or "". */
+    /** What a grade cell shows and accepts back: "2-", "2.5", "6 u", "e" or "". */
     static String cellText(String number, Absence absence) {
         if (absence == null) {
             return number != null ? number : "";
@@ -1224,8 +1264,9 @@ public class GradeGridResource {
         return number != null ? number + " " + absence.code : absence.code;
     }
 
+    /** {@code reportGrade}: the Zeugnisnote set by hand, shown instead of {@code finalGrade}; null if none. */
     public record RowView(int rowIndex, StudentView student, List<CellView> cells,
-                           BigDecimal rawAverage, Integer finalGrade) {
+                           BigDecimal rawAverage, Integer finalGrade, String reportGrade) {
     }
 
     /** Per-assessment ("Leistung") average across all students, shown in the grid footer. */
@@ -1281,9 +1322,9 @@ public class GradeGridResource {
     public record HalfYearRowView(int rowIndex, StudentView student,
                                    List<CellView> undatedCells,
                                    List<CellView> h1Cells, BigDecimal h1RawAverage, Integer h1FinalGrade,
-                                   String h1DisplayLabel,
+                                   String h1DisplayLabel, String h1ReportGrade,
                                    List<CellView> h2Cells, BigDecimal h2RawAverage, Integer h2FinalGrade,
                                    String h2DisplayLabel,
-                                   BigDecimal jahrRawAverage, Integer jahrFinalGrade) {
+                                   BigDecimal jahrRawAverage, Integer jahrFinalGrade, String jahrReportGrade) {
     }
 }

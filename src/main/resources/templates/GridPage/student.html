@@ -10,14 +10,47 @@
     </div>
 </div>
 
+<section class="student-grades">
     <table class="entity-list student-averages">
         <thead><tr><th>Zeitraum</th><th>Note</th><th>Ø</th></tr></thead>
         <tbody>
             {#for a in averages}
-            <tr><td>{a.label}</td><td><strong>{a.grade ?: '–'}</strong></td><td>{a.rawAverage ?: '–'}</td></tr>
+            <tr>
+                <td>{a.label}</td>
+                {#if a.reportGrade}
+                <td class="has-report-grade"><strong class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{a.reportGrade}</strong> <span class="average-final">{a.grade ?: '–'}</span></td>
+                {#else}
+                <td><strong>{a.grade ?: '–'}</strong></td>
+                {/if}
+                <td>{a.rawAverage ?: '–'}</td>
+            </tr>
             {/for}
         </tbody>
     </table>
+
+{#if !student.leftOn}
+<details class="add-panel no-print"{#if firstHalfReportGrade || yearReportGrade || reportGradeError} open{/if}>
+    <summary>Zeugnisnote festlegen</summary>
+    <div class="card">
+        <form class="inline-form" method="post" action="/subjects/{subject.id}/grid/students/{student.id}/report-grades">
+            {#if hasHalfYear}
+            <div class="form-field">
+                <label for="reportGradeFirstHalf">1. Halbjahr</label>
+                <input type="text" id="reportGradeFirstHalf" name="firstHalf" value="{firstHalfReportGrade ?: ''}" placeholder="berechnet">
+            </div>
+            {/if}
+            <div class="form-field">
+                <label for="reportGradeYear">Jahr</label>
+                <input type="text" id="reportGradeYear" name="year" value="{yearReportGrade ?: ''}" placeholder="berechnet">
+            </div>
+            <button type="submit">Speichern</button>
+        </form>
+        {#if reportGradeError}<p class="hint warning" role="alert">{reportGradeError}</p>{/if}
+        <p class="hint">Gilt statt der berechneten Note, auch in der Notenübersicht und im Export. Leeres Feld: Die berechnete Note gilt wieder.</p>
+    </div>
+</details>
+{/if}
+</section>
 
 <h3>Leistungen</h3>
 {#if leistungen.isEmpty}
