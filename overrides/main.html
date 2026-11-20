@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {% if config.extra.goatcounter_endpoint %}
+  {# count.js is a copy from gc.zgo.at, served from this site so visitors' browsers never contact a third party. #}
+  <script data-goatcounter="{{ config.extra.goatcounter_endpoint }}" async src="{{ 'js/count.js' | url }}"></script>
+  {% endif %}
+{% endblock %}

@@ -14,6 +14,7 @@ Quarkus 3.40 · Java 17+ · Hibernate ORM Panache · quarkus-rest + Qute + htmx 
 ./mvnw verify -Dit.test=X -Dtest=NONE -Dsurefire.failIfNoSpecifiedTests=false   # one IT class
 ./mvnw verify -Dit.test=WalkthroughIT -Dscreenshots=true   # regenerate guide + README images
 ./mvnw quarkus:dev               # needs `docker compose up -d postgres` first
+uvx --from mkdocs-material==9.8.2 mkdocs serve   # preview the website (docs/ → GitHub Pages)
 ```
 
 ## Commits
@@ -121,6 +122,10 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 | User guide flows | `WalkthroughIT` |
 | Feedback, instance admin | `FeedbackPageTypeTest`, `FeedbackIT`, `AdminFeedbackIT`, `AdminFeedbackNonAdminIT`, `CurrentUserTest`, `WalkthroughIT` (Alltag) |
 | Login | `LocalAuthConfigSourceTest`, `AuthConfigurationCheckTest`, `LoginIT`, `LoginE2EIT` |
+
+## Website
+
+`mkdocs.yml` builds a GitHub Pages site from `docs/`: `docs/index.md` (landing page), the Anleitung and `docs/datenschutz.md`; developer notes in `docs/` are excluded there. `.github/workflows/pages.yml` publishes it on push to `master`. GoatCounter (self-hosted at stats.bytekeeper.org, cookieless) is added by `overrides/main.html` only when `extra.goatcounter_endpoint` is set; `docs/js/count.js` is a copy of `gc.zgo.at/count.js`, so visitors never load anything from a third party. Never add tracking to the app itself; it runs on schools' servers. Change the Datenschutz page when the tracking changes.
 
 ## Deployment
 

@@ -17,7 +17,8 @@ Fach sowie gerundete Endnoten.
 (Alle gezeigten Namen sind frei erfunden und keine echten Schüler.)
 
 **[Anleitung für Lehrkräfte](docs/anleitung/README.md):** Notenfuchs Schritt für Schritt,
-vom Schuljahresbeginn bis zum Zeugnis.
+vom Schuljahresbeginn bis zum Zeugnis. Auch als Website:
+[notenfuchs.bytekeeper.org](https://notenfuchs.bytekeeper.org).
 
 ## Notenfuchs betreiben
 
