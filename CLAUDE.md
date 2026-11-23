@@ -38,7 +38,7 @@ Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only 
   - `GradeGridResource`: grade grid (classic and half-year view), cell save, xlsx export, the Leistung dialog endpoints (add/edit/delete, Notenschlüssel, `band-preview`), starter categories.
   - `StudentPageResource`: one student in one Fach, incl. "Was braucht …" and setting the Zeugnisnoten.
   - `GradeDistributionResource`: "Notenspiegel" tab, counts per whole grade per Leistung and for the Zeugnisnoten (reuses the grid's half split and averages).
-  - `BadRequestMessage` (a refused request's sentence as the 400 body) and `GermanNumbers` (decimal comma on pages): shared by all pages.
+  - `BadRequestMessage` (a refused request's sentence as the 400 body) and `GermanNumbers` (decimal comma on pages) and `AssetVersion` (cache-busting `?v=` on CSS/JS links): shared by all pages.
   - `BehaviorGridResource`: Verhaltensnoten grid. `ClassOverviewResource`: admin-only Notenübersicht. `OpenGrades`: the "offen" rule and counts.
   - `ClassExportResource`: class-wide xlsx. Admins get a "Notenübersicht" sheet (final grades of every Fach); everyone gets a full sheet per Fach they teach, written by `GradeGridResource#addSubjectSheet` (the same code as the Fach export). It never widens access.
 - Templates in `src/main/resources/templates/`; tab headers `ClassPage/classHeader.html` and `SubjectPage/subjectHeader.html` (every tab page passes `activeTab`; class pages also `isClassAdmin`, Fach pages `switchSubjects`). Grid JS: `static/js/notenfuchs.js`.
@@ -83,7 +83,12 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 
 ## UI
 
-`docs/ui-concept.md` answers "how should it look". In short: lists are `table.entity-list` with one "Ändern" per row that opens an edit row (rare actions like "Löschen" go there); read-only figures (Notenspiegel, student page) are `table.data-table` with `.num` columns; a form you need rarely is a closed `details.add-panel` ("+ … anlegen"); cards only hold forms; two lists of equal weight sit side by side; same label for the same action everywhere ("Abbrechen", not "Verwerfen"). A refused htmx request shows the server's 400 sentence below its form (`BadRequestMessage` + the feedback block in `notenfuchs.js`, which also disables the sending button). Numbers show with a decimal comma: Qute prints every `BigDecimal` via `GermanNumbers`; `<input type="number">` and data attributes use `{value.plain}`; Java strings use `GermanNumbers.display`. Every grade-derived value on a page carries `.private`, so "Noten verbergen" (`privacy.js` in `<head>` applies the stored choice before paint, the rest in `notenfuchs.js`) covers it, highlights included.
+`docs/ui-concept.md` decides how pages look and behave; read it before changing a page. What a template must do that the concept doesn't show:
+
+- Numbers: Qute prints every `BigDecimal` with a decimal comma (`GermanNumbers`). `<input type="number">` and data attributes need `{value.plain}`; Java strings use `GermanNumbers.display`.
+- Every grade-derived value carries `.private`, or "Noten verbergen" won't cover it.
+- A refused request answers 400 with one German sentence (`BadRequestMessage`); `notenfuchs.js` shows it below the form.
+- CSS and JS links carry `?v={assetVersion}` (`AssetVersion`); browsers keep static files for 24 hours.
 
 ## Gotchas
 
