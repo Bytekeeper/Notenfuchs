@@ -10,7 +10,7 @@
     <p class="hint">Diese Klasse hat noch keine Fächer. <a href="/classes/{schoolClass.id}">Erst Fächer anlegen</a>.</p>
 {#else}
     {#if anyAtRiskScale}
-    <p class="overview-summary">{#if studentsAtRisk == 0}Keine gefährdeten Schüler.{#else}<strong>{studentsAtRisk}</strong> {#if studentsAtRisk == 1}Schüler ist{#else}Schüler sind{/if} in mindestens einem Fach gefährdet (rot markiert).{/if}</p>
+    <p class="private overview-summary">{#if studentsAtRisk == 0}Keine gefährdeten Schüler.{#else}<strong>{studentsAtRisk}</strong> {#if studentsAtRisk == 1}Schüler ist{#else}Schüler sind{/if} in mindestens einem Fach gefährdet (rot markiert).{/if}</p>
     {/if}
     <div class="grid-wrapper">
         <table class="grade-grid">
@@ -28,13 +28,13 @@
                     <tr>
                         <td class="student-cell">{row.studentName}</td>
                         {#for cell in row.cells}
-                            <td class="average-cell{#if cell.atRisk} at-risk{/if}{#if cell.reportGrade} has-report-grade{/if}">
+                            <td class="private average-cell{#if cell.atRisk} at-risk{/if}{#if cell.reportGrade} has-report-grade{/if}">
                                 {#if cell.reportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{cell.reportGrade}</span>{/if}
                                 <span class="average-final">{cell.finalGrade ?: '–'}</span>
                                 <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>
                             </td>
                         {/for}
-                        {#if anyAtRiskScale}<td class="average-cell at-risk-count">{#if row.atRiskCount > 0}{row.atRiskCount}{/if}</td>{/if}
+                        {#if anyAtRiskScale}<td class="private average-cell at-risk-count">{#if row.atRiskCount > 0}{row.atRiskCount}{/if}</td>{/if}
                     </tr>
                 {/for}
             </tbody>
@@ -45,7 +45,7 @@
                 <tr>
                     <td class="student-cell">{row.studentName}</td>
                     {#for cell in row.cells}
-                    <td class="average-cell{#if cell.reportGrade} has-report-grade{/if}">
+                    <td class="private average-cell{#if cell.reportGrade} has-report-grade{/if}">
                         {#if cell.reportGrade}<span class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{cell.reportGrade}</span>{/if}
                         <span class="average-final">{cell.finalGrade ?: '–'}</span>
                         <span class="raw-average average-raw">{cell.rawAverage ?: ''}</span>

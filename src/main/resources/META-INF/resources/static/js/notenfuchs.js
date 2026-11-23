@@ -793,3 +793,39 @@ document.addEventListener("change", function (ev) {
         }
     });
 })();
+
+/**
+ * "Noten verbergen" in the header: hides every value marked `.private` on screen (privacy.js applies
+ * the saved choice before the page paints). A click shows one value; a grade cell shows only while
+ * it has focus, so a saved grade disappears again when the teacher moves on.
+ */
+(function () {
+    "use strict";
+
+    document.addEventListener("click", function (ev) {
+        const root = document.documentElement;
+        if (ev.target.closest(".privacy-toggle")) {
+            const on = root.classList.toggle("privacy-on");
+            try {
+                localStorage.setItem("notenfuchs.privacy", on ? "on" : "off");
+            } catch (e) {
+                // Storage blocked: the choice holds for this page only.
+            }
+        }
+        if (!root.classList.contains("privacy-on")) {
+            return;
+        }
+        let shown = ev.target.closest(".private");
+        if (shown && (shown.matches("input") || shown.querySelector("input"))) {
+            shown = null;
+        }
+        document.querySelectorAll(".private.revealed").forEach(function (el) {
+            if (el !== shown) {
+                el.classList.remove("revealed");
+            }
+        });
+        if (shown) {
+            shown.classList.add("revealed");
+        }
+    });
+})();

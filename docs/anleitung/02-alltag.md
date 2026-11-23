@@ -35,6 +35,21 @@ Zelle nur mit Vermerk zählt nicht als fehlende Note. Wer es vergisst: Fährt ma
 Blau sind Zellen mit Abwesenheitsvermerk. Gelb sind leere Zellen einer Leistung, deren
 Datum schon erreicht ist: Hier fehlt noch eine Note.
 
+## Noten im Unterricht verbergen
+
+Steht ein Schüler am Pult oder hängt der Beamer noch am Rechner, klicken Sie oben rechts auf
+**„Noten verbergen“**. Dann sehen alle Notenzellen gleich aus, ob mit Note, mit Vermerk oder
+leer; auch Durchschnitte, Zeugnisnoten, Notenspiegel und die Farben für „fehlt“, „abwesend“ und
+„gefährdet“ verschwinden. Namen und Leistungen bleiben stehen. Eintragen geht weiter: Die Zelle,
+in der Sie gerade tippen, zeigt ihren Wert, bis Sie sie verlassen. Ein Klick auf einen
+Durchschnitt zeigt nur diesen einen Wert. **„Noten zeigen“** schaltet zurück.
+
+![Notentabelle mit verborgenen Noten](bilder/alltag-noten-verbergen.png)
+
+Der Browser merkt sich die Einstellung für dieses Gerät, zum Beispiel den Laptop in der Schule.
+Sie verdeckt nur den Bildschirm und schützt die Noten nicht vor jemandem, der den Rechner selbst
+bedient. Gedruckt und exportiert wird immer alles.
+
 ## Leistung ändern oder löschen
 
 Ein Klick auf den Namen einer Leistung im Tabellenkopf öffnet dasselbe Fenster. Dort

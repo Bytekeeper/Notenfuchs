@@ -26,9 +26,9 @@
         <tr>
             <td>{row.name}{#if row.categoryName} <span class="row-meta">{row.categoryName}</span>{/if}</td>
             <td>{#if row.date}{row.date.format('dd.MM.yyyy')}{/if}</td>
-            {#for c in row.counts}<td class="num{#if c == 0} zero{/if}">{c}</td>{/for}
-            <td class="num">{row.average ?: '–'}</td>
-            <td class="num">{row.gradeCount}</td>
+            {#for c in row.counts}<td class="private num{#if c == 0} zero{/if}">{c}</td>{/for}
+            <td class="private num">{row.average ?: '–'}</td>
+            <td class="private num">{row.gradeCount}</td>
         </tr>
         {#else}
         <tr class="empty-row"><td colspan="{colspan}">Keine Leistungen</td></tr>

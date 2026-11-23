@@ -726,3 +726,30 @@ table.distribution tr.group-heading th { text-transform: none; letter-spacing: 0
 /* ✎ next to a final grade: opens the student page at "Zeugnisnote festlegen". */
 td.average-cell .report-grade-edit { margin-left: 0.3rem; font-weight: 400; color: var(--color-text-muted); text-decoration: none; }
 td.average-cell .report-grade-edit:hover { color: var(--color-primary); }
+
+/* "Noten verbergen": a screen cover for class, not security. Every value from grades looks the same,
+   filled or empty, and loses its highlight, because "offen", absence and at-risk colors say as much as
+   the grade. Screen only: printing shows everything. */
+html:not(.privacy-on) .privacy-label-on,
+html.privacy-on .privacy-label-off { display: none; }
+html.privacy-on .privacy-toggle {
+    padding: 0.1rem 0.5rem;
+    background: var(--color-primary-dark);
+    color: var(--color-surface);
+    border-radius: var(--radius);
+}
+@media screen {
+    html.privacy-on .private:not(.revealed):not(:focus-within),
+    html.privacy-on .private:not(.revealed):not(:focus-within) * {
+        color: transparent !important;
+        background: var(--color-tonal) !important;
+        border-color: var(--color-border) !important;
+        text-decoration: none !important;
+        font-style: normal !important;
+    }
+    html.privacy-on .private:not(.revealed):not(:focus-within)::placeholder,
+    html.privacy-on .private:not(.revealed):not(:focus-within) *::placeholder { color: transparent !important; }
+    /* The ✎ is in every row alike, so it gives nothing away and stays usable. */
+    html.privacy-on .private:not(.revealed):not(:focus-within) a.report-grade-edit { color: var(--color-text-muted) !important; }
+    html.privacy-on .private:not(.revealed) { cursor: pointer; }
+}

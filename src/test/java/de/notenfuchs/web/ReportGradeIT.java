@@ -66,7 +66,7 @@ class ReportGradeIT {
         String overview = http.get("/classes/" + f.classId() + "/overview").body();
         assertTrue(overview.contains(">4</span>"), overview);
         // The computed 5 would put the student at risk; the Zeugnisnote 4 doesn't.
-        assertTrue(overview.contains("class=\"average-cell has-report-grade\""), overview);
+        assertTrue(overview.contains("class=\"private average-cell has-report-grade\""), overview);
         assertTrue(http.get("/subjects/" + f.subjectId() + "/grid").body().contains("has-report-grade"));
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(
