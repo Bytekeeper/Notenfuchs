@@ -42,15 +42,15 @@
                 <tr>
                     {#if !undatedColumns.isEmpty}
                         {#for cat in undatedColumns}
-                            <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-date="" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
+                            <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent} %)<button type="button" class="column-add" data-date="" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung anlegen" aria-label="Leistung in {cat.category.name} anlegen">+</button></th>
                         {/for}
                     {/if}
                     {#for cat in h1Columns}
-                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-date="{h1DefaultDate}" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
+                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent} %)<button type="button" class="column-add" data-date="{h1DefaultDate}" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung anlegen" aria-label="Leistung in {cat.category.name} anlegen">+</button></th>
                     {/for}
                     <th rowspan="2">Ø / Note<br>1. HJ</th>
                     {#for cat in h2Columns}
-                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent.stripTrailingZeros.toPlainString}%)<button type="button" class="column-add" data-date="{h2DefaultDate}" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung hinzufügen" aria-label="Leistung in {cat.category.name} hinzufügen">+</button></th>
+                        <th class="category-header {#if cat.assessments.isEmpty}category-header-empty{/if}" colspan="{cat.columnCount}">{cat.category.name} ({cat.category.weightPercent} %)<button type="button" class="column-add" data-date="{h2DefaultDate}" data-category-id="{cat.category.id}" data-category-name="{cat.category.name}" title="Leistung anlegen" aria-label="Leistung in {cat.category.name} anlegen">+</button></th>
                     {/for}
                     <th rowspan="2">Ø / Note<br>2. HJ</th>
                 </tr>
@@ -61,7 +61,7 @@
                                 <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
                             {#else}
                                 {#for a in cat.assessments}
-                                    <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                                    <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor.plain}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
                                 {/for}
                             {/if}
                         {/for}
@@ -71,7 +71,7 @@
                             <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
                         {#else}
                             {#for a in cat.assessments}
-                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor.plain}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
                             {/for}
                         {/if}
                     {/for}
@@ -80,7 +80,7 @@
                             <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
                         {#else}
                             {#for a in cat.assessments}
-                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor.plain}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
                             {/for}
                         {/if}
                     {/for}

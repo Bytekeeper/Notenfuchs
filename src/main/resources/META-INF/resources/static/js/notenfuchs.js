@@ -315,7 +315,6 @@
 /**
  * Halbjahr display settings: a bare tendency threshold (e.g. 0.1) says little, so a live
  * "Beispiel bei Note 3: …" line spells it out for the chosen mode (see HalfYearGradeDisplayService).
- * Registered after the "Ändern" listeners, so on "Verwerfen" the select is already restored.
  */
 (function () {
     "use strict";
@@ -368,23 +367,14 @@
         }
     });
 
-    document.addEventListener("click", function (ev) {
-        const toggle = ev.target.closest(".rename-toggle");
-        if (toggle) {
-            const wrap = toggle.closest(".rename-wrap");
-            const input = wrap && wrap.querySelector('.half-year-grade-display-form input[name="tendencyThreshold"]');
-            if (input) {
-                updateTendencyExample(input);
-            }
-            return;
+    function showInitialExample() {
+        const input = document.querySelector('.half-year-grade-display-form input[name="tendencyThreshold"]');
+        if (input) {
+            updateTendencyExample(input);
         }
-        const cancel = ev.target.closest(".half-year-grade-display-form .rename-cancel");
-        if (!cancel) return;
-        const select = cancel.closest("form").querySelector('select[name="halfYearGradeDisplay"]');
-        if (select) {
-            syncTendencyInput(select);
-        }
-    });
+    }
+    document.addEventListener("DOMContentLoaded", showInitialExample);
+    document.addEventListener("htmx:afterSettle", showInitialExample);
 })();
 
 /**
@@ -548,7 +538,17 @@
         // Saved in the background so a refused save shows in the dialog, not as an error page.
         form.addEventListener("submit", function (ev) {
             ev.preventDefault();
+            var deleting = ev.submitter === deleteButton;
+            var switchingMode = originalPointsBased !== null && pointsBox.checked !== originalPointsBased;
+            if (!deleting && switchingMode && !window.confirm("Leistung '" + form.elements.name.value
+                    + "' auf " + (pointsBox.checked ? "Punkte" : "Noten") + " umstellen? Das löscht alle bisher"
+                    + " eingetragenen " + (pointsBox.checked ? "Noten" : "Punkte") + " dieser Leistung;"
+                    + " Abwesenheitsvermerke bleiben.")) {
+                return;
+            }
             var url = (ev.submitter && ev.submitter.getAttribute("formaction")) || form.action;
+            var buttons = form.querySelectorAll('button:not([type="button"])');
+            buttons.forEach(function (button) { button.disabled = true; });
             fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -559,12 +559,16 @@
                         window.location.href = resp.url;
                         return;
                     }
-                    errorBox.textContent = resp.status === 404
-                        ? "Diese Leistung gibt es nicht mehr. Bitte laden Sie die Seite neu."
-                        : "Nicht gespeichert. Bitte prüfen Sie die Eingaben.";
-                    errorBox.hidden = false;
+                    buttons.forEach(function (button) { button.disabled = false; });
+                    return resp.text().then(function (message) {
+                        errorBox.textContent = resp.status === 404
+                            ? "Diese Leistung gibt es nicht mehr. Bitte laden Sie die Seite neu."
+                            : resp.status === 400 && message ? message : "Nicht gespeichert. Bitte prüfen Sie die Eingaben.";
+                        errorBox.hidden = false;
+                    });
                 })
                 .catch(function () {
+                    buttons.forEach(function (button) { button.disabled = false; });
                     errorBox.textContent = "Keine Verbindung zum Server. Bitte versuchen Sie es noch einmal.";
                     errorBox.hidden = false;
                 });
@@ -725,6 +729,67 @@ document.addEventListener("change", function (ev) {
             if (cursorIsFree(null)) {
                 focusFirstField(panel);
             }
+        }
+    });
+})();
+
+// ---------------------------------------------------------------------------
+// Feedback for every htmx request: the sending button is disabled while it runs (no double
+// adds), and a refused request shows the server's sentence below what sent it.
+// ---------------------------------------------------------------------------
+(function () {
+    "use strict";
+
+    // Data pages print (docs/ui-concept.md); inline onclick handlers are avoided everywhere.
+    document.addEventListener("click", function (ev) {
+        if (ev.target.closest("[data-print]")) {
+            window.print();
+        }
+    });
+
+    function sendingButtons(elt) {
+        if (elt.matches("form")) {
+            return Array.from(elt.querySelectorAll('button:not([type="button"]), input[type="submit"]'));
+        }
+        return elt.matches("button") ? [elt] : [];
+    }
+
+    function errorAnchor(elt) {
+        return elt.closest("form") || elt;
+    }
+
+    document.addEventListener("htmx:beforeRequest", function (ev) {
+        const elt = ev.detail.elt;
+        const old = errorAnchor(elt).nextElementSibling;
+        if (old && old.classList.contains("request-error")) {
+            old.remove();
+        }
+        sendingButtons(elt).forEach(function (button) { button.disabled = true; });
+    });
+
+    document.addEventListener("htmx:afterRequest", function (ev) {
+        sendingButtons(ev.detail.elt).forEach(function (button) { button.disabled = false; });
+        if (ev.detail.successful) {
+            return;
+        }
+        const xhr = ev.detail.xhr;
+        let message;
+        if (!xhr || xhr.status === 0) {
+            message = "Keine Verbindung zum Server. Bitte versuchen Sie es noch einmal.";
+        } else if (xhr.status === 404) {
+            message = "Das gibt es nicht mehr. Bitte laden Sie die Seite neu.";
+        } else if (xhr.status === 400 && xhr.responseText) {
+            message = xhr.responseText;
+        } else {
+            message = "Das hat nicht geklappt. Bitte laden Sie die Seite neu und versuchen Sie es noch einmal.";
+        }
+        const box = document.createElement("p");
+        box.className = "hint warning request-error";
+        box.setAttribute("role", "alert");
+        box.textContent = message;
+        const anchor = errorAnchor(ev.detail.elt);
+        if (anchor.isConnected) {
+            anchor.after(box);
         }
     });
 })();

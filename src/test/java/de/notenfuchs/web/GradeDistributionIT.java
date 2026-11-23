@@ -68,7 +68,7 @@ class GradeDistributionIT {
         String page = http.get("/subjects/" + subjectId + "/distribution").body();
 
         // Leistung, Datum, 1..6, Ø, Noten. Dora left, so her 1 doesn't count.
-        assertEquals(List.of("0", "2", "0", "0", "1", "0", "3.1", "3"), counts(page, "KA"));
+        assertEquals(List.of("0", "2", "0", "0", "1", "0", "3,1", "3"), counts(page, "KA"));
         assertEquals(List.of("1", "0", "0", "0", "0", "0", "1", "1"), counts(page, "Test"));
         // Computed: Anna 2 (1.65), Ben 2 but set to 4 by hand, Cem 5.
         assertEquals(List.of("0", "1", "0", "1", "1", "0"), counts(page, "Jahr").subList(0, 6));
@@ -108,7 +108,7 @@ class GradeDistributionIT {
         if (!row.find()) {
             throw new AssertionError("No row " + name + " in " + page);
         }
-        Matcher cell = Pattern.compile("<td class=\"count[^\"]*\">([^<]*)</td>").matcher(row.group());
+        Matcher cell = Pattern.compile("<td class=\"num[^\"]*\">([^<]*)</td>").matcher(row.group());
         List<String> cells = new ArrayList<>();
         while (cell.find()) {
             cells.add(cell.group(1));

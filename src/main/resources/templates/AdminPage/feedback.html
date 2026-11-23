@@ -8,8 +8,7 @@
 {#if entries.isEmpty}
     <p class="hint">Keine offenen Rückmeldungen.</p>
 {#else}
-<div class="card">
-    <table class="entity-list feedback-list">
+<table class="entity-list feedback-list">
         <thead><tr><th>Zeitpunkt</th><th>Seite</th><th>Nachricht</th><th></th></tr></thead>
         <tbody>
             {#for e in entries}
@@ -17,16 +16,14 @@
                 <td class="feedback-time">{e.time}</td>
                 <td title="{e.pageType}">{e.pageName}</td>
                 <td class="feedback-message">{e.message}</td>
-                <td>
-                    <form method="post" action="/admin/feedback/{e.id}/delete">
-                        <button type="submit" class="row-btn">Erledigt</button>
-                    </form>
+                <td class="row-actions">
+                    <button type="button" class="row-btn" hx-post="/admin/feedback/{e.id}/delete" hx-target="closest tr" hx-swap="delete"
+                            hx-confirm="Diese Rückmeldung als erledigt löschen?">Erledigt</button>
                 </td>
             </tr>
             {/for}
         </tbody>
     </table>
-</div>
 {/if}
 
 {/include}

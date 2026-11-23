@@ -40,7 +40,7 @@ class StudentPageIT {
         assertTrue(html.contains("Anna-"), html);
         assertTrue(html.contains("<td>KA</td>"));
         // Subject rounds COMMERCIAL: with one 3, a 2 needs an average below 2.5, so 1.9 or better.
-        assertTrue(html.contains("1.9 oder besser"), html);
+        assertTrue(html.contains("1,9 oder besser"), html);
         assertTrue(html.contains("nicht erreichbar"));
     }
 

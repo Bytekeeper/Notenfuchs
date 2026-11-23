@@ -9,7 +9,7 @@
 <h2>Fachlehrer mit Klassenzugriff</h2>
 <p class="hint">Diese Lehrkräfte sehen die ganze Klasse (Schülerliste, Verhaltensnoten), weil sie mindestens ein Fach dieser Klasse unterrichten - nicht weil sie als Lehrkraft der Klasse hinzugefügt wurden. Nur zur Information; verwaltet wird das beim jeweiligen Fach, nicht hier.</p>
     {#if transitiveTeachers.isEmpty}
-        <p class="hint">Keine.</p>
+        <p class="hint">Noch kein Fach dieser Klasse hat eine Lehrkraft, die nicht schon oben steht.</p>
     {#else}
         <table class="entity-list">
             <thead><tr><th>Lehrkraft</th><th>Fach/Fächer</th></tr></thead>

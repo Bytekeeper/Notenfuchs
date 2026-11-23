@@ -221,7 +221,7 @@ class GradeGridHalfYearIT {
         // the half-grade 2.5, exactly as it would under an explicit HALF+0.1 config (see
         // halfYearGradeDisplay_halfWithTendency_refinesSuffixIntoHalfGrade below).
         JsonNode response = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
-        assertEquals("2.5", response.get("h1DisplayLabel").asText());
+        assertEquals("2,5", response.get("h1DisplayLabel").asText());
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
         assertEquals(HalfYearGradeDisplay.HALF, persisted.halfYearGradeDisplay);
@@ -282,10 +282,10 @@ class GradeGridHalfYearIT {
         // 2.6 (finalGrade 3, COMMERCIAL) is outside grade 3's plain zone too (leaning "+"), but
         // close enough to the half-grade 2.5 to refine into it instead of showing "3+".
         JsonNode refined = saveGradeAndParse(subjectId, studentId, assessmentId, "2.6");
-        assertEquals("2.5", refined.get("h1DisplayLabel").asText());
+        assertEquals("2,5", refined.get("h1DisplayLabel").asText());
 
         String gridHtml = http.get("/subjects/" + subjectId + "/grid").body();
-        assertTrue(gridHtml.contains("data-scope=\"h1\">2.5"), "refined half-grade label must actually render in the grid");
+        assertTrue(gridHtml.contains("data-scope=\"h1\">2,5"), "refined half-grade label must actually render in the grid");
 
         SchoolClass persisted = QuarkusTransaction.requiringNew().call(() -> SchoolClass.findById(classId));
         assertEquals(0, new BigDecimal("0.10").compareTo(persisted.halfYearTendencyThreshold),

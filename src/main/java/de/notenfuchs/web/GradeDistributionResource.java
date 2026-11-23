@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static de.notenfuchs.web.GradeGridResource.gradesByKey;
-import static de.notenfuchs.web.GradeGridResource.plain;
+import static de.notenfuchs.web.GermanNumbers.display;
 
 /**
  * The "Notenspiegel" tab of a Fach: per Leistung, how many active students got each whole grade,
@@ -166,7 +166,7 @@ public class GradeDistributionResource {
         }
         List<Integer> counts = scale.wholeGradesBestFirst().stream().map(g -> countByGrade.getOrDefault(g, 0)).toList();
         BigDecimal average = gradeService.calculateAssessmentAverage(values, scale, subject.roundingMode).rawAverage();
-        return new Row(name, categoryName, date, counts, average != null ? plain(average) : null, values.size());
+        return new Row(name, categoryName, date, counts, average != null ? display(average) : null, values.size());
     }
 
     // ---- View models for the Qute template ----

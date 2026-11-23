@@ -115,7 +115,7 @@ class GradeGridE2EIT {
         cell0.fill("2,3");
         cell0.evaluate("el => el.blur()");
         assertThat(cell0).hasValue("2-");
-        assertThat(page.locator(".average-raw")).hasText("2.3");
+        assertThat(page.locator(".average-raw")).hasText("2,3");
         cell0.focus();
         cell0.evaluate("el => el.blur()");
         page.waitForLoadState(LoadState.NETWORKIDLE);
@@ -363,7 +363,7 @@ class GradeGridE2EIT {
         // - (6-2)/(20-60) = -0.1 per point, so 2 + (-0.1 * 5) = 1.5. The subject average then
         // rounds that same 1.5 the normal COMMERCIAL way (half up) to the whole grade 2.
         assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
-        assertThat(page.locator(".derived-grade")).hasText("1.5");
+        assertThat(page.locator(".derived-grade")).hasText("1,5");
         assertThat(page.locator(".average-final")).hasText("2");
     }
 
@@ -382,7 +382,7 @@ class GradeGridE2EIT {
         Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
         pointsCell.fill("30");
         pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("4.7");
+        assertThat(page.locator(".derived-grade")).hasText("4,7");
 
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
@@ -396,7 +396,7 @@ class GradeGridE2EIT {
 
         // Same stored points (30), no re-entry - now rounds the standard "kaufmaennisch" way.
         assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("30");
-        assertThat(page.locator(".derived-grade")).hasText("4.8");
+        assertThat(page.locator(".derived-grade")).hasText("4,8");
     }
 
     /**

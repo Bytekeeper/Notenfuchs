@@ -25,7 +25,7 @@
                                 <input type="text" name="name" value="{st.name}" data-original="{st.name}" aria-label="Name" required>
                                 <input type="text" name="displayName" value="{st.displayName ?: ''}" data-original="{st.displayName ?: ''}" aria-label="Kürzel" placeholder="Kürzel">
                                 <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-                                <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
+                                <button type="button" class="rename-cancel">Abbrechen</button>
                                 <span class="rare-actions">
                                     <button type="button" class="row-btn" hx-post="/classes/{schoolClass.id}/students/{st.id}/leave" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="'{st.name}' als ausgetreten markieren? Die Noten bleiben erhalten und werden nur noch lesend angezeigt.">Ausgetreten</button>
                                     <button type="button" class="delete-btn" hx-delete="/classes/{schoolClass.id}/students/{st.id}" hx-target="#student-list-fragment" hx-swap="outerHTML" hx-confirm="Schüler '{st.name}' wirklich löschen? Das löscht auch alle Noten dieses Schülers. Wer die Klasse verlassen hat, wird besser als ausgetreten markiert.">Löschen</button>

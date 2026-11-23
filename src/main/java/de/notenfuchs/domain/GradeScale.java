@@ -72,7 +72,7 @@ public class GradeScale extends PanacheEntity {
         return better == lowerIsBetter ? whole.subtract(tendencyStep) : whole.add(tendencyStep);
     }
 
-    /** The reverse of {@link #parseGrade}: "2-" for 2.3 on a scale with step 0.3, else the plain number. */
+    /** The reverse of {@link #parseGrade}: "2-" for 2.3 on a scale with step 0.3, else the number with a decimal comma. */
     public String format(BigDecimal value) {
         if (tendencyStep != null) {
             BigDecimal below = value.setScale(0, java.math.RoundingMode.FLOOR);
@@ -84,7 +84,7 @@ public class GradeScale extends PanacheEntity {
                 return above.toPlainString() + (lowerIsBetter ? "+" : "-");
             }
         }
-        return value.stripTrailingZeros().toPlainString();
+        return value.stripTrailingZeros().toPlainString().replace('.', ',');
     }
 
     /** Every whole grade of the scale, best first: the columns of a Notenspiegel. */

@@ -125,7 +125,7 @@ class HalfYearGradeDisplayServiceTest {
 
     @Test
     void label_half_noTendencyConfigured_roundsToNearestHalfGrade() {
-        assertEquals("2.5", service.label(new BigDecimal("2.6"), 3, HalfYearGradeDisplay.HALF, null, deScale()));
+        assertEquals("2,5", service.label(new BigDecimal("2.6"), 3, HalfYearGradeDisplay.HALF, null, deScale()));
     }
 
     /**
@@ -142,8 +142,8 @@ class HalfYearGradeDisplayServiceTest {
         assertEquals("2", service.label(new BigDecimal("2.1"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
         assertEquals("2-", service.label(new BigDecimal("2.2"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
         assertEquals("2-", service.label(new BigDecimal("2.3"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
-        assertEquals("2.5", service.label(new BigDecimal("2.4"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
-        assertEquals("2.5", service.label(new BigDecimal("2.5"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
+        assertEquals("2,5", service.label(new BigDecimal("2.4"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
+        assertEquals("2,5", service.label(new BigDecimal("2.5"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
     }
 
     /**
@@ -154,7 +154,7 @@ class HalfYearGradeDisplayServiceTest {
     @Test
     void label_half_withTendency_refinesSuffixIntoNeighboringHalfGrade_fromAbove() {
         BigDecimal threshold = new BigDecimal("0.10");
-        assertEquals("3.5", service.label(new BigDecimal("3.6"), 4, HalfYearGradeDisplay.HALF, threshold, deScale()));
+        assertEquals("3,5", service.label(new BigDecimal("3.6"), 4, HalfYearGradeDisplay.HALF, threshold, deScale()));
         assertEquals("4+", service.label(new BigDecimal("3.8"), 4, HalfYearGradeDisplay.HALF, threshold, deScale()));
     }
 
@@ -167,12 +167,12 @@ class HalfYearGradeDisplayServiceTest {
     @Test
     void label_half_withTendency_exactTieConvergesRegardlessOfFinalGradeTieBreak() {
         BigDecimal threshold = new BigDecimal("0.10");
-        assertEquals("2.5", service.label(new BigDecimal("2.5"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
-        assertEquals("2.5", service.label(new BigDecimal("2.5"), 3, HalfYearGradeDisplay.HALF, threshold, deScale()));
+        assertEquals("2,5", service.label(new BigDecimal("2.5"), 2, HalfYearGradeDisplay.HALF, threshold, deScale()));
+        assertEquals("2,5", service.label(new BigDecimal("2.5"), 3, HalfYearGradeDisplay.HALF, threshold, deScale()));
     }
 
     @Test
     void label_half_withTendency_higherIsBetter_directionIsFlipped() {
-        assertEquals("9.5", service.label(new BigDecimal("9.45"), 9, HalfYearGradeDisplay.HALF, new BigDecimal("0.10"), pointsScaleHigherIsBetter()));
+        assertEquals("9,5", service.label(new BigDecimal("9.45"), 9, HalfYearGradeDisplay.HALF, new BigDecimal("0.10"), pointsScaleHigherIsBetter()));
     }
 }

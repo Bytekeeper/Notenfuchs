@@ -85,7 +85,7 @@ class ClassTeacherE2EIT {
         AddPanels.open(page, "+ Lehrkraft hinzufügen");
         page.locator("#teacherSubject").selectOption(new SelectOption().setValue(colleagueSubject));
         page.locator("#classTeacherRole").selectOption("ADMIN");
-        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Zugriff gewähren")).click();
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Hinzufügen").setExact(true)).click();
         assertThat(teachersFragment.locator("tbody tr")).hasCount(2);
         assertThat(teachersFragment.locator("tbody tr").filter(new Locator.FilterOptions().setHasText(colleagueLabel)))
                 .isVisible();

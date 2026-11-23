@@ -17,8 +17,8 @@ ist nur für Tippfehler gedacht.
 ## Eine Kollegin unterrichtet mit
 
 Im Reiter **„Lehrkräfte“** des Fachs klicken Sie auf **„+ Lehrkraft hinzufügen“**, wählen
-die Kollegin aus und klicken auf **„Zugriff gewähren“**. Sie sieht und bearbeitet dann alle Leistungen und Noten dieses
-Fachs. In der Liste erscheint jede Lehrkraft, die sich einmal bei Notenfuchs angemeldet
+die Kollegin aus und klicken auf **„Hinzufügen“**. Sie sieht und bearbeitet dann alle
+Leistungen und Noten dieses Fachs. In der Liste erscheint jede Lehrkraft, die sich einmal bei Notenfuchs angemeldet
 hat.
 
 ![Lehrkräfte eines Fachs](bilder/unterjaehrig-lehrkraefte.png)

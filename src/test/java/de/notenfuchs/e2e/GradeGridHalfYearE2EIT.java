@@ -66,13 +66,12 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Anlegen")).click();
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
-        // Set the Halbjahr cutoff via the rename-wrap form on the class's settings tab.
+        // Set the Halbjahr cutoff on the class's settings tab.
         openClassTab(page, "Einstellungen");
-        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
-        cutoffWrap.locator(".rename-toggle").click();
-        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
-        cutoffWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
+        Locator cutoffForm = page.locator("#half-year-cutoff-fragment");
+        cutoffForm.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(cutoffForm.locator(".saved-note")).hasText("Gespeichert");
 
         openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
@@ -171,11 +170,10 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
         openClassTab(page, "Einstellungen");
-        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
-        cutoffWrap.locator(".rename-toggle").click();
-        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
-        cutoffWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
+        Locator cutoffForm = page.locator("#half-year-cutoff-fragment");
+        cutoffForm.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(cutoffForm.locator(".saved-note")).hasText("Gespeichert");
 
         openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
@@ -281,27 +279,26 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
         openClassTab(page, "Einstellungen");
-        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
-        cutoffWrap.locator(".rename-toggle").click();
-        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
-        cutoffWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
+        Locator cutoffForm = page.locator("#half-year-cutoff-fragment");
+        cutoffForm.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(cutoffForm.locator(".saved-note")).hasText("Gespeichert");
 
         // Switch to "Halbe Noten" with no tendency threshold - the tendency input stays enabled,
         // since it's meaningful for both modes (unlike the earlier, since-reverted design where
         // HALF disabled it). New classes default to a 0.10 threshold (see
         // SchoolClass#halfYearTendencyThreshold), so it must be cleared explicitly here to
         // actually exercise the no-threshold case the assertions below depend on.
-        Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
-        displayWrap.locator(".rename-toggle").click();
-        Locator modeSelect = displayWrap.locator("select[name='halfYearGradeDisplay']");
-        Locator tendencyInput = displayWrap.locator("input[name='tendencyThreshold']");
+        Locator displayForm = page.locator("#half-year-grade-display-fragment");
+        Locator modeSelect = displayForm.locator("select[name='halfYearGradeDisplay']");
+        Locator tendencyInput = displayForm.locator("input[name='tendencyThreshold']");
         assertThat(tendencyInput).isEnabled();
         modeSelect.selectOption("HALF");
         assertThat(tendencyInput).isEnabled();
         tendencyInput.fill("");
-        displayWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten");
+        displayForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(displayForm.locator(".saved-note")).hasText("Gespeichert");
+        assertThat(displayForm.locator("select[name='halfYearGradeDisplay']")).hasValue("HALF");
 
         openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
@@ -330,13 +327,12 @@ class GradeGridHalfYearE2EIT {
         h1Cell.evaluate("el => el.blur()");
         // HALF mode: 2.6 rounds to the nearest half-grade (2.5) - never a whole grade, never a
         // tendency suffix.
-        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2.5");
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2,5");
 
         // Switch back to whole grades with a +/-0.1 tendency band, then re-render the grid fresh.
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
         openClassTab(page, "Einstellungen");
-        Locator displayWrap2 = page.locator("#half-year-grade-display-fragment .rename-wrap");
-        displayWrap2.locator(".rename-toggle").click();
+        Locator displayWrap2 = page.locator("#half-year-grade-display-fragment");
         displayWrap2.locator("select[name='halfYearGradeDisplay']").selectOption("WHOLE");
         Locator tendencyInput2 = displayWrap2.locator("input[name='tendencyThreshold']");
         assertThat(tendencyInput2).isEnabled();
@@ -344,8 +340,9 @@ class GradeGridHalfYearE2EIT {
         // The live example spells out what the bare number means (a raw deviation, not a
         // percentage), recomputed on every keystroke - see notenfuchs.js's updateTendencyExample.
         assertThat(displayWrap2.locator(".tendency-example")).hasText("Beispiel bei Note 3: 2,90–3,10 ohne Tendenz, sonst 3+ / 3-");
-        displayWrap2.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Ganze Noten (± 0.10 Tendenz)");
+        displayWrap2.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(displayWrap2.locator(".saved-note")).hasText("Gespeichert");
+        assertThat(displayWrap2.locator("input[name='tendencyThreshold']")).hasValue("0.1");
 
         openClassTab(page, "Fächer & Schüler");
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
@@ -362,11 +359,11 @@ class GradeGridHalfYearE2EIT {
         // null (see ClassUiResource#updateHalfYearGradeDisplay).
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
         openClassTab(page, "Einstellungen");
-        Locator displayWrap3 = page.locator("#half-year-grade-display-fragment .rename-wrap");
-        displayWrap3.locator(".rename-toggle").click();
+        Locator displayWrap3 = page.locator("#half-year-grade-display-fragment");
+        assertThat(displayWrap3.locator("input[name='tendencyThreshold']")).hasValue("0.1");
         displayWrap3.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
-        displayWrap3.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).hasText("Halbe Noten (± 0.10 Tendenz)");
+        displayWrap3.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(displayWrap3.locator(".saved-note")).hasText("Gespeichert");
 
         openClassTab(page, "Fächer & Schüler");
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(subjectName)).click();
@@ -375,7 +372,7 @@ class GradeGridHalfYearE2EIT {
 
         // Same 2.6 grade as above (finalGrade 3, COMMERCIAL): HALF+0.1 refines the "+" tendency
         // into the neighboring half-grade 2.5 it's close enough to, instead of showing "3+".
-        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2.5");
+        assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2,5");
 
         // 2.2 sits in the "murky middle" between whole grade 2 and half-grade 2.5 - too far from
         // 2 to be plain, not close enough to 2.5 to refine into it - so HALF+tendency falls back
@@ -409,17 +406,16 @@ class GradeGridHalfYearE2EIT {
         page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName(className)).click();
 
         openClassTab(page, "Einstellungen");
-        Locator cutoffWrap = page.locator("#half-year-cutoff-fragment .rename-wrap");
-        cutoffWrap.locator(".rename-toggle").click();
-        cutoffWrap.locator("input[name='halfYearCutoff']").fill("2026-01-31");
-        cutoffWrap.locator(".rename-save").click();
+        Locator cutoffForm = page.locator("#half-year-cutoff-fragment");
+        cutoffForm.locator("input[name='halfYearCutoff']").fill("2026-01-31");
+        cutoffForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(cutoffForm.locator(".saved-note")).hasText("Gespeichert");
 
-        Locator displayWrap = page.locator("#half-year-grade-display-fragment .rename-wrap");
-        displayWrap.locator(".rename-toggle").click();
-        displayWrap.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
-        displayWrap.locator("input[name='tendencyThreshold']").fill("0.10");
-        displayWrap.locator(".rename-save").click();
-        assertThat(page.locator("#half-year-grade-display-fragment .rename-display")).containsText("Halbe Noten");
+        Locator displayForm = page.locator("#half-year-grade-display-fragment");
+        displayForm.locator("select[name='halfYearGradeDisplay']").selectOption("HALF");
+        displayForm.locator("input[name='tendencyThreshold']").fill("0.10");
+        displayForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(displayForm.locator(".saved-note")).hasText("Gespeichert");
 
         openClassTab(page, "Fächer & Schüler");
         page.locator("#studentName").fill(studentName);
@@ -467,7 +463,7 @@ class GradeGridHalfYearE2EIT {
         h1Cell.evaluate("el => el.blur()");
 
         assertThat(page.locator(".average-final[data-scope='h1']")).hasText("2-");
-        assertThat(h1Cell).hasValue("2.2");
+        assertThat(h1Cell).hasValue("2,2");
         assertEquals(1, maxInFlight.get());
     }
 }

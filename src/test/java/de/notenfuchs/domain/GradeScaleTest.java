@@ -60,10 +60,10 @@ class GradeScaleTest {
         assertEquals("2-", german.format(new BigDecimal("2.30")));
         assertEquals("2+", german.format(new BigDecimal("1.70")));
         assertEquals("2", german.format(new BigDecimal("2.00")));
-        assertEquals("2.5", german.format(new BigDecimal("2.50")));
+        assertEquals("2,5", german.format(new BigDecimal("2.50")));
 
         german.tendencyStep = null;
-        assertEquals("2.3", german.format(new BigDecimal("2.30")));
+        assertEquals("2,3", german.format(new BigDecimal("2.30")));
     }
 
     private static GradeScale scale(boolean lowerIsBetter, String atRiskFrom) {

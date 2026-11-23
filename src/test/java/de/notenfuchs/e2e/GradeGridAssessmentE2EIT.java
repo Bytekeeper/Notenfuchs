@@ -5,6 +5,7 @@ import com.microsoft.playwright.Dialog;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.SelectOption;
 import io.quarkiverse.playwright.InjectPlaywright;
 import io.quarkiverse.playwright.WithPlaywright;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URL;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Adding, editing and deleting a Leistung directly from the grade table (the dialog in
@@ -82,7 +84,7 @@ class GradeGridAssessmentE2EIT {
         page.locator("#assessmentFactor").fill("1");
         dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
         assertThat(page.locator(".column-edit").nth(1)).hasText("KA2-neu");
-        assertThat(page.locator(".average-raw")).hasText("3.50");
+        assertThat(page.locator(".average-raw")).hasText("3,5");
 
         // Delete it again; the confirm prompt must be accepted.
         page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("KA2-neu")).click();
@@ -107,7 +109,7 @@ class GradeGridAssessmentE2EIT {
         Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
         pointsCell.fill("50");
         pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("2.2");
+        assertThat(page.locator(".derived-grade")).hasText("2,2");
 
         page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("Klausur")).click();
         Locator bandGrades = dialog.locator("input[name='bandGrades']");
@@ -142,6 +144,39 @@ class GradeGridAssessmentE2EIT {
 
         assertThat(dialog.locator(".assessment-dialog-error")).containsText("gibt es nicht mehr");
         assertThat(dialog).isVisible();
+    }
+
+    @Test
+    void switchingToPointsAsksFirstBecauseItClearsTheGrades() {
+        String unique = Long.toString(System.nanoTime());
+        String categoryName = "E2E-Kategorie-" + unique;
+        setUpSubjectWithEmptyCategory(unique, categoryName);
+        Locator dialog = page.locator("#assessment-dialog");
+        page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("+ Leistung in " + categoryName)).click();
+        page.locator("#assessmentName").fill("KA1");
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        Locator cell = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        cell.fill("2");
+        cell.evaluate("el => el.blur()");
+        assertThat(page.locator(".average-final")).hasText("2");
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+
+        // Declined: the dialog stays open and the grade stays.
+        page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("KA1")).click();
+        page.locator("#assessmentPointsBased").check();
+        String[] question = new String[1];
+        page.onceDialog(prompt -> {
+            question[0] = prompt.message();
+            prompt.dismiss();
+        });
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(dialog).isVisible();
+        assertTrue(question[0].contains("löscht alle bisher eingetragenen Noten"), question[0]);
+
+        // Accepted: the Leistung now takes points and the grade is gone.
+        page.onceDialog(Dialog::accept);
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("");
     }
 
     private void setUpSubjectWithEmptyCategory(String unique, String categoryName) {

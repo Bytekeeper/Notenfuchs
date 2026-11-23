@@ -164,10 +164,11 @@ public class ClassUiResource {
     @GET
     @Path("/{id}/settings")
     @Produces(MediaType.TEXT_HTML)
-    public TemplateInstance settingsPage(@PathParam("id") Long id) {
+    public TemplateInstance settingsPage(@PathParam("id") Long id, @QueryParam("saved") boolean saved) {
         SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         return currentUser.withUser(settingsTemplate
                 .data("schoolClass", schoolClass)
+                .data("classSaved", saved)
                 .data("isClassAdmin", true));
     }
 
@@ -285,7 +286,8 @@ public class ClassUiResource {
             entity.schoolYear = schoolYear;
         }
         // The name is in the page header, so reload rather than swap a fragment.
-        return Response.ok().header("HX-Redirect", "/classes/" + id + "/settings").build();
+        // A full reload, because the name also shows in the header and breadcrumbs.
+        return Response.ok().header("HX-Redirect", "/classes/" + id + "/settings?saved=true").build();
     }
 
     /**
@@ -442,7 +444,7 @@ public class ClassUiResource {
                                                   @FormParam("halfYearCutoff") LocalDate halfYearCutoff) {
         SchoolClass schoolClass = guard.requireClassAdmin(id, currentUser.effectiveSubject());
         schoolClass.halfYearCutoff = halfYearCutoff;
-        return halfYearCutoffFragment.data("schoolClass", schoolClass);
+        return halfYearCutoffFragment.data("schoolClass", schoolClass).data("saved", true);
     }
 
     /**
@@ -467,7 +469,7 @@ public class ClassUiResource {
                 : HalfYearGradeDisplay.valueOf(halfYearGradeDisplay);
         schoolClass.halfYearGradeDisplay = mode;
         schoolClass.halfYearTendencyThreshold = tendencyThreshold;
-        return halfYearGradeDisplayFragment.data("schoolClass", schoolClass);
+        return halfYearGradeDisplayFragment.data("schoolClass", schoolClass).data("saved", true);
     }
 
     @POST

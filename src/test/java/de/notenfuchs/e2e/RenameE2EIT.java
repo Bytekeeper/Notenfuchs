@@ -261,7 +261,7 @@ class RenameE2EIT {
 
         // The weightPercent column is NUMERIC(5,2), so a reload may render "75" as "75.00" -
         // match loosely on the DB-normalized scale rather than the exact typed value.
-        java.util.regex.Pattern seventyFivePercent = java.util.regex.Pattern.compile("^\\(75(\\.0+)?%\\)$");
+        java.util.regex.Pattern seventyFivePercent = java.util.regex.Pattern.compile("^\\(75 %\\)$");
 
         Locator categoryCardAfterSave = page.locator(".card").filter(new Locator.FilterOptions().setHasText(categoryName));
         assertThat(categoryCardAfterSave.locator(".hint").first()).hasText(seventyFivePercent);
