@@ -133,4 +133,4 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 
 ## Deployment
 
-Self-hosted on a VPS; student names and grades live in Postgres. Recommend a LUKS-encrypted DB volume and pseudonyms via `displayName`. The Pocket ID overlay (`docker-compose.oidc.yml`) runs with `UI_CONFIG_DISABLED=true`, so Pocket ID settings (e.g. `HOME_PAGE_URL` from `NOTENFUCHS_APP_URL`) come from the compose file, not its admin UI.
+Self-hosted on a VPS; student names and grades live in Postgres. Recommend a LUKS-encrypted DB volume and pseudonyms via `displayName`. Backups: `scripts/backup.sh` (nightly `pg_dump`, plus Pocket ID data, optional `age` encryption), README "Datensicherung"; keep it working when compose service names change. The Pocket ID overlay (`docker-compose.oidc.yml`) runs with `UI_CONFIG_DISABLED=true`, so Pocket ID settings (e.g. `HOME_PAGE_URL` from `NOTENFUCHS_APP_URL`) come from the compose file, not its admin UI.
