@@ -149,7 +149,9 @@ Each color means one thing. A new state gets a new token here first.
 The grade and Verhaltensnoten grids are the exception to "rows with actions": every cell is
 an input that saves when you leave it (one save at a time, see `saveChain` in `notenfuchs.js`). The student
 column stays in place when you scroll sideways; averages are in the last columns. Nothing else
-on a grid page competes with the grid.
+on a grid page competes with the grid. Ctrl+Z takes back the last saved cell change (the page's
+history only; reloading ends it) and says above the grid whose value came back, since the cell may
+be out of view. Deletes elsewhere have no undo; they ask first, and backups cover the rest.
 
 ## Privacy mode
 

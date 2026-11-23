@@ -693,7 +693,8 @@ kein Node-Build-Schritt.
   löschen. Fehlende Noten von Leistungen, deren Datum erreicht ist, werden markiert.
   `e` / `u` in einer Zelle vermerkt „abwesend entschuldigt / unentschuldigt“ – allein
   (zählt dann nicht als fehlend) oder neben der Note (z. B. `6 u`); die Note selbst
-  ändert sich dadurch nie. Noten mit Tendenz lassen sich als `2-` / `2+` eintippen
+  ändert sich dadurch nie. Strg+Z nimmt die letzte gespeicherte Änderung einer Zelle zurück
+  (nur solange die Seite offen ist). Noten mit Tendenz lassen sich als `2-` / `2+` eintippen
   (zählt als 2,3 / 1,7, je nach `tendency_step` der Skala). „Details“ neben einem
   Schülernamen öffnet seine Seite im Fach
   (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte,

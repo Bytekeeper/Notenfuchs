@@ -2,7 +2,8 @@
  * Grade grid and Verhaltensnoten grid: spreadsheet-style keys and autosave. Every cell is an
  * <input class="grade-input"> with data-row/data-col (its position) and the ids its save sends.
  * Tab/Shift+Tab move along the rows, Enter/Shift+Enter and the arrow keys move up/down/sideways,
- * Escape restores the value the cell had on focus. Leaving a changed cell saves it.
+ * Escape restores the value the cell had on focus. Leaving a changed cell saves it. Ctrl+Z takes back
+ * the last saved change by saving the old value again; the history lives as long as the page.
  */
 (function () {
     "use strict";
@@ -19,6 +20,12 @@
         // One save at a time, request and page update together: every answer carries averages
         // over a whole column, so an answer handled out of order would show stale averages.
         let saveChain = Promise.resolve();
+        const undoStack = [];
+        const undoNote = document.createElement("p");
+        undoNote.className = "hint undo-note";
+        undoNote.setAttribute("role", "status");
+        undoNote.hidden = true;
+        root.closest(".grid-wrapper").before(undoNote);
 
         function cellAt(row, col) {
             return root.querySelector('.grade-input[data-row="' + row + '"][data-col="' + col + '"]');
@@ -68,15 +75,17 @@
             }
         }
 
-        function saveCell(input) {
+        function saveCell(input, isUndo) {
             const normalized = normalizeValue(input.value);
             // Start from what the page was rendered with, so clearing a pre-filled cell is a change.
             if (input.dataset.lastSaved === undefined) {
                 input.dataset.lastSaved = normalizeValue(input.defaultValue);
+                input.dataset.lastShown = input.defaultValue;
             }
             if (normalized === input.dataset.lastSaved) {
                 return;
             }
+            const before = input.dataset.lastShown;
             setState(input, "saving");
             const body = grid.saveFields(input);
             body.set("value", normalized);
@@ -107,7 +116,13 @@
                             input.value = data.displayValue;
                             input.dataset.lastSaved = normalizeValue(data.displayValue);
                         }
+                        input.dataset.lastShown = input.value;
                         grid.afterSave(root, input, data);
+                        if (isUndo) {
+                            showUndoNote(input);
+                        } else {
+                            undoStack.push({ input: input, value: before });
+                        }
                     })
                     .catch(function (err) {
                         setState(input, "error");
@@ -115,6 +130,35 @@
                     });
             });
         }
+
+        function showUndoNote(input) {
+            const row = input.closest("tr");
+            const name = (row.querySelector(".student-cell-inner > span") || row.querySelector(".student-cell")).textContent;
+            const value = document.createElement("span");
+            value.className = "private";
+            value.textContent = input.value.trim() ? "„" + input.value.trim() + "“" : "leer";
+            undoNote.replaceChildren("Zurückgenommen: " + name + " wieder ", value);
+            undoNote.hidden = false;
+        }
+
+        // Typing in a cell keeps the browser's own Ctrl+Z; so do other fields on the page.
+        document.addEventListener("keydown", function (ev) {
+            if (!(ev.ctrlKey || ev.metaKey) || ev.shiftKey || ev.altKey || ev.key.toLowerCase() !== "z") {
+                return;
+            }
+            const active = document.activeElement;
+            const inGrid = active && active.classList.contains("grade-input") && root.contains(active);
+            if (inGrid ? active.value !== active.dataset.valueOnFocus : active && active !== document.body) {
+                return;
+            }
+            const last = undoStack.pop();
+            if (last) {
+                ev.preventDefault();
+                last.input.value = last.value;
+                last.input.scrollIntoView({ block: "nearest", inline: "nearest" });
+                saveCell(last.input, true);
+            }
+        });
 
         root.addEventListener("focusin", function (ev) {
             const input = ev.target;

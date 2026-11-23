@@ -102,6 +102,37 @@ class GradeGridE2EIT {
     }
 
     @Test
+    void ctrlZTakesBackSavedChangesOneByOne() {
+        setUpSubjectWithGrid(Long.toString(System.nanoTime()));
+        Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");
+        Locator cell1 = page.locator("input.grade-input[data-row='0'][data-col='1']");
+        Locator finalGrade = page.locator(".average-final");
+
+        cell0.fill("2");
+        cell0.press("Tab");
+        assertThat(finalGrade).hasText("2");
+        cell0.fill("4");
+        cell0.evaluate("el => el.blur()");
+        assertThat(finalGrade).hasText("4");
+
+        // Focus in another, untouched cell: Ctrl+Z belongs to the grid, not to the field.
+        cell1.focus();
+        page.keyboard().press("Control+z");
+        assertThat(cell0).hasValue("2");
+        assertThat(finalGrade).hasText("2");
+        assertThat(page.locator(".undo-note")).containsText("wieder „2“");
+
+        page.keyboard().press("Control+z");
+        assertThat(cell0).hasValue("");
+        assertThat(finalGrade).hasText("–");
+        assertThat(page.locator(".undo-note")).containsText("wieder leer");
+
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+        page.reload();
+        assertThat(page.locator("input.grade-input[data-row='0'][data-col='0']")).hasValue("");
+    }
+
+    @Test
     void aGradeTheServerWritesDifferentlyIsNotSavedAgainOnTheNextBlur() {
         setUpSubjectWithGrid(Long.toString(System.nanoTime()));
         Locator cell0 = page.locator("input.grade-input[data-row='0'][data-col='0']");

@@ -25,6 +25,10 @@ beim Verlassen von selbst. Komma und Punkt gehen beide (2,3). Eine Note mit Tend
 Sie als 2- oder 2+: Sie zählt als 2,3 oder 1,7 und bleibt als 2- oder 2+ stehen. Eine
 geleerte Zelle löscht die Note.
 
+Vertippt? **Strg+Z** (auf dem Mac **⌘+Z**) nimmt die letzte gespeicherte Änderung zurück, auch
+wenn Sie schon in einer anderen Zelle sind; noch einmal gedrückt die davor. Über der Tabelle steht dann,
+bei wem welcher Wert wiederhergestellt wurde. Nach dem Neuladen der Seite geht das nicht mehr.
+
 War ein Schüler nicht da, tragen Sie **e** (entschuldigt) oder **u** (unentschuldigt) ein,
 allein oder neben der Note, zum Beispiel „6 u“. Der Vermerk ändert die Note nie; eine
 Zelle nur mit Vermerk zählt nicht als fehlende Note. Wer es vergisst: Fährt man mit der Maus
