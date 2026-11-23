@@ -753,3 +753,4 @@ html.privacy-on .privacy-toggle {
     html.privacy-on .private:not(.revealed):not(:focus-within) a.report-grade-edit { color: var(--color-text-muted) !important; }
     html.privacy-on .private:not(.revealed) { cursor: pointer; }
 }
+.undo-note { margin: 0 0 0.5rem; }

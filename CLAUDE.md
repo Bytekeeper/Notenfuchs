@@ -103,6 +103,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 | Area | Tests |
 |---|---|
 | Averages, rounding | `GradeServiceTest` |
+| Grid undo (Ctrl+Z) | `GradeGridE2EIT` |
 | Points / Notenschlüssel | `PointsConversionServiceTest`, `GridAssessmentIT`, `GradeGridE2EIT` |
 | Half-year view and display | `HalfYearAssessmentPartitionerTest`, `HalfYearGradeDisplayServiceTest`, `GradeGridHalfYearIT`, `GradeGridHalfYearE2EIT` |
 | Leistung dialog, "offen" highlight | `GridAssessmentIT`, `GradeGridAssessmentE2EIT` |
