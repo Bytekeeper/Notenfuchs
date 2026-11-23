@@ -247,6 +247,76 @@ als erledigt löschen. Wer Admin ist:
 - **Anderer OIDC-Provider:** ebenso über eine Gruppe im Claim `groups`. Lehnt dein Provider
   den Scope `groups` ab, setze `OIDC_SCOPES=profile`; Admins gibt es dann nicht.
 
+### Datensicherung
+
+Notenfuchs hat keinen Papierkorb und kein Rückgängig für Gelöschtes: Eine gelöschte Leistung,
+ein Fach oder eine Klasse ist mit allen Noten weg. Dazu kommen ein kaputter Server oder ein
+missglücktes Update. Dagegen hilft nur eine Sicherung, die nicht auf demselben Server liegt.
+
+**Was gesichert wird:** die Datenbank (alles, was Lehrkräfte eintragen) und mit Pocket ID
+(Option B) auch dessen Daten. Notenfuchs kennt Lehrkräfte über ihr Pocket-ID-Konto; ein neu
+aufgesetztes Pocket ID hätte neue Konten, und niemand käme mehr an seine Klassen. Die `.env`
+sicherst du einmal von Hand, sie ändert sich selten.
+
+**Jede Nacht automatisch:** `scripts/backup.sh` schreibt nach `/var/backups/notenfuchs`
+(änderbar mit `BACKUP_DIR`) eine Datei `notenfuchs-JJJJ-MM-TT.dump` und, falls Pocket ID
+läuft, `pocket-id-JJJJ-MM-TT.tar`. Dateien älter als 14 Tage (`KEEP_DAYS`) löscht es. Als
+root in die Crontab (`crontab -e`), Pfad anpassen:
+
+```cron
+30 2 * * * /opt/Notenfuchs/scripts/backup.sh
+```
+
+**Weg vom Server:** Eine Sicherung auf demselben Server geht mit ihm verloren. Kopiere das
+Verzeichnis regelmäßig auf einen anderen Rechner oder Speicher, z. B. mit `rsync` oder
+`restic`. Weil darin Schülernamen und Noten stehen, verschlüssele sie vorher: Mit
+[age](https://age-encryption.org) erzeugst du auf *deinem* Rechner einen Schlüssel
+(`age-keygen -o notenfuchs-backup.key`) und trägst nur dessen öffentlichen Teil
+(`age1…`) in die Crontab ein:
+
+```cron
+30 2 * * * AGE_RECIPIENT=age1... /opt/Notenfuchs/scripts/backup.sh
+```
+
+Die Dateien enden dann auf `.age`, und der Server selbst kann alte Sicherungen nicht mehr
+lesen. Den privaten Schlüssel gut aufheben: ohne ihn sind die Sicherungen wertlos.
+Snapshots deines VPS-Anbieters sind eine gute Ergänzung, ersetzen das aber nicht: Sie liegen
+beim selben Anbieter.
+
+**Wiederherstellen** setzt die ganze Instanz auf den Stand der Sicherung zurück; alles, was
+danach eingetragen wurde, fehlt. Sichere deshalb vorher den jetzigen Stand
+(`scripts/backup.sh`), dann im Notenfuchs-Verzeichnis:
+
+```bash
+age -d -i notenfuchs-backup.key notenfuchs-2026-01-31.dump.age > notenfuchs-2026-01-31.dump   # nur wenn verschlüsselt
+docker compose stop app
+docker compose exec -T postgres dropdb -U notenfuchs notenfuchs
+docker compose exec -T postgres createdb -U notenfuchs notenfuchs
+docker compose exec -T postgres pg_restore -U notenfuchs -d notenfuchs --no-owner < notenfuchs-2026-01-31.dump
+docker compose start app
+```
+
+Die Notenfuchs-Version muss gleich oder neuer sein als die, mit der gesichert wurde; eine
+neuere bringt die Datenbank beim Start selbst auf ihren Stand. Pocket ID stellst du nur
+wieder her, wenn es selbst verloren ist:
+
+```bash
+docker compose stop pocket-id
+docker compose cp - pocket-id:/app < pocket-id-2026-01-31.tar
+docker compose start pocket-id
+```
+
+**Einmal ausprobieren:** Eine Sicherung, die nie zurückgespielt wurde, ist eine Hoffnung.
+Spiel eine davon einmal in eine Wegwerf-Datenbank ein und sieh nach, ob die Noten da sind:
+
+```bash
+docker run -d --name nf-test -e POSTGRES_PASSWORD=test postgres:16-alpine
+sleep 5
+docker exec -i nf-test pg_restore -U postgres -d postgres --no-owner < notenfuchs-2026-01-31.dump
+docker exec nf-test psql -U postgres -c "select count(*) from grade"
+docker rm -f nf-test
+```
+
 ### Für die Entwicklung: aus dem Quellcode ausführen
 
 Nur nötig, wenn du am Code von Notenfuchs arbeitest - für die normale Nutzung nicht
