@@ -108,7 +108,7 @@ class GradeDistributionIT {
         if (!row.find()) {
             throw new AssertionError("No row " + name + " in " + page);
         }
-        Matcher cell = Pattern.compile("<td class=\"num[^\"]*\">([^<]*)</td>").matcher(row.group());
+        Matcher cell = Pattern.compile("<td class=\"[^\"]*num[^\"]*\">([^<]*)</td>").matcher(row.group());
         List<String> cells = new ArrayList<>();
         while (cell.find()) {
             cells.add(cell.group(1));

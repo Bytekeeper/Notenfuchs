@@ -28,7 +28,7 @@
                     <tr>
                         <td class="student-cell">{row.student.effectiveName}</td>
                         {#for cell in row.cells}
-                            <td class="grade-cell{#if !cell.displayValue} grade-cell-open{/if}">
+                            <td class="private grade-cell{#if !cell.displayValue} grade-cell-open{/if}">
                                 <input type="text"
                                        inputmode="decimal"
                                        class="grade-input{#if !cell.taught} grade-input-readonly{/if}"
@@ -40,7 +40,7 @@
                                        {#if !cell.taught}readonly title="Sie unterrichten dieses Fach nicht"{/if}>
                             </td>
                         {/for}
-                        <td class="average-cell {#if row.borderline}borderline{/if}" data-student-id="{row.student.id}">
+                        <td class="private average-cell {#if row.borderline}borderline{/if}" data-student-id="{row.student.id}">
                             <span class="behavior-average-raw" data-student-id="{row.student.id}">{row.rawAverage ?: '–'}</span>
                         </td>
                     </tr>
@@ -53,9 +53,9 @@
                 <tr>
                     <td class="student-cell">{row.student.effectiveName}</td>
                     {#for cell in row.cells}
-                    <td class="grade-cell readonly-cell">{cell.displayValue ?: ''}</td>
+                    <td class="private grade-cell readonly-cell">{cell.displayValue ?: ''}</td>
                     {/for}
-                    <td class="average-cell"><span>{row.rawAverage ?: '–'}</span></td>
+                    <td class="private average-cell"><span>{row.rawAverage ?: '–'}</span></td>
                 </tr>
                 {/for}
             </tbody>
@@ -64,12 +64,12 @@
                 <tr class="average-row">
                     <td class="student-cell">Ø je Fach</td>
                     {#for sf in subjectFooters}
-                        <td class="average-cell">
+                        <td class="private average-cell">
                             <span class="behavior-subject-average-final" data-subject-id="{sf.subjectId}">{sf.finalGrade ?: '–'}</span>
                             <span class="raw-average behavior-subject-average-raw" data-subject-id="{sf.subjectId}">{sf.rawAverage ?: '–'}</span>
                         </td>
                     {/for}
-                    <td class="average-cell"></td>
+                    <td class="private average-cell"></td>
                 </tr>
             </tfoot>
         </table>

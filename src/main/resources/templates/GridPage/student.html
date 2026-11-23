@@ -18,11 +18,11 @@
             <tr>
                 <td>{a.label}</td>
                 {#if a.reportGrade}
-                <td class="num has-report-grade"><strong class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{a.reportGrade}</strong> <span class="average-final">{a.grade ?: '–'}</span></td>
+                <td class="private num has-report-grade"><strong class="report-grade" title="Zeugnisnote, von Hand festgelegt (durchgestrichen: berechnet)">{a.reportGrade}</strong> <span class="average-final">{a.grade ?: '–'}</span></td>
                 {#else}
-                <td class="num"><strong>{a.grade ?: '–'}</strong></td>
+                <td class="private num"><strong>{a.grade ?: '–'}</strong></td>
                 {/if}
-                <td class="num">{a.rawAverage ?: '–'}</td>
+                <td class="private num">{a.rawAverage ?: '–'}</td>
             </tr>
             {/for}
         </tbody>
@@ -36,12 +36,12 @@
             {#if hasHalfYear}
             <div class="form-field">
                 <label for="reportGradeFirstHalf">1. Halbjahr</label>
-                <input type="text" id="reportGradeFirstHalf" name="firstHalf" value="{firstHalfReportGrade ?: ''}" placeholder="berechnet"{#if focusReportGrade == 'firstHalf'} autofocus{/if}>
+                <input type="text" class="private" id="reportGradeFirstHalf" name="firstHalf" value="{firstHalfReportGrade ?: ''}" placeholder="berechnet"{#if focusReportGrade == 'firstHalf'} autofocus{/if}>
             </div>
             {/if}
             <div class="form-field">
                 <label for="reportGradeYear">Jahr</label>
-                <input type="text" id="reportGradeYear" name="year" value="{yearReportGrade ?: ''}" placeholder="berechnet"{#if focusReportGrade == 'year'} autofocus{/if}>
+                <input type="text" class="private" id="reportGradeYear" name="year" value="{yearReportGrade ?: ''}" placeholder="berechnet"{#if focusReportGrade == 'year'} autofocus{/if}>
             </div>
             <button type="submit">Speichern</button>
         </form>
@@ -65,7 +65,7 @@
                 <td>{l.name}</td>
                 <td>{#if l.date}{l.date.format('dd.MM.yyyy')}{#else}–{/if}</td>
                 <td class="num">{l.factor}</td>
-                <td class="num">{l.gradeText}{#if l.absenceLabel} <span class="hint">({l.absenceLabel})</span>{/if}</td>
+                <td class="private num">{l.gradeText}{#if l.absenceLabel} <span class="hint">({l.absenceLabel})</span>{/if}</td>
             </tr>
             {/for}
         </tbody>
@@ -94,7 +94,7 @@
         <thead><tr><th>Endnote</th>{#if currentHalfName}<th class="num">{currentHalfName}</th>{/if}<th class="num">Jahr</th></tr></thead>
         <tbody>
             {#for r in requirements}
-            <tr><td>{r.targetGrade}</td>{#if currentHalfName}<td class="num">{r.currentHalf}</td>{/if}<td class="num">{r.year}</td></tr>
+            <tr><td>{r.targetGrade}</td>{#if currentHalfName}<td class="private num">{r.currentHalf}</td>{/if}<td class="private num">{r.year}</td></tr>
             {/for}
         </tbody>
     </table>

@@ -151,6 +151,15 @@ an input that saves when you leave it (one save at a time, see `saveChain` in `n
 column stays in place when you scroll sideways; averages are in the last columns. Nothing else
 on a grid page competes with the grid.
 
+## Privacy mode
+
+"Noten verbergen" in the header (every page) covers every value that comes from grades: grade
+cells, averages, Zeugnisnoten, Notenspiegel counts, the at-risk count and the Notenschlüssel preview.
+Mark such an element `.private`. Hidden, a filled cell, a cell with an absence mark and an empty cell
+look the same, because "offen", absence and at-risk colors tell as much as the grade. A click shows
+one value; a cell with an input shows while it has focus. Aggregates per Fach without names (the
+"offen" counts on the home page and in the Notenübersicht footer) stay visible. Print ignores it.
+
 ## Print
 
 Data pages print: controls carry `.no-print`, tables print in full width. Grids are not

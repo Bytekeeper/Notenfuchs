@@ -176,6 +176,12 @@ class WalkthroughIT {
         assertThat(page.locator(".assessment-average-raw")).hasText("3,43");
         shotOf("alltag-noten-eintragen", page.locator(".grid-wrapper"));
 
+        clickButton("Noten verbergen");
+        assertThat(page.locator(".average-final").first()).hasCSS("color", "rgba(0, 0, 0, 0)");
+        shotOf("alltag-noten-verbergen", page.locator(".grid-wrapper"));
+        // The choice is stored in the browser; later journeys need the grades visible.
+        clickButton("Noten zeigen");
+
         record();
         page.locator("table.grade-grid tr").filter(new Locator.FilterOptions().setHasText("Jonas Keller"))
                 .getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Details")).click();

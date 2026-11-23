@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{#insert title}Notenfuchs{/insert}</title>
     <link rel="stylesheet" href="/static/css/notenfuchs.css">
+    <script src="/static/js/privacy.js"></script>
     <script src="/static/js/htmx.min.js"></script>
 </head>
 <body>
@@ -16,6 +17,7 @@
             {#if currentUserInstanceAdmin}<a href="/admin/feedback">Rückmeldungen</a>{/if}
         </nav>
         <div class="user-info">
+            <button type="button" class="privacy-toggle link-button" title="Noten, Durchschnitte und ihre Markierungen auf dem Bildschirm verbergen, z. B. im Unterricht"><span class="privacy-label-off">Noten verbergen</span><span class="privacy-label-on">Noten zeigen</span></button>
             <button type="button" class="feedback-open link-button">Fehler melden</button>
             {#if currentUserAuthenticated}
                 <span>Angemeldet als {currentUserDisplayName}</span>

@@ -83,7 +83,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 
 ## UI
 
-`docs/ui-concept.md` answers "how should it look". In short: lists are `table.entity-list` with one "Ändern" per row that opens an edit row (rare actions like "Löschen" go there); read-only figures (Notenspiegel, student page) are `table.data-table` with `.num` columns; a form you need rarely is a closed `details.add-panel` ("+ … anlegen"); cards only hold forms; two lists of equal weight sit side by side; same label for the same action everywhere ("Abbrechen", not "Verwerfen"). A refused htmx request shows the server's 400 sentence below its form (`BadRequestMessage` + the feedback block in `notenfuchs.js`, which also disables the sending button). Numbers show with a decimal comma: Qute prints every `BigDecimal` via `GermanNumbers`; `<input type="number">` and data attributes use `{value.plain}`; Java strings use `GermanNumbers.display`.
+`docs/ui-concept.md` answers "how should it look". In short: lists are `table.entity-list` with one "Ändern" per row that opens an edit row (rare actions like "Löschen" go there); read-only figures (Notenspiegel, student page) are `table.data-table` with `.num` columns; a form you need rarely is a closed `details.add-panel` ("+ … anlegen"); cards only hold forms; two lists of equal weight sit side by side; same label for the same action everywhere ("Abbrechen", not "Verwerfen"). A refused htmx request shows the server's 400 sentence below its form (`BadRequestMessage` + the feedback block in `notenfuchs.js`, which also disables the sending button). Numbers show with a decimal comma: Qute prints every `BigDecimal` via `GermanNumbers`; `<input type="number">` and data attributes use `{value.plain}`; Java strings use `GermanNumbers.display`. Every grade-derived value on a page carries `.private`, so "Noten verbergen" (`privacy.js` in `<head>` applies the stored choice before paint, the rest in `notenfuchs.js`) covers it, highlights included.
 
 ## Gotchas
 
@@ -111,6 +111,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 | Student page, "Was braucht …" | `RequiredGradeServiceTest`, `StudentPageIT` |
 | Notenspiegel tab | `GradeDistributionIT`, `WalkthroughIT` |
 | Refused-request message, busy buttons | `RequestFeedbackE2EIT`, `ClassTeacherIT` |
+| "Noten verbergen" | `PrivacyModeE2EIT`, `WalkthroughIT` (Alltag) |
 | Tendency entry ("2-"), Zeugnisnote | `GradeScaleTest`, `ReportGradeIT`, `GradeGridE2EIT`, `WalkthroughIT` |
 | Home page, Fach switcher | `MySubjectsIT`, `SubjectSwitcherE2EIT` |
 | New Fach setup (copy, starter) | `SubjectSetupIT` |

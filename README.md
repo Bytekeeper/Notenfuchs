@@ -699,6 +699,9 @@ kein Node-Build-Schritt.
   (`/subjects/{id}/grid/students/{studentId}`): alle Leistungen, die Durchschnitte,
   „Zeugnisnote festlegen“ (direkt dorthin führt der Stift ✎ an der Endnote im Raster) und „Was braucht … in der nächsten Leistung?“ – druckbar,
   z. B. fürs Elterngespräch
+- „Noten verbergen“ oben auf jeder Seite: ein Sichtschutz für den Unterricht. Alle Noten,
+  Durchschnitte und ihre Markierungen sehen gleich aus, bis man eine Zelle anklickt; der
+  Browser merkt sich die Wahl pro Gerät. Kein Schutz der Daten selbst: Die Seite enthält sie weiter.
 - `/classes/{id}/export` - die ganze Klasse als `.xlsx`: für Klassen-Admins ein Blatt
   „Notenübersicht“ mit den Endnoten aller Fächer, dazu für jedes Fach, das man selbst
   unterrichtet, ein Blatt mit allen Noten (wie der Export des einzelnen Fachs)
