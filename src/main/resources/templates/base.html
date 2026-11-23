@@ -16,12 +16,12 @@
             {#if currentUserInstanceAdmin}<a href="/admin/feedback">Rückmeldungen</a>{/if}
         </nav>
         <div class="user-info">
-            <button type="button" class="feedback-open">Fehler melden</button>
+            <button type="button" class="feedback-open link-button">Fehler melden</button>
             {#if currentUserAuthenticated}
                 <span>Angemeldet als {currentUserDisplayName}</span>
                 {#if localAuthActive}
-                <form method="post" action="/local-logout" style="display:inline; margin:0;">
-                    <button type="submit" style="all:unset; cursor:pointer; color:var(--color-primary);">Logout</button>
+                <form class="logout-form" method="post" action="/local-logout">
+                    <button type="submit" class="link-button">Logout</button>
                 </form>
                 {#else}
                 {#if oidcAccountUrl}

@@ -4,7 +4,7 @@
 {#include ClassPage/classHeader activeTab='settings' /}
 
 <div class="card">
-    <h3 style="margin-top: 0;">Klasse</h3>
+    <h2>Klasse</h2>
     <form class="inline-form" hx-patch="/classes/{schoolClass.id}/rename">
         <div class="form-field">
             <label for="className">Name</label>
@@ -15,6 +15,7 @@
             <input type="text" id="classSchoolYear" name="schoolYear" value="{schoolClass.schoolYear}" required>
         </div>
         <button type="submit">Speichern</button>
+        {#if classSaved}<span class="saved-note" role="status">Gespeichert</span>{/if}
         <span class="rare-actions">
             <button type="button" class="delete-btn" hx-delete="/classes/{schoolClass.id}" hx-confirm="Klasse '{schoolClass.name}' wirklich löschen? Das löscht auch alle Schüler, Fächer und Noten dieser Klasse.">Klasse löschen</button>
         </span>
@@ -22,15 +23,15 @@
 </div>
 
 <div class="card">
-    <h3 style="margin-top: 0;">Halbjahr-Ansicht</h3>
-    <p class="hint">Stichtag für die Aufteilung der Notenerfassung in 1./2. Halbjahr - reine Anzeigefunktion, es werden keine Noten oder Leistungen verändert. Leistungen bis einschließlich diesem Datum zählen ins 1. Halbjahr, danach ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung wie bisher eine einzige Jahresansicht.</p>
+    <h2>Halbjahr-Ansicht</h2>
+    <p class="hint">Leistungen bis einschließlich zum Stichtag zählen ins 1. Halbjahr, spätere ins 2. Halbjahr. Ohne Stichtag zeigt die Notenerfassung nur das Jahr. Noten und Leistungen ändern sich dadurch nicht.</p>
     {#include fragments/halfYearCutoff /}
-    <p class="hint">Anzeige der 1./2.-Halbjahr-Note: ganze Noten (wie bisher, optional mit +/- Tendenz) oder halbe Noten. Die Jahresnote zeigt immer eine ganze Note, unabhängig von dieser Einstellung.</p>
+    <p class="hint">Die Halbjahresnote erscheint als ganze Note oder als halbe Note. Die Tendenz ist der Abstand zur ganzen Note, bis zu dem kein + oder - angezeigt wird, z. B. 0,1. Die Jahresnote ist immer eine ganze Note.</p>
     {#include fragments/halfYearGradeDisplay /}
 </div>
 
 <div class="card">
-    <h3 style="margin-top: 0;">Schuljahreswechsel</h3>
+    <h2>Schuljahreswechsel</h2>
     <p class="hint">Legt eine neue Klasse mit denselben Fächern, Kategorien und Schülern an (ohne Leistungen/Noten) - z. B. beim Übergang 8b → 9b. Diese Klasse bleibt unverändert und weiter bearbeitbar.</p>
     <form class="inline-form" method="post" action="/classes/{schoolClass.id}/duplicate">
         <div class="form-field">

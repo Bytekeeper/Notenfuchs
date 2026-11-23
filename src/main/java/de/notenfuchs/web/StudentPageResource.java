@@ -41,7 +41,7 @@ import java.util.Map;
 
 import static de.notenfuchs.web.GradeGridResource.formatOrNull;
 import static de.notenfuchs.web.GradeGridResource.gradesByKey;
-import static de.notenfuchs.web.GradeGridResource.plain;
+import static de.notenfuchs.web.GermanNumbers.display;
 
 /**
  * The page of one student in one Fach, opened from a student's name in the grade grid. Reuses the
@@ -99,7 +99,7 @@ public class StudentPageResource {
             Grade grade = grades.get(new GradeKey(assessment.id, studentId));
             BigDecimal value = grade != null ? grid.effectiveGradeValue(grade, assessment, subject.gradeScale) : null;
             String gradeText = value == null ? "–"
-                    : assessment.pointsBased ? plain(grade.points) + " Pkt. → " + plain(value)
+                    : assessment.pointsBased ? display(grade.points) + " Pkt. → " + display(value)
                     : subject.gradeScale.format(value);
             leistungen.add(new StudentLeistungView(assessment.category.name, assessment.name, assessment.date,
                     assessment.factor, gradeText, grade != null && grade.absence != null ? grade.absence.label : null));
@@ -164,7 +164,7 @@ public class StudentPageResource {
                 .data("averages", averages)
                 .data("categories", categories)
                 .data("nextCategory", nextCategory)
-                .data("nextFactor", plain(nextFactor))
+                .data("nextFactor", nextFactor)
                 .data("currentHalfName", currentHalfName)
                 .data("requirements", requirements)
                 .data("hasHalfYear", cutoff != null)
@@ -265,7 +265,7 @@ public class StudentPageResource {
             return null;
         }
         return switch (code) {
-            case "range" -> "Die Note muss zwischen " + plain(scale.min) + " und " + plain(scale.max) + " liegen.";
+            case "range" -> "Die Note muss zwischen " + display(scale.min) + " und " + display(scale.max) + " liegen.";
             case "whole" -> "Die Jahresnote ist immer eine ganze Note.";
             default -> "Bitte eine Note eingeben, zum Beispiel 2 oder 2-.";
         };
@@ -278,7 +278,7 @@ public class StudentPageResource {
         if (requirement.alreadySafe()) {
             return "sicher";
         }
-        return plain(requirement.requiredGrade()) + " oder besser";
+        return display(requirement.requiredGrade()) + " oder besser";
     }
 
     /** The student's grades in {@code assessments}, one {@link CategoryData} per category (empty ones included). */

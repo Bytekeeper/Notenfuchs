@@ -49,7 +49,7 @@ class ReportGradeIT {
         JsonNode saved = saveCell(f, "2-");
 
         assertEquals("2-", saved.get("displayValue").asText());
-        assertEquals("2.3", saved.get("rawAverage").asText());
+        assertEquals("2,3", saved.get("rawAverage").asText());
         assertEquals(0, new BigDecimal("2.3").compareTo(storedGrade(f)));
         assertTrue(http.get("/subjects/" + f.subjectId() + "/grid").body().contains("value=\"2-\""));
         // 1+ would be 0.7, outside the scale.

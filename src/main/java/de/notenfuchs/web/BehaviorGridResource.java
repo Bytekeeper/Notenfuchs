@@ -232,7 +232,7 @@ public class BehaviorGridResource {
     }
 
     private static String plain(BigDecimal value) {
-        return value.stripTrailingZeros().toPlainString();
+        return value.stripTrailingZeros().toPlainString().replace('.', ',');
     }
 
     // ---- View models for the Qute template ----

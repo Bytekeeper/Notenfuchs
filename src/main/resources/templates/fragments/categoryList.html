@@ -3,7 +3,7 @@
         {#include SubjectPage/starterCategories returnTo='setup' /}
     {#else}
         {#if weightSumWarning}
-            <p class="hint warning">Achtung: Die Gewichtungen der Kategorien summieren sich auf {weightSum}%, nicht 100%.</p>
+            <p class="hint warning">Achtung: Die Gewichtungen der Kategorien summieren sich auf {weightSum} %, nicht 100 %.</p>
         {/if}
         {#for cat in categories}
             <div class="card">
@@ -11,7 +11,7 @@
                     <div class="rename-view">
                         <div>
                             <strong class="rename-display">{cat.name}</strong>
-                            <span class="hint">({cat.weightPercent}%)</span>
+                            <span class="hint">({cat.weightPercent} %)</span>
                         </div>
                         <div class="row-actions">
                             <button type="button" class="rename-toggle">Ändern</button>
@@ -19,16 +19,16 @@
                     </div>
                     <form class="rename-form" hx-patch="/subjects/{subject.id}/categories/{cat.id}/rename" hx-target="#category-list-fragment" hx-swap="outerHTML">
                         <input type="text" name="name" value="{cat.name}" required>
-                        <input type="number" name="weightPercent" step="0.01" min="0" max="100" value="{cat.weightPercent}" data-original="{cat.weightPercent}" required>
+                        <input type="number" name="weightPercent" step="0.01" min="0" max="100" value="{cat.weightPercent.plain}" data-original="{cat.weightPercent.plain}" required>
                         <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-                        <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
+                        <button type="button" class="rename-cancel">Abbrechen</button>
                         <span class="rare-actions">
                             <button type="button" class="delete-btn" hx-delete="/subjects/{subject.id}/categories/{cat.id}" hx-target="#category-list-fragment" hx-swap="outerHTML" hx-confirm="Kategorie '{cat.name}' wirklich löschen? Das löscht auch alle Leistungen und Noten dieser Kategorie.">Kategorie löschen</button>
                         </span>
                     </form>
                 </div>
 
-                <table class="entity-list" style="margin-top: 0.75rem;">
+                <table class="entity-list">
                     <thead>
                         <tr><th>Leistung</th><th>Datum</th><th></th></tr>
                     </thead>
@@ -42,10 +42,10 @@
                                         {a.name}
                                         <span class="row-meta">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span>
                                     </td>
-                                    <td style="white-space: nowrap;">{#if a.date}{a.date.format('dd.MM.yyyy')}{/if}</td>
+                                    <td class="nowrap">{#if a.date}{a.date.format('dd.MM.yyyy')}{/if}</td>
                                     <td>
                                         <div class="row-actions">
-                                            <button type="button" class="row-btn column-edit" data-assessment-id="{a.id}" data-category-name="{cat.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{a.bandSpec}">Ändern</button>
+                                            <button type="button" class="row-btn column-edit" data-assessment-id="{a.id}" data-category-name="{cat.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor.plain}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{a.bandSpec}">Ändern</button>
                                         </div>
                                     </td>
                                 </tr>

@@ -63,7 +63,7 @@ class BehaviorGridIT {
 
         // Student A gets a 3 in FachB: Student A average becomes (2+3)/2 = 2.5 -> borderline.
         JsonNode afterA2 = saveCellAndParse(classId, studentA, subjectFachB, "3");
-        assertEquals("2.5", afterA2.get("studentRawAverage").asText());
+        assertEquals("2,5", afterA2.get("studentRawAverage").asText());
         assertTrue(afterA2.get("studentBorderline").asBoolean());
         assertEquals("3", afterA2.get("subjectRawAverage").asText());
 

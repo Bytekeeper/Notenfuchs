@@ -7,14 +7,14 @@
 {#else}
 <p class="hint">Wie oft jede Note vergeben wurde. „2-“ zählt als 2, Punkte zählen mit ihrer gerundeten Note. Ausgetretene Schüler und leere Zellen zählen nicht.</p>
 <div class="grid-wrapper">
-<table class="distribution">
+<table class="data-table distribution">
     <thead>
         <tr>
             <th>Leistung</th>
             <th>Datum</th>
-            {#for g in gradeColumns}<th class="count">{g}</th>{/for}
-            <th class="count">Ø</th>
-            <th class="count">Noten</th>
+            {#for g in gradeColumns}<th class="num">{g}</th>{/for}
+            <th class="num">Ø</th>
+            <th class="num">Noten</th>
         </tr>
     </thead>
     {#for group in groups}
@@ -26,9 +26,9 @@
         <tr>
             <td>{row.name}{#if row.categoryName} <span class="row-meta">{row.categoryName}</span>{/if}</td>
             <td>{#if row.date}{row.date.format('dd.MM.yyyy')}{/if}</td>
-            {#for c in row.counts}<td class="count{#if c == 0} zero{/if}">{c}</td>{/for}
-            <td class="count">{row.average ?: '–'}</td>
-            <td class="count">{row.gradeCount}</td>
+            {#for c in row.counts}<td class="num{#if c == 0} zero{/if}">{c}</td>{/for}
+            <td class="num">{row.average ?: '–'}</td>
+            <td class="num">{row.gradeCount}</td>
         </tr>
         {#else}
         <tr class="empty-row"><td colspan="{colspan}">Keine Leistungen</td></tr>

@@ -58,7 +58,7 @@
                                     <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
                                 </select>
                                 <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-                                <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
+                                <button type="button" class="rename-cancel">Abbrechen</button>
                                 {#if isClassAdmin || isClassTeacher}
                                 <span class="rare-actions">
                                     <button type="button" class="delete-btn" hx-delete="/classes/{schoolClass.id}/subjects/{s.id}" hx-target="#subject-list-fragment" hx-swap="outerHTML" hx-confirm="Fach '{s.name}' wirklich löschen? Das löscht auch alle Kategorien, Leistungen und Noten dieses Fachs.">Löschen</button>

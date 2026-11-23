@@ -173,7 +173,7 @@ class WalkthroughIT {
         // (2.3 + 3 + 5) / 3: "2-" counts 2.3, the absent cell doesn't count, and no save's answer may
         // overwrite a later one.
         assertThat(page.locator("input.grade-input[data-row='0']")).hasValue("2-");
-        assertThat(page.locator(".assessment-average-raw")).hasText("3.43");
+        assertThat(page.locator(".assessment-average-raw")).hasText("3,43");
         shotOf("alltag-noten-eintragen", page.locator(".grid-wrapper"));
 
         record();
@@ -227,7 +227,7 @@ class WalkthroughIT {
 
         clickTab("Notenspiegel");
         assertThat(page.locator("table.distribution tr").filter(new Locator.FilterOptions().setHasText("Klassenarbeit 1"))
-                .locator("td.count").last()).hasText("4");
+                .locator("td.num").last()).hasText("4");
         record();
         shotOf("punkte-notenspiegel", page.locator(".grid-wrapper"));
 
@@ -239,10 +239,10 @@ class WalkthroughIT {
     void vorDemZeugnis() throws IOException {
         clickLink(CLASS);
         clickTab("Einstellungen");
-        page.locator("#half-year-cutoff-fragment .rename-toggle").click();
         page.locator("#half-year-cutoff-fragment input[name='halfYearCutoff']").fill("2026-01-31");
-        page.locator("#half-year-cutoff-fragment .rename-save").click();
-        assertThat(page.locator("#half-year-cutoff-fragment .rename-display")).hasText("31.01.2026");
+        page.locator("#half-year-cutoff-fragment").getByRole(AriaRole.BUTTON,
+                new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(page.locator("#half-year-cutoff-fragment .saved-note")).hasText("Gespeichert");
         shot("zeugnis-einstellungen");
 
         clickTab("Fächer & Schüler");
@@ -324,7 +324,7 @@ class WalkthroughIT {
         clickTab("Lehrkräfte");
         AddPanels.open(page, "+ Lehrkraft hinzufügen");
         page.locator("#teacherSubject").selectOption(new SelectOption().setLabel("Frau Beispiel"));
-        clickButton("Zugriff gewähren");
+        clickButton("Hinzufügen");
         assertThat(page.locator("#subject-teachers-fragment tbody tr")).hasCount(2);
         shot("unterjaehrig-lehrkraefte");
 

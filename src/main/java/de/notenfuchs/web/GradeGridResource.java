@@ -56,6 +56,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static de.notenfuchs.web.GermanNumbers.display;
+
 /**
  * The headline feature: an Excel-like grade-entry grid for a subject (students as rows,
  * assessments as columns, grouped by category), with per-cell autosave and a live
@@ -268,7 +270,7 @@ public class GradeGridResource {
             distribution.add(new BandPreview.GradeCount(g, countByGrade.getOrDefault(g, 0)));
         }
         BigDecimal average = gradeService.calculateAssessmentAverage(derived, scale, subject.roundingMode).rawAverage();
-        return new BandPreview(distribution, average != null ? plain(average) : null);
+        return new BandPreview(distribution, average != null ? display(average) : null);
     }
 
     public record BandPreview(List<GradeCount> distribution, String average) {
@@ -334,7 +336,8 @@ public class GradeGridResource {
             if (!spec.isEmpty()) {
                 spec.append(';');
             }
-            spec.append(plain(band.points)).append(':').append(plain(band.gradeValue));
+            // Read by the dialog's number inputs, which need the dot.
+            spec.append(GermanNumbers.plain(band.points)).append(':').append(GermanNumbers.plain(band.gradeValue));
         }
         Map<Long, String> result = new HashMap<>();
         specs.forEach((assessmentId, spec) -> result.put(assessmentId, spec.toString()));
@@ -569,10 +572,10 @@ public class GradeGridResource {
                     BigDecimal gradeValue = null;
                     if (assessment.pointsBased) {
                         if (grade != null && grade.points != null) {
-                            displayValue = plain(grade.points);
+                            displayValue = display(grade.points);
                             gradeValue = pointsConversionService.convert(grade.points,
                                     bandsByAssessment.get(assessment.id), subject.gradeScale, assessment.roundingMode);
-                            derivedDisplay = plain(gradeValue);
+                            derivedDisplay = display(gradeValue);
                         }
                     } else if (grade != null && grade.value != null) {
                         displayValue = subject.gradeScale.format(grade.value);
@@ -754,7 +757,7 @@ public class GradeGridResource {
 
     static Response outOfScale(GradeScale scale) {
         return Response.status(Response.Status.BAD_REQUEST)
-                .entity("Note muss zwischen " + plain(scale.min) + " und " + plain(scale.max) + " liegen")
+                .entity("Note muss zwischen " + display(scale.min) + " und " + display(scale.max) + " liegen")
                 .build();
     }
 
@@ -802,21 +805,21 @@ public class GradeGridResource {
                 assessmentValues, subject.gradeScale, subject.roundingMode);
 
         String number = enteredValue == null ? null
-                : assessment.pointsBased ? plain(enteredValue) : subject.gradeScale.format(enteredValue);
+                : assessment.pointsBased ? display(enteredValue) : subject.gradeScale.format(enteredValue);
         String displayValue = cellText(number, absence);
         String derivedGradeDisplay = null;
         if (assessment.pointsBased && enteredValue != null) {
             BigDecimal derived = pointsConversionService.convert(enteredValue,
                     bandData(assessment), subject.gradeScale, assessment.roundingMode);
-            derivedGradeDisplay = plain(derived);
+            derivedGradeDisplay = display(derived);
         }
-        String rawAverageStr = average.rawAverage() != null ? plain(average.rawAverage()) : null;
+        String rawAverageStr = average.rawAverage() != null ? display(average.rawAverage()) : null;
         String assessmentRawAverageStr = assessmentAverage.rawAverage() != null
-                ? plain(assessmentAverage.rawAverage()) : null;
+                ? display(assessmentAverage.rawAverage()) : null;
         String h1RawAverageStr = h1Average != null && h1Average.rawAverage() != null
-                ? plain(h1Average.rawAverage()) : null;
+                ? display(h1Average.rawAverage()) : null;
         String h2RawAverageStr = h2Average != null && h2Average.rawAverage() != null
-                ? plain(h2Average.rawAverage()) : null;
+                ? display(h2Average.rawAverage()) : null;
         String h1DisplayLabel = h1Average != null ? displayLabel(subject, h1Average) : null;
         String h2DisplayLabel = h2Average != null ? displayLabel(subject, h2Average) : null;
         return new CellSaveResponse(displayValue, rawAverageStr, average.finalGrade(),
@@ -874,10 +877,6 @@ public class GradeGridResource {
         return value != null ? scale.format(value) : null;
     }
 
-    static String plain(BigDecimal value) {
-        return value.stripTrailingZeros().toPlainString();
-    }
-
     /**
      * Renders the same grid data used by {@link #grid(Long)} as an .xlsx workbook. The column
      * layout mirrors the HTML table exactly: {@code row.cells()} and each
@@ -913,7 +912,7 @@ public class GradeGridResource {
 
         int col = 1;
         for (CategoryColumns cc : data.categoryColumns()) {
-            setHeaderCell(headerRow1, col, cc.category().name + " (" + plain(cc.category().weightPercent) + "%)",
+            setHeaderCell(headerRow1, col, cc.category().name + " (" + display(cc.category().weightPercent) + " %)",
                     headerStyle);
             int span = cc.columnCount();
             if (span > 1) {
@@ -925,7 +924,7 @@ public class GradeGridResource {
                 int i = 0;
                 for (Assessment assessment : cc.assessments()) {
                     setHeaderCell(headerRow2, col + i,
-                            assessment.name + " (Faktor " + plain(assessment.factor) + ")", headerStyle);
+                            assessment.name + " (Faktor " + display(assessment.factor) + ")", headerStyle);
                     i++;
                 }
             }
@@ -1106,7 +1105,7 @@ public class GradeGridResource {
                                                      List<CategoryColumns> columns, int startCol, CellStyle style) {
         int col = startCol;
         for (CategoryColumns cc : columns) {
-            setHeaderCell(categoryRow, col, cc.category().name + " (" + plain(cc.category().weightPercent) + "%)", style);
+            setHeaderCell(categoryRow, col, cc.category().name + " (" + display(cc.category().weightPercent) + " %)", style);
             int span = cc.columnCount();
             if (span > 1) {
                 sheet.addMergedRegion(new CellRangeAddress(1, 1, col, col + span - 1));
@@ -1117,7 +1116,7 @@ public class GradeGridResource {
                 int i = 0;
                 for (Assessment assessment : cc.assessments()) {
                     setHeaderCell(assessmentRow, col + i,
-                            assessment.name + " (Faktor " + plain(assessment.factor) + ")", style);
+                            assessment.name + " (Faktor " + display(assessment.factor) + ")", style);
                     i++;
                 }
             }

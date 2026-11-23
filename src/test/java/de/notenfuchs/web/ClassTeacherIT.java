@@ -77,6 +77,8 @@ class ClassTeacherIT {
                 Map.of("teacherSubject", colleagueSubject));
 
         assertEquals(400, response.statusCode());
+        // The page shows this sentence to the teacher.
+        assertEquals("Diese Lehrkraft hat bereits Zugriff auf die Klasse", response.body());
         assertEquals(1, ClassTeacher.count("schoolClass.id = ?1 and teacherSubject = ?2", classId, colleagueSubject));
     }
 

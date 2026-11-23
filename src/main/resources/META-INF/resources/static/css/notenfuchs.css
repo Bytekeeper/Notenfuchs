@@ -12,6 +12,16 @@
     --color-error-bg: #fdecea;
     --color-tonal: #f0efea;
     --color-tonal-hover: #e9e5da;
+    --color-tonal-strong: #ded7c4;
+    --color-surface-subtle: #fbfaf8;
+    /* Missing ("offen", a Verhaltensnote not given yet) and warnings. */
+    --color-warning: #8f6a00;
+    --color-warning-bg: #fff6e5;
+    --color-warning-border: #e0b56a;
+    /* Absence mark (e/u): cool, so it never reads like "missing". */
+    --color-info: #3d5a80;
+    --color-info-bg: #e7eef8;
+    --color-info-border: #a9bedb;
     --radius: 10px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -60,8 +70,8 @@ a:hover { text-decoration: underline; }
 }
 
 .dev-mode-badge {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
     padding: 0.15rem 0.5rem;
     border-radius: var(--radius);
     font-size: 0.8rem;
@@ -134,10 +144,34 @@ tr:last-child td { border-bottom: none; }
 
 .entity-list { margin-bottom: 1rem; }
 
-.entity-list .empty-row td {
+.entity-list .empty-row td,
+.data-table .empty-row td {
     color: var(--color-text-muted);
     font-style: italic;
 }
+.category-head + table.entity-list { margin-top: 0.75rem; }
+td.nowrap { white-space: nowrap; }
+
+/* Read-only figures (docs/ui-concept.md "Data pages"): numbers line up on the right. */
+.data-table { margin-bottom: 1rem; }
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data-table td.zero { color: var(--color-text-muted); }
+
+.heading-meta { color: var(--color-text-muted); font-weight: 400; }
+.logout-form { display: inline; margin: 0; }
+.link-button {
+    padding: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    border-radius: 0;
+    cursor: pointer;
+}
+.link-button:hover { background: none; text-decoration: underline; }
+.saved-note { color: var(--color-success); font-size: 0.9rem; align-self: flex-end; padding: 0.5rem 0; }
+.card > h2:first-child { margin-top: 0; }
+/* Two or three short columns read better side by side than spread across the page. */
+.data-table.compact { width: auto; min-width: 22rem; }
 
 form.inline-form {
     display: flex;
@@ -270,9 +304,9 @@ button.danger:hover { background: var(--color-error); color: white; }
 }
 
 .hint.warning {
-    color: #8f6a00;
-    background: #fff8e1;
-    border: 1px solid #ffe6a1;
+    color: var(--color-warning);
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning-border);
     padding: 0.4rem 0.6rem;
     border-radius: var(--radius);
 }
@@ -398,7 +432,7 @@ table.grade-grid th, table.grade-grid td {
 
 table.grade-grid th.category-header {
     text-align: center;
-    background: #e9e5da;
+    background: var(--color-tonal-hover);
     border-left: 2px solid var(--color-bg);
 }
 
@@ -432,7 +466,7 @@ table.grade-grid th.assessment-header-empty {
 
 table.grade-grid td.student-cell {
     font-weight: 600;
-    background: #fbfaf8;
+    background: var(--color-surface-subtle);
     position: sticky;
     left: 0;
 }
@@ -468,13 +502,13 @@ table.grade-grid td.grade-cell.category-start {
 }
 
 .grade-input-readonly {
-    background: #f0efea;
+    background: var(--color-tonal);
     color: var(--color-text-muted);
     cursor: default;
 }
 
 td.average-cell {
-    background: #f0efea;
+    background: var(--color-tonal);
     font-weight: 600;
     text-align: center;
 }
@@ -513,14 +547,14 @@ table.grade-grid tfoot td.student-cell {
 
 table.grade-grid th.region-header {
     text-align: center;
-    background: #ded7c4;
+    background: var(--color-tonal-strong);
     border-left: 2px solid var(--color-bg);
     font-size: 0.85rem;
 }
 
 table.grade-grid th.region-header-undated {
-    background: #fff3cd;
-    color: #8f6a00;
+    background: var(--color-tonal);
+    color: var(--color-text-muted);
 }
 
 table.grade-grid th.region-header .region-hint {
@@ -573,13 +607,11 @@ table.grade-grid th.region-header .region-hint {
 
 /* ---------------- Verhaltensnoten grid ---------------- */
 
-td.average-cell.borderline {
-    background: #fff3cd;
-    color: #8f6a00;
-}
-
+/* Close to a rounding boundary: a hint to look again, not a gap, so no fill. */
 td.average-cell.borderline .behavior-average-raw {
-    color: #8f6a00;
+    text-decoration: underline dotted var(--color-warning);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
 }
 
 /* Add/edit a Leistung from the grade table (GridPage/assessmentDialog.html). */
@@ -625,24 +657,23 @@ table.grade-grid th .column-edit:hover { color: var(--color-primary); }
 .assessment-dialog-actions .assessment-dialog-delete { margin-left: auto; }
 
 /* Missing grades: an empty cell of a Leistung whose date has come. */
-table.grade-grid td.grade-cell-open { background: #fff6e5; }
-table.grade-grid td.grade-cell-open input { border-color: #e0b56a; }
+table.grade-grid td.grade-cell-open { background: var(--color-warning-bg); }
+table.grade-grid td.grade-cell-open input { border-color: var(--color-warning-border); }
 .class-card .open-badge {
     display: inline-block;
     margin-top: 0.35rem;
     padding: 0.1rem 0.5rem;
     border-radius: var(--radius);
-    background: #fff6e5;
+    background: var(--color-warning-bg);
     color: var(--color-primary-dark);
     font-size: 0.8rem;
 }
-/* Absence mark (e/u): a cool tint so it never reads like the amber "missing" highlight. */
-table.grade-grid td.grade-cell-absent { background: #e7eef8; }
+table.grade-grid td.grade-cell-absent { background: var(--color-info-bg); }
 table.grade-grid td.grade-cell-absent input {
-    background: #f3f7fc;
-    border-color: #a9bedb;
+    background: var(--color-surface);
+    border-color: var(--color-info-border);
     font-style: italic;
-    color: #3d5a80;
+    color: var(--color-info);
 }
 
 /* Notenübersicht: at-risk final grades and what is still missing per Fach. */
@@ -668,11 +699,10 @@ table.grade-grid td.status-cell.status-open { color: var(--color-primary-dark); 
 /* Student page in a Fach (GridPage/student.html). */
 .student-page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
 .student-page-heading .no-print { display: flex; align-items: center; gap: 1rem; }
-.student-averages { max-width: 28rem; }
 @media print {
     .app-header, .breadcrumbs, .tabs, .subject-switcher, .no-print { display: none !important; }
     body { background: white; }
-    .card { box-shadow: none; border: 1px solid #ccc; }
+    .card { box-shadow: none; border: 1px solid var(--color-border); }
 }
 
 /* Students who left the class: read-only rows below the active ones. */
@@ -681,25 +711,13 @@ table.grade-grid tbody.left-students td.readonly-cell { text-align: center; font
 /* Their heading row looks like the table head; its label stays in place when scrolling sideways. */
 table.grade-grid tr.left-heading th:first-child { position: sticky; left: 0; z-index: 1; }
 
-/* "Fehler melden" in the header (base.html), styled like the other header links. */
-.user-info .feedback-open {
-    padding: 0;
-    background: none;
-    color: var(--color-primary);
-    font: inherit;
-    border-radius: 0;
-}
-.user-info .feedback-open:hover { background: none; text-decoration: underline; }
 #feedback-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; }
 .feedback-thanks { color: var(--color-success); }
 .feedback-list .feedback-time { white-space: nowrap; }
 .feedback-list .feedback-message { white-space: pre-wrap; }
 
 /* Notenspiegel tab: one row per Leistung, one count column per whole grade. */
-table.distribution { border: none; border-radius: 0; }
 table.distribution th, table.distribution td { white-space: nowrap; }
-table.distribution .count { text-align: center; font-variant-numeric: tabular-nums; }
-table.distribution td.zero { color: var(--color-text-muted); }
 table.distribution tr.group-heading th { text-transform: none; letter-spacing: 0; color: var(--color-text); }
 
 /* Grid student column: the name, and a visible "Details" button for the student's page. */

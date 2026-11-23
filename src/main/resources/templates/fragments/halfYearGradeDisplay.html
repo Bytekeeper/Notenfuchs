@@ -1,27 +1,17 @@
-<div id="half-year-grade-display-fragment">
-    <div class="rename-wrap">
-        <span class="rename-view">
-            {#if schoolClass.halfYearGradeDisplay.name == 'HALF'}
-                <span class="rename-display">Halbe Noten{#if schoolClass.halfYearTendencyThreshold} (± {schoolClass.halfYearTendencyThreshold} Tendenz){/if}</span>
-            {#else}
-                <span class="rename-display">Ganze Noten{#if schoolClass.halfYearTendencyThreshold} (± {schoolClass.halfYearTendencyThreshold} Tendenz){/if}</span>
-            {/if}
-            <button type="button" class="rename-toggle">Ändern</button>
-        </span>
-        <form class="rename-form half-year-grade-display-form" hx-patch="/classes/{schoolClass.id}/half-year-grade-display" hx-target="#half-year-grade-display-fragment" hx-swap="outerHTML">
-            <select name="halfYearGradeDisplay" data-original="{schoolClass.halfYearGradeDisplay.name}">
-                <option value="WHOLE" {#if schoolClass.halfYearGradeDisplay.name == 'WHOLE'}selected{/if}>Ganze Noten</option>
-                <option value="HALF" {#if schoolClass.halfYearGradeDisplay.name == 'HALF'}selected{/if}>Halbe Noten</option>
-            </select>
-            <span class="tendency-input-wrap">
-                <input type="number" name="tendencyThreshold" min="0" max="0.49" step="0.01"
-                       placeholder="Tendenz" title="Breite der Zone um eine ganze Note, in der keine Tendenz (+/-) angezeigt wird - als Abweichung vom Notenwert, z.B. 0.1. Bei halben Noten wird daraus die Nähe zur halben Note statt eines +/- Suffixes."
-                       value="{schoolClass.halfYearTendencyThreshold ?: ''}"
-                       data-original="{schoolClass.halfYearTendencyThreshold ?: ''}">
-            </span>
-            <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-            <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
-            <span class="tendency-example hint"></span>
-        </form>
+<form id="half-year-grade-display-fragment" class="inline-form half-year-grade-display-form" hx-patch="/classes/{schoolClass.id}/half-year-grade-display" hx-target="this" hx-swap="outerHTML">
+    <div class="form-field">
+        <label for="halfYearGradeDisplay">Halbjahresnote</label>
+        <select id="halfYearGradeDisplay" name="halfYearGradeDisplay">
+            <option value="WHOLE" {#if schoolClass.halfYearGradeDisplay.name == 'WHOLE'}selected{/if}>Ganze Noten</option>
+            <option value="HALF" {#if schoolClass.halfYearGradeDisplay.name == 'HALF'}selected{/if}>Halbe Noten</option>
+        </select>
     </div>
-</div>
+    <div class="form-field">
+        <label for="tendencyThreshold">Tendenz (±)</label>
+        <input type="number" id="tendencyThreshold" name="tendencyThreshold" min="0" max="0.49" step="0.01" placeholder="keine"
+               value="{#if schoolClass.halfYearTendencyThreshold}{schoolClass.halfYearTendencyThreshold.plain}{/if}">
+    </div>
+    <button type="submit">Speichern</button>
+    {#if saved??}<span class="saved-note" role="status">Gespeichert</span>{/if}
+    <p class="tendency-example hint"></p>
+</form>

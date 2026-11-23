@@ -1,17 +1,8 @@
-<div id="half-year-cutoff-fragment">
-    <div class="rename-wrap">
-        <span class="rename-view">
-            {#if schoolClass.halfYearCutoff}
-                <span class="rename-display">{schoolClass.halfYearCutoff.format('dd.MM.yyyy')}</span>
-            {#else}
-                <span class="rename-display hint">kein Stichtag gesetzt</span>
-            {/if}
-            <button type="button" class="rename-toggle">Ändern</button>
-        </span>
-        <form class="rename-form" hx-patch="/classes/{schoolClass.id}/half-year-cutoff" hx-target="#half-year-cutoff-fragment" hx-swap="outerHTML">
-            <input type="date" name="halfYearCutoff" value="{schoolClass.halfYearCutoff ?: ''}" data-original="{schoolClass.halfYearCutoff ?: ''}">
-            <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
-            <button type="button" class="rename-cancel" aria-label="Abbrechen">Verwerfen</button>
-        </form>
+<form id="half-year-cutoff-fragment" class="inline-form" hx-patch="/classes/{schoolClass.id}/half-year-cutoff" hx-target="this" hx-swap="outerHTML">
+    <div class="form-field">
+        <label for="halfYearCutoff">Stichtag</label>
+        <input type="date" id="halfYearCutoff" name="halfYearCutoff" value="{schoolClass.halfYearCutoff ?: ''}">
     </div>
-</div>
+    <button type="submit">Speichern</button>
+    {#if saved??}<span class="saved-note" role="status">Gespeichert</span>{/if}
+</form>

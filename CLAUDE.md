@@ -38,6 +38,7 @@ Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only 
   - `GradeGridResource`: grade grid (classic and half-year view), cell save, xlsx export, the Leistung dialog endpoints (add/edit/delete, Notenschlüssel, `band-preview`), starter categories.
   - `StudentPageResource`: one student in one Fach, incl. "Was braucht …" and setting the Zeugnisnoten.
   - `GradeDistributionResource`: "Notenspiegel" tab, counts per whole grade per Leistung and for the Zeugnisnoten (reuses the grid's half split and averages).
+  - `BadRequestMessage` (a refused request's sentence as the 400 body) and `GermanNumbers` (decimal comma on pages): shared by all pages.
   - `BehaviorGridResource`: Verhaltensnoten grid. `ClassOverviewResource`: admin-only Notenübersicht. `OpenGrades`: the "offen" rule and counts.
   - `ClassExportResource`: class-wide xlsx. Admins get a "Notenübersicht" sheet (final grades of every Fach); everyone gets a full sheet per Fach they teach, written by `GradeGridResource#addSubjectSheet` (the same code as the Fach export). It never widens access.
 - Templates in `src/main/resources/templates/`; tab headers `ClassPage/classHeader.html` and `SubjectPage/subjectHeader.html` (every tab page passes `activeTab`; class pages also `isClassAdmin`, Fach pages `switchSubjects`). Grid JS: `static/js/notenfuchs.js`.
@@ -82,7 +83,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 
 ## UI
 
-`docs/ui-concept.md` answers "how should it look". In short: lists are `table.entity-list` with one "Ändern" per row that opens an edit row (rare actions like "Löschen" go there); a form you need rarely is a closed `details.add-panel` ("+ … anlegen"); cards only hold forms; two lists of equal weight sit side by side; same label for the same action everywhere.
+`docs/ui-concept.md` answers "how should it look". In short: lists are `table.entity-list` with one "Ändern" per row that opens an edit row (rare actions like "Löschen" go there); read-only figures (Notenspiegel, student page) are `table.data-table` with `.num` columns; a form you need rarely is a closed `details.add-panel` ("+ … anlegen"); cards only hold forms; two lists of equal weight sit side by side; same label for the same action everywhere ("Abbrechen", not "Verwerfen"). A refused htmx request shows the server's 400 sentence below its form (`BadRequestMessage` + the feedback block in `notenfuchs.js`, which also disables the sending button). Numbers show with a decimal comma: Qute prints every `BigDecimal` via `GermanNumbers`; `<input type="number">` and data attributes use `{value.plain}`; Java strings use `GermanNumbers.display`.
 
 ## Gotchas
 
@@ -109,6 +110,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 | Students who left | `StudentLeftIT`, `StudentLeftE2EIT` |
 | Student page, "Was braucht …" | `RequiredGradeServiceTest`, `StudentPageIT` |
 | Notenspiegel tab | `GradeDistributionIT`, `WalkthroughIT` |
+| Refused-request message, busy buttons | `RequestFeedbackE2EIT`, `ClassTeacherIT` |
 | Tendency entry ("2-"), Zeugnisnote | `GradeScaleTest`, `ReportGradeIT`, `GradeGridE2EIT`, `WalkthroughIT` |
 | Home page, Fach switcher | `MySubjectsIT`, `SubjectSwitcherE2EIT` |
 | New Fach setup (copy, starter) | `SubjectSetupIT` |

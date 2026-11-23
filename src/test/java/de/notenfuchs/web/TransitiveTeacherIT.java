@@ -63,7 +63,7 @@ class TransitiveTeacherIT {
         String html = http.get("/classes/" + classId + "/teachers").body();
 
         assertTrue(html.contains("Fachlehrer mit Klassenzugriff"));
-        assertTrue(html.contains("Keine."));
+        assertTrue(html.contains("Noch kein Fach dieser Klasse hat eine Lehrkraft"));
     }
 
     @Test

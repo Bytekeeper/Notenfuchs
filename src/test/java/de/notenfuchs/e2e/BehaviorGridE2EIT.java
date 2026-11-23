@@ -124,7 +124,7 @@ class BehaviorGridE2EIT {
         // Student A gets a 3 in FachB -> row average = (2+3)/2 = 2.5, right at the borderline.
         cellA_Fach2.fill("3");
         cellA_Fach2.evaluate("el => el.blur()");
-        assertThat(row0Average.locator(".behavior-average-raw")).hasText("2.5");
+        assertThat(row0Average.locator(".behavior-average-raw")).hasText("2,5");
         assertThat(row0Average).hasClass(Pattern.compile(".*borderline.*"));
 
         // Student B gets a 4 in FachA -> FachA's column average becomes (2+4)/2 = 3.
@@ -134,7 +134,7 @@ class BehaviorGridE2EIT {
         assertThat(fach1Footer.locator(".behavior-subject-average-final")).hasText("3");
         assertThat(row1Average.locator(".behavior-average-raw")).hasText("4");
         assertThat(row1Average).not().hasClass(Pattern.compile(".*borderline.*"));
-        assertThat(row0Average.locator(".behavior-average-raw")).hasText("2.5");
+        assertThat(row0Average.locator(".behavior-average-raw")).hasText("2,5");
         assertThat(row0Average).hasClass(Pattern.compile(".*borderline.*"));
 
         // A fresh server render (Qute interpolating the BigDecimal directly, not through the
@@ -144,7 +144,7 @@ class BehaviorGridE2EIT {
         assertThat(page.locator("input.grade-input[data-row='0'][data-col='1']")).hasValue("3");
         assertThat(page.locator("input.grade-input[data-row='1'][data-col='0']")).hasValue("4");
         assertThat(page.locator("table.behavior-grid-root tbody tr").nth(0).locator(".behavior-average-raw"))
-                .hasText("2.50");
+                .hasText("2,5");
         assertThat(page.locator("table.behavior-grid-root tbody tr").nth(0).locator("td.average-cell"))
                 .hasClass(Pattern.compile(".*borderline.*"));
     }
