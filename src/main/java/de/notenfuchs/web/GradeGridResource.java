@@ -117,11 +117,11 @@ public class GradeGridResource {
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
         // Lets the empty state offer "+ Leistung" per category before any column exists.
         List<GradeCategory> subjectCategories = GradeCategory.list("subject.id = ?1 order by id", id);
-        Map<Long, String> bandSpecs = bandSpecs(id);
+        Map<Long, String> bandSpecs = bandSpecs(subject);
 
         if (cutoff == null) {
             GridData data = loadGridData(subject);
-            return currentUser.withUser(gridTemplate
+            return currentUser.withUser(SubjectPointsKeyResource.withKey(gridTemplate.instance(), subject)
                     .data("subject", subject)
                     .data("subjectCategories", subjectCategories)
                     .data("switchSubjects", subjectUi.switchSubjects(subject))
@@ -137,7 +137,7 @@ public class GradeGridResource {
         }
 
         HalfYearGridData data = loadHalfYearGridData(subject, cutoff);
-        return currentUser.withUser(gridHalfYearTemplate
+        return currentUser.withUser(SubjectPointsKeyResource.withKey(gridHalfYearTemplate.instance(), subject)
                 .data("subject", subject)
                 .data("subjectCategories", subjectCategories)
                 .data("switchSubjects", subjectUi.switchSubjects(subject))
@@ -181,7 +181,10 @@ public class GradeGridResource {
                                   @FormParam("date") LocalDate date,
                                   @FormParam("factor") BigDecimal factor,
                                   @FormParam("pointsBased") String pointsBasedRaw,
-                                  @FormParam("roundingMode") String roundingModeRaw,
+                                  @FormParam("pointsSliding") String slidingRaw,
+                                  @FormParam("maxPoints") String maxPointsRaw,
+                                  @FormParam("bandPoints") List<BigDecimal> bandPoints,
+                                  @FormParam("bandGrades") List<String> bandGrades,
                                   @FormParam("returnTo") String returnTo) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(id, currentSubject);
@@ -192,8 +195,8 @@ public class GradeGridResource {
         if (name == null || name.isBlank()) {
             throw new BadRequestException("Name fehlt");
         }
-        Assessment assessment = subjectUi.createAssessment(category, subject.gradeScale, name.strip(), date, factor,
-                pointsBasedRaw, roundingModeRaw);
+        Assessment assessment = subjectUi.createAssessment(category, subject, name.strip(), date, factor,
+                pointsBasedRaw, slidingRaw, parseMaxPoints(maxPointsRaw), stepsOrNull(bandPoints, bandGrades, subject.gradeScale));
         return backFromDialog(id, assessment.id, returnTo);
     }
 
@@ -207,29 +210,17 @@ public class GradeGridResource {
                                      @FormParam("date") LocalDate date,
                                      @FormParam("factor") BigDecimal factor,
                                      @FormParam("pointsBased") String pointsBasedRaw,
-                                     @FormParam("roundingMode") String roundingModeRaw,
+                                     @FormParam("pointsSliding") String slidingRaw,
+                                     @FormParam("maxPoints") String maxPointsRaw,
                                      @FormParam("bandPoints") List<BigDecimal> bandPoints,
-                                     @FormParam("bandGrades") List<BigDecimal> bandGrades,
+                                     @FormParam("bandGrades") List<String> bandGrades,
                                      @FormParam("returnTo") String returnTo) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
-        boolean wasPointsBased = assessment.pointsBased;
         // Checked before anything changes, so a bad Notenschlüssel can't leave half an edit behind.
-        List<PointsGradeBandData> bands = bandPoints == null || bandPoints.isEmpty() ? null
-                : parseBands(bandPoints, bandGrades, subject.gradeScale);
-        subjectUi.updateAssessment(assessment, subject.gradeScale, name, factor, pointsBasedRaw, roundingModeRaw, date);
-        // The dialog only shows the band editor for a Leistung that was already points-based; a
-        // fresh switch to points gets the default bands from updateAssessment instead.
-        if (bands != null && wasPointsBased && assessment.pointsBased) {
-            PointsGradeBand.delete("assessment.id", assessment.id);
-            for (PointsGradeBandData data : bands) {
-                PointsGradeBand band = new PointsGradeBand();
-                band.assessment = assessment;
-                band.points = data.points();
-                band.gradeValue = data.gradeValue();
-                band.persist();
-            }
-        }
+        BigDecimal maxPoints = parseMaxPoints(maxPointsRaw);
+        List<PointsGradeBandData> steps = stepsOrNull(bandPoints, bandGrades, subject.gradeScale);
+        subjectUi.updateAssessment(assessment, subject, name, factor, pointsBasedRaw, slidingRaw, maxPoints, steps, date);
         return backFromDialog(id, assessment.id, returnTo);
     }
 
@@ -251,16 +242,17 @@ public class GradeGridResource {
     public BandPreview bandPreview(@PathParam("id") Long id,
                                    @PathParam("assessmentId") Long assessmentId,
                                    @FormParam("bandPoints") List<BigDecimal> bandPoints,
-                                   @FormParam("bandGrades") List<BigDecimal> bandGrades) {
+                                   @FormParam("bandGrades") List<String> bandGrades,
+                                   @FormParam("pointsSliding") String slidingRaw) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
         Assessment assessment = requireAssessmentOfSubject(assessmentId, id);
-        List<PointsGradeBandData> bands = parseBands(bandPoints, bandGrades, subject.gradeScale);
+        List<PointsGradeBandData> bands = parseSteps(bandPoints, bandGrades, subject.gradeScale);
         GradeScale scale = subject.gradeScale;
         Map<Integer, Integer> countByGrade = new HashMap<>();
         List<BigDecimal> derived = new ArrayList<>();
         for (Grade grade : Grade.<Grade>list(
                 "assessment.id = ?1 and points is not null and student.leftOn is null", assessment.id)) {
-            BigDecimal value = pointsConversionService.convert(grade.points, bands, scale, assessment.roundingMode);
+            BigDecimal value = pointsConversionService.convert(grade.points, bands, scale, "true".equals(slidingRaw));
             derived.add(value);
             Integer whole = gradeService.calculateAssessmentAverage(List.of(value), scale, subject.roundingMode).finalGrade();
             countByGrade.merge(whole, 1, Integer::sum);
@@ -278,20 +270,52 @@ public class GradeGridResource {
         }
     }
 
-    private static List<PointsGradeBandData> parseBands(List<BigDecimal> points, List<BigDecimal> grades, GradeScale scale) {
-        if (points == null || grades == null || points.isEmpty() || points.size() != grades.size()) {
-            throw new BadRequestException("Der Notenschlüssel braucht mindestens eine vollständige Stufe");
+    private static BigDecimal parseMaxPoints(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
         }
-        List<PointsGradeBandData> bands = new ArrayList<>();
+        try {
+            return new BigDecimal(raw.strip().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Die Höchstpunktzahl ist keine Zahl.");
+        }
+    }
+
+    /** No steps sent: the Leistung takes the Fach's key. */
+    private List<PointsGradeBandData> stepsOrNull(List<BigDecimal> points, List<String> grades, GradeScale scale) {
+        return points == null || points.isEmpty() ? null : parseSteps(points, grades, scale);
+    }
+
+    private List<PointsGradeBandData> parseSteps(List<BigDecimal> points, List<String> grades, GradeScale scale) {
+        if (points == null || grades == null || points.isEmpty() || points.size() != grades.size()) {
+            throw new BadRequestException("Der Notenschlüssel braucht mindestens eine vollständige Zeile.");
+        }
+        List<PointsGradeBandData> steps = new ArrayList<>();
         for (int i = 0; i < points.size(); i++) {
             BigDecimal p = points.get(i);
-            BigDecimal g = grades.get(i);
-            if (p == null || g == null || p.signum() < 0 || g.compareTo(scale.min) < 0 || g.compareTo(scale.max) > 0) {
-                throw new BadRequestException("Ungültige Stufe im Notenschlüssel");
+            if (p == null || p.signum() < 0 || p.multiply(new BigDecimal("2")).stripTrailingZeros().scale() > 0) {
+                throw new BadRequestException("Punkte im Notenschlüssel gehen in halben Schritten, zum Beispiel 17,5.");
             }
-            bands.add(new PointsGradeBandData(p, g));
+            steps.add(new PointsGradeBandData(p, parseKeyGrade(grades.get(i), scale)));
         }
-        return bands;
+        if (!pointsConversionService.isOrdered(steps, scale)) {
+            throw new BadRequestException("Eine bessere Note braucht mehr Punkte als eine schlechtere.");
+        }
+        return steps;
+    }
+
+    /** A grade typed into a Notenschlüssel row ("2-", "3,5"); shared with the Fach key. */
+    static BigDecimal parseKeyGrade(String text, GradeScale scale) {
+        BigDecimal grade;
+        try {
+            grade = scale.parseGrade(text == null ? "" : text);
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("„" + text + "“ ist keine Note.");
+        }
+        if (!scale.contains(grade)) {
+            throw new BadRequestException("„" + text + "“ liegt nicht auf der Notenskala.");
+        }
+        return grade;
     }
 
     @POST
@@ -327,17 +351,17 @@ public class GradeGridResource {
         return Redirects.seeOther(target).build();
     }
 
-    /** Each points-based Leistung's Notenschlüssel as "60:1;20:6" (best first), read by the Leistung dialog. */
-    static Map<Long, String> bandSpecs(Long subjectId) {
+    /** Each points-based Leistung's steps as "35:1;30:2-" (best first), read by the Leistung dialog. */
+    static Map<Long, String> bandSpecs(Subject subject) {
         Map<Long, StringBuilder> specs = new HashMap<>();
         for (PointsGradeBand band : PointsGradeBand.<PointsGradeBand>list(
-                "assessment.category.subject.id = ?1 order by points desc", subjectId)) {
+                "assessment.category.subject.id = ?1 order by points desc", subject.id)) {
             StringBuilder spec = specs.computeIfAbsent(band.assessment.id, k -> new StringBuilder());
             if (!spec.isEmpty()) {
                 spec.append(';');
             }
-            // Read by the dialog's number inputs, which need the dot.
-            spec.append(GermanNumbers.plain(band.points)).append(':').append(GermanNumbers.plain(band.gradeValue));
+            // Points go into a number input, which needs the dot; the grade into a text input, as typed.
+            spec.append(GermanNumbers.plain(band.points)).append(':').append(subject.formatGrade(band.gradeValue));
         }
         Map<Long, String> result = new HashMap<>();
         specs.forEach((assessmentId, spec) -> result.put(assessmentId, spec.toString()));
@@ -412,7 +436,7 @@ public class GradeGridResource {
             SubjectAverageResult average = averages.get(i);
             rows.add(new RowView(i, new StudentView(student.id, student.effectiveName()),
                     build.cellsByStudent().get(i), average.rawAverage(), average.finalGrade(),
-                    formatOrNull(subject.gradeScale, reportGrades.get(student.id))));
+                    formatOrNull(subject, reportGrades.get(student.id))));
         }
         return rows;
     }
@@ -490,11 +514,11 @@ public class GradeGridResource {
             rows.add(new HalfYearRowView(i, new StudentView(student.id, student.effectiveName()),
                     undatedBuild.cellsByStudent().get(i),
                     h1Build.cellsByStudent().get(i), h1Avg.rawAverage(), h1Avg.finalGrade(),
-                    displayLabel(subject, h1Avg), formatOrNull(subject.gradeScale, h1ReportGrades.get(student.id)),
+                    displayLabel(subject, h1Avg), formatOrNull(subject, h1ReportGrades.get(student.id)),
                     h2Build.cellsByStudent().get(i), h2Avg.rawAverage(), h2Avg.finalGrade(),
                     displayLabel(subject, h2Avg),
                     jahrAvg.rawAverage(), jahrAvg.finalGrade(),
-                    formatOrNull(subject.gradeScale, jahrReportGrades.get(student.id))));
+                    formatOrNull(subject, jahrReportGrades.get(student.id))));
         }
         return new HalfYearBuild(rows, undatedBuild, h1Build, h2Build);
     }
@@ -574,11 +598,11 @@ public class GradeGridResource {
                         if (grade != null && grade.points != null) {
                             displayValue = display(grade.points);
                             gradeValue = pointsConversionService.convert(grade.points,
-                                    bandsByAssessment.get(assessment.id), subject.gradeScale, assessment.roundingMode);
-                            derivedDisplay = display(gradeValue);
+                                    bandsByAssessment.get(assessment.id), subject.gradeScale, assessment.pointsSliding);
+                            derivedDisplay = subject.formatGrade(gradeValue);
                         }
                     } else if (grade != null && grade.value != null) {
-                        displayValue = subject.gradeScale.format(grade.value);
+                        displayValue = subject.formatGrade(grade.value);
                         gradeValue = grade.value;
                     }
                     if (gradeValue != null) {
@@ -805,13 +829,13 @@ public class GradeGridResource {
                 assessmentValues, subject.gradeScale, subject.roundingMode);
 
         String number = enteredValue == null ? null
-                : assessment.pointsBased ? display(enteredValue) : subject.gradeScale.format(enteredValue);
+                : assessment.pointsBased ? display(enteredValue) : subject.formatGrade(enteredValue);
         String displayValue = cellText(number, absence);
         String derivedGradeDisplay = null;
         if (assessment.pointsBased && enteredValue != null) {
-            BigDecimal derived = pointsConversionService.convert(enteredValue,
-                    bandData(assessment), subject.gradeScale, assessment.roundingMode);
-            derivedGradeDisplay = display(derived);
+            BigDecimal derived = pointsConversionService.convert(enteredValue, bandData(assessment), subject.gradeScale,
+                    assessment.pointsSliding);
+            derivedGradeDisplay = subject.formatGrade(derived);
         }
         String rawAverageStr = average.rawAverage() != null ? display(average.rawAverage()) : null;
         String assessmentRawAverageStr = assessmentAverage.rawAverage() != null
@@ -839,7 +863,7 @@ public class GradeGridResource {
             if (grade.points == null) {
                 return null;
             }
-            return pointsConversionService.convert(grade.points, bandData(assessment), scale, assessment.roundingMode);
+            return pointsConversionService.convert(grade.points, bandData(assessment), scale, assessment.pointsSliding);
         }
         return grade.value;
     }
@@ -873,8 +897,8 @@ public class GradeGridResource {
         return byKey;
     }
 
-    static String formatOrNull(GradeScale scale, BigDecimal value) {
-        return value != null ? scale.format(value) : null;
+    static String formatOrNull(Subject subject, BigDecimal value) {
+        return value != null ? subject.formatGrade(value) : null;
     }
 
     /**

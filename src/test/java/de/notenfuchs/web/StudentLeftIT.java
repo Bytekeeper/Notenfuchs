@@ -82,7 +82,8 @@ class StudentLeftIT {
         Fixture f = fixture();
         Long categoryId = Assessment.<Assessment>findById(f.assessmentId()).category.id;
         http.post("/subjects/" + f.subjectId() + "/grid/assessments",
-                Map.of("categoryId", categoryId.toString(), "name", "Punkte-KA", "pointsBased", "true"));
+                Map.of("categoryId", categoryId.toString(), "name", "Punkte-KA", "pointsBased", "true",
+                        "maxPoints", "60"));
         Long pointsId = Assessment.find("category.id = ?1 and name = 'Punkte-KA'", categoryId).<Assessment>firstResult().id;
         for (Map.Entry<Long, String> points : Map.of(f.annaId(), "60", f.benId(), "20").entrySet()) {
             http.post("/subjects/" + f.subjectId() + "/grid/cell", Map.of("studentId", points.getKey().toString(),

@@ -38,7 +38,7 @@
                             <th class="assessment-header assessment-header-empty">noch keine Leistungen</th>
                         {#else}
                             {#for a in cat.assessments}
-                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor.plain}" data-points-based="{a.pointsBased}" data-rounding-mode="{a.roundingMode.name}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
+                                <th class="assessment-header"><button type="button" class="column-edit" title="Leistung bearbeiten" data-assessment-id="{a.id}" data-category-name="{cat.category.name}" data-name="{a.name}" data-date="{a.date ?: ''}" data-factor="{a.factor.plain}" data-points-based="{a.pointsBased}" data-max-points="{#if a.maxPoints}{a.maxPoints.plain}{/if}" data-sliding="{a.pointsSliding}" data-bands="{bandSpecs.get(a.id) ?: ''}">{a.name}</button><span class="factor">Faktor {a.factor}{#if a.pointsBased} · Punkte{/if}</span></th>
                             {/for}
                         {/if}
                     {/for}

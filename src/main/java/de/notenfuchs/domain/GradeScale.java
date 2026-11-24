@@ -74,7 +74,12 @@ public class GradeScale extends PanacheEntity {
 
     /** The reverse of {@link #parseGrade}: "2-" for 2.3 on a scale with step 0.3, else the number with a decimal comma. */
     public String format(BigDecimal value) {
-        if (tendencyStep != null) {
+        return format(value, true);
+    }
+
+    /** {@code tendencySigns} false always gives the number ("2,3"); see {@code Subject#tendencySigns}. */
+    public String format(BigDecimal value, boolean tendencySigns) {
+        if (tendencySigns && tendencyStep != null) {
             BigDecimal below = value.setScale(0, java.math.RoundingMode.FLOOR);
             BigDecimal above = value.setScale(0, java.math.RoundingMode.CEILING);
             if (value.subtract(below).compareTo(tendencyStep) == 0) {

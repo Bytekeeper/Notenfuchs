@@ -81,18 +81,17 @@ new_categories AS (
     ) AS c(name, weight_percent)
     RETURNING id, name
 ),
--- Klassenarbeit 2 is points-based, to also show off Notenschluessel
--- (points -> grade) conversion in the example - see the points_grade_band
--- insert below for its bands.
+-- Klassenarbeit 2 is points-based (maximum 60), to also show off the
+-- Notenschluessel - see the points_grade_band insert below for its steps.
 new_assessments AS (
-    INSERT INTO assessment (id, category_id, name, date, factor, points_based)
-    SELECT nextval('assessment_seq'), new_categories.id, a.name, a.assessment_date, a.factor, a.points_based
+    INSERT INTO assessment (id, category_id, name, date, factor, points_based, max_points)
+    SELECT nextval('assessment_seq'), new_categories.id, a.name, a.assessment_date, a.factor, a.points_based, a.max_points
     FROM new_categories
     JOIN (VALUES
-        ('Schriftlich', 'Klassenarbeit 1', CURRENT_DATE - INTERVAL '30 days', 2.00, FALSE),
-        ('Schriftlich', 'Klassenarbeit 2 (Punkte)', CURRENT_DATE - INTERVAL '10 days', 2.00, TRUE),
-        ('Mündlich', 'Mitarbeit 1. Halbjahr', CURRENT_DATE - INTERVAL '15 days', 1.00, FALSE)
-    ) AS a(category_name, name, assessment_date, factor, points_based)
+        ('Schriftlich', 'Klassenarbeit 1', CURRENT_DATE - INTERVAL '30 days', 2.00, FALSE, NULL),
+        ('Schriftlich', 'Klassenarbeit 2 (Punkte)', CURRENT_DATE - INTERVAL '10 days', 2.00, TRUE, 60.00),
+        ('Mündlich', 'Mitarbeit 1. Halbjahr', CURRENT_DATE - INTERVAL '15 days', 1.00, FALSE, NULL)
+    ) AS a(category_name, name, assessment_date, factor, points_based, max_points)
         ON a.category_name = new_categories.name
     RETURNING id, name
 )
@@ -119,18 +118,16 @@ JOIN (VALUES
     ON g.assessment_name = new_assessments.name
 JOIN new_students ON new_students.name = g.student_name;
 
--- Notenschluessel for "Klassenarbeit 2 (Punkte)": the same two default
--- anchor bands SubjectUiResource#seedDefaultBands seeds for any freshly
--- points-based Assessment (60 -> best grade, 20 -> worst grade on the
--- subject's own GradeScale) - left unedited, so the example matches what a
--- teacher sees the first time they flip an Assessment to "Punktebasiert".
+-- Notenschluessel for "Klassenarbeit 2 (Punkte)": the steps the Fach's
+-- default key (87,5 / 75 / 62,5 / 50 / 25 %) gives for 60 points, so the
+-- example matches what a teacher sees for a new points Leistung.
 INSERT INTO points_grade_band (id, assessment_id, points, grade_value)
 SELECT nextval('points_grade_band_seq'), assessment.id, b.points, b.grade_value
 FROM assessment
 JOIN grade_category ON grade_category.id = assessment.category_id
 JOIN subject ON subject.id = grade_category.subject_id
 JOIN school_class ON school_class.id = subject.school_class_id
-JOIN (VALUES (60.00, 1.0), (20.00, 6.0)) AS b(points, grade_value) ON true
+JOIN (VALUES (52.50, 1.0), (45.00, 2.0), (37.50, 3.0), (30.00, 4.0), (15.00, 5.0)) AS b(points, grade_value) ON true
 WHERE assessment.name = 'Klassenarbeit 2 (Punkte)'
   AND school_class.name = 'Demo-Klasse 8b';
 

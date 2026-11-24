@@ -8,6 +8,7 @@ edit_uri: ""
 docs_dir: docs
 # Developer notes live in docs/ too but are not for teachers.
 exclude_docs: |
+  design-notenschluessel.md
   ui-concept.md
   usability-plan.md
   use-cases.md

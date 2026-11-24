@@ -27,6 +27,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -99,11 +100,15 @@ public class GradeDistributionResource {
         reportRows.add(reportRow("Jahr", columns, ReportGrade.Period.YEAR, students, subject, grades));
         groups.add(new Group("Zeugnisnoten", "(von Hand festgelegt, sonst berechnet)", reportRows));
 
+        List<Integer> gradeColumns = scale.wholeGradesBestFirst();
+        int shareIndex = shareIndex(scale);
         return currentUser.withUser(distributionTemplate
                 .data("subject", subject)
                 .data("switchSubjects", subjectUi.switchSubjects(subject))
-                .data("gradeColumns", scale.wholeGradesBestFirst())
-                .data("colspan", scale.wholeGradesBestFirst().size() + 4)
+                .data("gradeColumns", gradeColumns)
+                .data("shareIndex", shareIndex)
+                .data("shareLabel", shareIndex < 0 ? "" : gradeColumns.get(shareIndex) + "–" + gradeColumns.get(gradeColumns.size() - 1))
+                .data("colspan", gradeColumns.size() + 4 + (shareIndex < 0 ? 0 : 1))
                 .data("groups", groups)
                 .data("empty", assessments.isEmpty()));
     }
@@ -127,8 +132,8 @@ public class GradeDistributionResource {
                     continue;
                 }
                 BigDecimal value = !assessment.pointsBased ? grade.value : grade.points == null ? null
-                        : pointsConversionService.convert(grade.points, bands.get(assessment.id),
-                                subject.gradeScale, assessment.roundingMode);
+                        : pointsConversionService.convert(grade.points, bands.get(assessment.id), subject.gradeScale,
+                                assessment.pointsSliding);
                 if (value != null) {
                     values.add(value);
                 }
@@ -164,9 +169,28 @@ public class GradeDistributionResource {
             Integer whole = gradeService.calculateAssessmentAverage(List.of(value), scale, subject.roundingMode).finalGrade();
             countByGrade.merge(whole, 1, Integer::sum);
         }
-        List<Integer> counts = scale.wholeGradesBestFirst().stream().map(g -> countByGrade.getOrDefault(g, 0)).toList();
+        List<Integer> grades = scale.wholeGradesBestFirst();
+        List<Integer> counts = grades.stream().map(g -> countByGrade.getOrDefault(g, 0)).toList();
         BigDecimal average = gradeService.calculateAssessmentAverage(values, scale, subject.roundingMode).rawAverage();
-        return new Row(name, categoryName, date, counts, average != null ? display(average) : null, values.size());
+        String share = null;
+        int shareIndex = shareIndex(scale);
+        if (shareIndex >= 0 && !values.isEmpty()) {
+            int below = counts.subList(shareIndex, counts.size()).stream().mapToInt(Integer::intValue).sum();
+            share = BigDecimal.valueOf(below * 100L).divide(BigDecimal.valueOf(values.size()), 0, RoundingMode.HALF_UP) + " %";
+        }
+        return new Row(name, categoryName, date, counts, share, average != null ? display(average) : null, values.size());
+    }
+
+    /**
+     * The share column sits on the boundary to the first at-risk grade (between 4 and 5 on DE 1-6):
+     * the share below "ausreichend" that state rules ask for. -1 without such a boundary.
+     */
+    private static int shareIndex(GradeScale scale) {
+        if (scale.atRiskFrom == null) {
+            return -1;
+        }
+        int index = scale.wholeGradesBestFirst().indexOf(scale.atRiskFrom.intValue());
+        return index > 0 ? index : -1;
     }
 
     // ---- View models for the Qute template ----
@@ -175,8 +199,8 @@ public class GradeDistributionResource {
     public record Group(String title, String note, List<Row> rows) {
     }
 
-    /** {@code counts} is aligned with the template's {@code gradeColumns}. */
-    public record Row(String name, String categoryName, LocalDate date, List<Integer> counts, String average,
+    /** {@code counts} is aligned with the template's {@code gradeColumns}; {@code share} is null without grades. */
+    public record Row(String name, String categoryName, LocalDate date, List<Integer> counts, String share, String average,
                       int gradeCount) {
     }
 }

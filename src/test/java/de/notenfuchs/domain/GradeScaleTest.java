@@ -61,6 +61,8 @@ class GradeScaleTest {
         assertEquals("2+", german.format(new BigDecimal("1.70")));
         assertEquals("2", german.format(new BigDecimal("2.00")));
         assertEquals("2,5", german.format(new BigDecimal("2.50")));
+        // The Fach's choice to show tendencies as numbers.
+        assertEquals("2,3", german.format(new BigDecimal("2.30"), false));
 
         german.tendencyStep = null;
         assertEquals("2,3", german.format(new BigDecimal("2.30")));

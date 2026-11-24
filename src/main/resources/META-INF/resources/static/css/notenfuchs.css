@@ -695,6 +695,9 @@ table.grade-grid td.status-cell.status-open { color: var(--color-primary-dark); 
 .bands-editor td { padding: 0.15rem 0.25rem 0.15rem 0; }
 .bands-editor input { width: 100%; box-sizing: border-box; }
 .assessment-dialog-preview { margin-top: 0.5rem; }
+.bands-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.points-key .bands-editor { width: auto; }
+.points-key .bands-editor input { width: 6rem; }
 
 /* Student page in a Fach (GridPage/student.html). */
 .student-page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
@@ -754,3 +757,6 @@ html.privacy-on .privacy-toggle {
     html.privacy-on .private:not(.revealed) { cursor: pointer; }
 }
 .undo-note { margin: 0 0 0.5rem; }
+
+/* The share below "ausreichend" belongs to the boundary between two grades, so it reads as a divider. */
+.distribution .share { font-size: 0.85em; color: var(--color-text-muted); border-left: 2px solid var(--color-border); border-right: 2px solid var(--color-border); }

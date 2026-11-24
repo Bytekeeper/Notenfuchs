@@ -18,6 +18,7 @@ final class Leistungen {
         dialog.locator("#assessmentDate").fill(date == null ? "" : date);
         if (pointsBased) {
             dialog.locator("#assessmentPointsBased").check();
+            dialog.locator("#assessmentMaxPoints").fill("60");
         }
         // Saving reloads the page; wait for it so the next step doesn't act on the old one.
         page.waitForNavigation(() -> dialog.getByRole(AriaRole.BUTTON,

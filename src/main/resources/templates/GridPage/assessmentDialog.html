@@ -1,4 +1,4 @@
-<dialog id="assessment-dialog" class="assessment-dialog" data-base-url="/subjects/{subject.id}/grid/assessments">
+<dialog id="assessment-dialog" class="assessment-dialog" data-base-url="/subjects/{subject.id}/grid/assessments" data-points-key="{keySpec}" data-points-key-sliding="{keySliding}">
     <form method="post" class="assessment-dialog-form">
         <h2 class="assessment-dialog-title">Leistung</h2>
         <p class="hint assessment-dialog-category"></p>
@@ -19,28 +19,32 @@
         <div class="form-field checkbox-field">
             <label><input type="checkbox" id="assessmentPointsBased" name="pointsBased" value="true"> Punktebasiert (mit Notenschlüssel)</label>
         </div>
-        <div class="form-field assessment-dialog-rounding">
-            <label for="assessmentRoundingMode">Rundung (bei Punkten)</label>
-            <select id="assessmentRoundingMode" name="roundingMode">
-                <option value="IN_FAVOR_OF_STUDENT">Zugunsten des Schülers</option>
-                <option value="COMMERCIAL">Standard (0,5 → aufgerundet)</option>
-            </select>
-        </div>
         <p class="hint assessment-dialog-points-warning" hidden>Beim Wechsel zwischen Punkten und Noten werden die bisherigen Einträge dieser Leistung gelöscht.</p>
         <div class="assessment-dialog-bands" hidden>
+            <div class="form-field">
+                <label for="assessmentMaxPoints">Höchstpunktzahl</label>
+                <input type="number" id="assessmentMaxPoints" name="maxPoints" step="0.5" min="0.5" required>
+            </div>
             <h3>Notenschlüssel</h3>
             <table class="bands-editor">
-                <thead><tr><th>ab Punkten</th><th>Note</th><th></th></tr></thead>
+                <thead><tr><th>Note</th><th>Punkte</th><th></th></tr></thead>
                 <tbody></tbody>
             </table>
-            <button type="button" class="secondary assessment-dialog-add-band">+ Stufe</button>
+            <div class="form-field checkbox-field">
+                <label><input type="checkbox" id="assessmentPointsSliding" name="pointsSliding" value="true"> Gleitend (die Note steigt zwischen zwei Zeilen gleichmäßig)</label>
+            </div>
+            <p class="hint">Darunter: {worstGrade}. Prozentwerte des Fachs: „Leistungen &amp; Gewichtung“.</p>
+            <div class="bands-actions">
+                <button type="button" class="secondary assessment-dialog-add-band">+ Zeile</button>
+                <button type="button" class="secondary assessment-dialog-apply-key">Schlüssel des Fachs anwenden</button>
+            </div>
             <p class="private hint assessment-dialog-preview" aria-live="polite"></p>
         </div>
         <template class="band-row-template">
             <tr>
-                <td><input type="number" name="bandPoints" step="0.01" min="0" required aria-label="ab Punkten"></td>
-                <td><input type="number" name="bandGrades" step="0.01" min="{subject.gradeScale.min}" max="{subject.gradeScale.max}" required aria-label="Note"></td>
-                <td><button type="button" class="delete-btn band-remove" aria-label="Stufe entfernen">×</button></td>
+                <td><input type="text" name="bandGrades" required aria-label="Note"></td>
+                <td><input type="number" name="bandPoints" step="0.5" min="0" required aria-label="Punkte"></td>
+                <td><button type="button" class="delete-btn band-remove" aria-label="Zeile entfernen">×</button></td>
             </tr>
         </template>
         <p class="hint warning assessment-dialog-error" role="alert" hidden></p>

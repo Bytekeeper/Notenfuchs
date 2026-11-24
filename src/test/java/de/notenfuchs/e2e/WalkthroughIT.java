@@ -211,6 +211,7 @@ class WalkthroughIT {
         page.locator("#assessmentDate").fill("2025-10-22");
         page.locator("#assessmentFactor").fill("2");
         page.locator("#assessmentPointsBased").check();
+        page.locator("#assessmentMaxPoints").fill("60");
         record();
         dialogButton("Speichern");
 

@@ -112,7 +112,7 @@ public class BehaviorGridResource {
             int colIndex = 0;
             for (Subject subject : subjects) {
                 BehaviorGrade grade = grades.get(new GradeKey(subject.id, student.id));
-                String displayValue = grade != null ? subject.gradeScale.format(grade.value) : null;
+                String displayValue = grade != null ? subject.formatGrade(grade.value) : null;
                 if (grade != null) {
                     studentValues.add(grade.value);
                     // A student who left is shown read-only but not counted in the Fach average.
@@ -223,7 +223,7 @@ public class BehaviorGridResource {
         BigDecimal studentAverage = behaviorGradeService.average(studentValues);
         boolean studentBorderline = behaviorGradeService.isBorderline(studentAverage);
 
-        String displayValue = enteredValue != null ? subject.gradeScale.format(enteredValue) : "";
+        String displayValue = enteredValue != null ? subject.formatGrade(enteredValue) : "";
         String studentRawAverageStr = studentAverage != null ? plain(studentAverage) : null;
         String subjectRawAverageStr = subjectAverage.rawAverage() != null ? plain(subjectAverage.rawAverage()) : null;
 

@@ -101,24 +101,25 @@ class GradeGridAssessmentE2EIT {
         setUpSubjectWithEmptyCategory(unique, categoryName);
         Locator dialog = page.locator("#assessment-dialog");
 
-        // A points-based Leistung starts with the default bands 60 -> 1 and 20 -> 6.
+        // The Höchstpunktzahl fills the steps from the Fach's default key: 2 from 75 %, i.e. 30 of 40.
         page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("+ Leistung in " + categoryName)).click();
         page.locator("#assessmentName").fill("Klausur");
         page.locator("#assessmentPointsBased").check();
+        page.locator("#assessmentMaxPoints").fill("40");
+        assertThat(dialog.locator("input[name='bandGrades']")).hasCount(5);
         dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
         Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
-        pointsCell.fill("50");
+        pointsCell.fill("31");
         pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("2,2");
+        assertThat(page.locator(".derived-grade")).hasText("2");
 
         page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("Klausur")).click();
-        Locator bandGrades = dialog.locator("input[name='bandGrades']");
-        assertThat(bandGrades).hasCount(2);
+        assertThat(page.locator("#assessmentMaxPoints")).hasValue("40");
         Locator preview = dialog.locator(".assessment-dialog-preview");
         assertThat(preview).containsText("2: 1");
 
-        // 60 -> 2 instead of 1: the preview follows before anything is saved.
-        bandGrades.first().fill("2");
+        // The 2 from 32 points: the preview follows before anything is saved.
+        dialog.locator("input[name='bandPoints']").nth(1).fill("32");
         assertThat(preview).containsText("3: 1");
         dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
         assertThat(page.locator(".derived-grade")).hasText("3");
@@ -164,6 +165,7 @@ class GradeGridAssessmentE2EIT {
         // Declined: the dialog stays open and the grade stays.
         page.locator(".column-edit").filter(new Locator.FilterOptions().setHasText("KA1")).click();
         page.locator("#assessmentPointsBased").check();
+        page.locator("#assessmentMaxPoints").fill("40");
         String[] question = new String[1];
         page.onceDialog(prompt -> {
             question[0] = prompt.message();
