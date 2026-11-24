@@ -360,16 +360,19 @@ class GradeGridE2EIT {
     }
 
     @Test
-    void theFachKeyFillsTheStepsUntilTheTeacherEditsOne() {
+    void theFachKeyFillsTheRowsUntilTheTeacherEditsOne() {
         String unique = Long.toString(System.nanoTime());
         String assessmentName = "E2E-Klausur-Schluessel-" + unique;
         setUpSubjectWithPointsBasedGrid(unique, assessmentName);
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
-        // The 1 from 90 % instead of 87,5 %, read sliding; the dialog on the same page must use the saved key.
+        // The 1 from 90 %, a third row, read as steps; the dialog on the same page must use the saved key.
         Locator keyForm = page.locator("#points-key-form");
         keyForm.locator("input[name='percent']").first().fill("90");
-        keyForm.locator("input[name='sliding']").check();
+        keyForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("+ Zeile")).click();
+        keyForm.locator("input[name='grade']").last().fill("5");
+        keyForm.locator("input[name='percent']").last().fill("20");
+        keyForm.locator("input[name='sliding']").uncheck();
         keyForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
         assertThat(page.locator("#points-key-form .saved-note")).isVisible();
 
@@ -380,18 +383,19 @@ class GradeGridE2EIT {
         dialog.locator("#assessmentPointsBased").check();
         dialog.locator("#assessmentMaxPoints").fill("40");
         Locator stepPoints = dialog.locator("input[name='bandPoints']");
-        assertThat(stepPoints).hasCount(5);
+        assertThat(stepPoints).hasCount(3);
         assertThat(stepPoints.first()).hasValue("36");
-        assertThat(dialog.locator("input[name='bandGrades']").first()).hasValue("1");
-        assertThat(dialog.locator("#assessmentPointsSliding")).isChecked();
+        assertThat(dialog.locator("input[name='bandGrades']").nth(1)).hasValue("3,5");
+        assertThat(stepPoints.last()).hasValue("8");
+        assertThat(dialog.locator("#assessmentPointsSliding")).not().isChecked();
 
-        // An edited step stays when the maximum changes, until the key is applied again.
-        stepPoints.nth(1).fill("31");
+        // An edited row stays when the maximum changes, until the key is applied again.
+        stepPoints.nth(1).fill("21");
         dialog.locator("#assessmentMaxPoints").fill("50");
-        assertThat(stepPoints.nth(1)).hasValue("31");
+        assertThat(stepPoints.nth(1)).hasValue("21");
         dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Schlüssel des Fachs anwenden")).click();
         assertThat(stepPoints.first()).hasValue("45");
-        assertThat(stepPoints.nth(1)).hasValue("37.5");
+        assertThat(stepPoints.nth(1)).hasValue("25");
     }
 
     /**

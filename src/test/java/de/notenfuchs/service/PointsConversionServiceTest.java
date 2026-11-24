@@ -111,23 +111,13 @@ class PointsConversionServiceTest {
     }
 
     @Test
-    void defaultKeyPutsThePassGradeAtHalf() {
-        List<PercentStepData> key = service.defaultKey(deScale());
-        assertEquals(5, key.size());
-        List<String> expected = List.of("87.5", "75", "62.5", "50", "25");
-        for (int i = 0; i < 5; i++) {
-            assertGrade(String.valueOf(i + 1), key.get(i).gradeValue());
-            assertGrade(expected.get(i), key.get(i).minPercent());
-        }
-    }
-
-    @Test
-    void defaultKeyWithoutAtRiskSpreadsEvenly() {
-        List<PercentStepData> key = service.defaultKey(fifteenPointScale());
-        assertEquals(15, key.size());
-        assertGrade("15", key.get(0).gradeValue());
-        assertGrade("93.8", key.get(0).minPercent());
-        assertGrade("1", key.get(14).gradeValue());
-        assertGrade("6.3", key.get(14).minPercent());
+    void defaultKeyIsOneLineFromTheBestGradeToTheMiddleOfTheScaleAtHalf() {
+        List<PercentStepData> de = service.defaultKey(deScale());
+        assertGrade("1", de.get(0).gradeValue());
+        assertGrade("100", de.get(0).minPercent());
+        assertGrade("3.5", de.get(1).gradeValue());
+        assertGrade("50", de.get(1).minPercent());
+        assertGrade("15", service.defaultKey(fifteenPointScale()).get(0).gradeValue());
+        assertGrade("7.5", service.defaultKey(fifteenPointScale()).get(1).gradeValue());
     }
 }

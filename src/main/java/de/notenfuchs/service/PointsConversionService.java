@@ -85,27 +85,14 @@ public class PointsConversionService {
     }
 
     /**
-     * A Fach's key until the teacher saves one: the pass grade (the one before {@code atRiskFrom})
-     * at 50 %, the better grades evenly up to 100 %, the worse ones evenly down to 0 %. Without
-     * {@code atRiskFrom} all grades share 100 % evenly. The worst grade has no row.
+     * A Fach's key until the teacher saves one, read sliding: the best grade at 100 % and the
+     * middle of the scale at 50 %, i.e. one straight line from the best grade at full points to the
+     * worst at none.
      */
     public List<PercentStepData> defaultKey(GradeScale scale) {
-        List<Integer> grades = scale.wholeGradesBestFirst();
-        int worst = grades.size() - 1;
-        int pass = scale.atRiskFrom == null ? -1 : grades.indexOf(scale.atRiskFrom.intValue()) - 1;
-        List<PercentStepData> key = new ArrayList<>();
-        for (int i = 0; i < worst; i++) {
-            BigDecimal percent;
-            if (pass < 0) {
-                percent = HUNDRED.multiply(BigDecimal.valueOf(worst - i)).divide(BigDecimal.valueOf(worst + 1), 1, RoundingMode.HALF_UP);
-            } else if (i <= pass) {
-                percent = FIFTY.add(FIFTY.multiply(BigDecimal.valueOf(pass - i)).divide(BigDecimal.valueOf(pass + 1), 1, RoundingMode.HALF_UP));
-            } else {
-                percent = FIFTY.multiply(BigDecimal.valueOf(worst - i)).divide(BigDecimal.valueOf(worst - pass), 1, RoundingMode.HALF_UP);
-            }
-            key.add(new PercentStepData(BigDecimal.valueOf(grades.get(i)), percent));
-        }
-        return key;
+        BigDecimal best = scale.lowerIsBetter ? scale.min : scale.max;
+        BigDecimal middle = scale.min.add(scale.max).divide(TWO);
+        return List.of(new PercentStepData(best, HUNDRED), new PercentStepData(middle, FIFTY));
     }
 
     private static boolean isBetter(BigDecimal a, BigDecimal b, GradeScale scale) {

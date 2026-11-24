@@ -13,13 +13,13 @@ schwerer macht.
 
 Der Schlüssel lässt sich auf zwei Arten lesen:
 
+- **„Gleitend“** (am Anfang so eingestellt): Die Note steigt zwischen zwei Zeilen
+  gleichmäßig. Mit „1 bei 40“ und „3,5 bei 20“ gibt es für 30 Punkte eine 2,2. Gerundet wird
+  auf eine Stelle nach dem Komma, immer zugunsten des Schülers. Über die erste und unter der
+  letzten Zeile hinaus läuft die Note weiter, bis zur besten und zur schlechtesten Note.
 - **Stufen** (ohne Haken bei „Gleitend“): Die Note gilt ab ihren Punkten. Mit „2 ab 30“ und
   „1 ab 35“ bekommt man für 30 bis 34,5 Punkte eine 2. Unter der letzten Zeile gibt es die
   schlechteste Note.
-- **„Gleitend“**: Die Note steigt zwischen zwei Zeilen gleichmäßig. Mit „1 bei 40“ und
-  „3,5 bei 20“ gibt es für 30 Punkte eine 2,2. Gerundet wird auf eine Stelle nach dem Komma,
-  immer zugunsten des Schülers. Über die erste und unter der letzten Zeile hinaus läuft die
-  Note weiter, bis zur besten und zur schlechtesten Note.
 
 ## Punkte eintragen
 
@@ -32,7 +32,8 @@ die beste Note.
 
 Ein Klick auf den Namen der Klassenarbeit öffnet das Fenster wieder. Sie können jede Zeile
 für diese Arbeit ändern, zum Beispiel die 4 nach einer schweren Arbeit einen Punkt
-niedriger ansetzen. Mit **„+ Zeile“** fügen Sie eine Zeile hinzu, etwa eine 2+ ab 32 Punkten.
+niedriger ansetzen. Mit **„+ Zeile“** fügen Sie eine Zeile hinzu, etwa eine 2+ ab 32 Punkten
+in einem Schlüssel mit Stufen.
 **„Schlüssel des Fachs anwenden“** setzt alle Zeilen wieder auf die Prozentwerte des Fachs,
 zum Beispiel nachdem Sie die Höchstpunktzahl geändert haben.
 
@@ -47,12 +48,13 @@ Schlüssel.
 ## Notenschlüssel des Fachs
 
 Die Prozentwerte, aus denen eine neue Arbeit ihren Schlüssel berechnet, stehen im Reiter
-**„Leistungen & Gewichtung“** unter „Notenschlüssel“. Am Anfang sind es Stufen: die 4 ab
-50 %, die besseren Noten gleichmäßig darüber und die 5 ab 25 %. Tragen Sie dort ein, was Ihre
-Fachkonferenz festgelegt hat. Zeilen lassen sich hinzufügen und entfernen, zum Beispiel für
-einen gleitenden Schlüssel mit nur drei Zeilen: 1 ab 100 %, 3,5 ab 50 %, 6 ab 20 %. Schon
-angelegte Arbeiten behalten ihren Schlüssel; ein Klick auf „Schlüssel des Fachs anwenden“
-übernimmt die neuen Werte auch dort.
+**„Leistungen & Gewichtung“** unter „Notenschlüssel“. Am Anfang ist er gleitend mit zwei
+Zeilen: 1,0 bei 100 % und 3,5 bei 50 %. Das ist eine gerade Linie von 1,0 bei voller Punktzahl
+bis 6,0 bei null Punkten. Gibt es die 1,0 schon früher, setzen Sie die erste Zeile zum Beispiel
+auf 95 %. Hat Ihre Fachkonferenz Stufen festgelegt, nehmen Sie den Haken bei „Gleitend“ weg
+und tragen eine Zeile je Note ein, etwa 1 ab 87,5 %, 2 ab 75 % und so weiter. Schon angelegte
+Arbeiten behalten ihren Schlüssel; ein Klick auf „Schlüssel des Fachs anwenden“ übernimmt die
+neuen Werte auch dort.
 
 ## 2- oder 2,3?
 

@@ -80,26 +80,30 @@ class GridAssessmentIT {
                 "pointsBased", "true")).statusCode());
         assertEquals(0, Assessment.count("category.id", categoryId));
 
-        // The default key: 87,5 / 75 / 62,5 / 50 / 25 % of 37 points, rounded down to half points.
+        // The default key slides from 1,0 at 100 % to 3,5 at 50 %; 50 % of 37 is 18,5.
         http.post(create, Map.of("categoryId", categoryId.toString(), "name", "KA1", "pointsBased", "true", "maxPoints", "37"));
-        assertEquals("1@32, 2@27.5, 3@23, 4@18.5, 5@9", steps(categoryId, "KA1"));
+        assertEquals("1@37, 3.5@18.5", steps(categoryId, "KA1"));
 
-        // A teacher's sliding key: 100 % → 1,0, 50 % → 3,5, 20 % → 6. Out of order is refused.
+        // A Fachkonferenz key in steps. Out of order is refused.
         String key = "/subjects/" + subjectId + "/points-key";
         assertEquals(400, http.post(key, "grade=1&percent=50&grade=2&percent=60").statusCode());
-        http.post(key, "grade=1&percent=100&grade=3%2C5&percent=50&grade=6&percent=20&sliding=true");
+        http.post(key, "grade=1&percent=90&grade=2&percent=75&grade=3&percent=60&grade=4&percent=50&grade=5&percent=20");
         http.post(create, Map.of("categoryId", categoryId.toString(), "name", "KA2", "pointsBased", "true", "maxPoints", "40"));
-        assertEquals("1@40, 3.5@20, 6@8", steps(categoryId, "KA2"));
-        assertEquals("1@32, 2@27.5, 3@23, 4@18.5, 5@9", steps(categoryId, "KA1"));
+        assertEquals("1@36, 2@30, 3@24, 4@20, 5@8", steps(categoryId, "KA2"));
+        assertEquals("1@37, 3.5@18.5", steps(categoryId, "KA1"));
 
-        // 30 of 40 points lies between 1 and 3,5: 2,25, in the student's favor 2,2.
+        // 30 points: sliding 1 + 7/18,5 · 2,5 = 1,95, in the student's favor 1,9; as steps a 2.
         String studentName = "GA-Schueler-" + unique;
         http.post("/classes/" + classId + "/students", Map.of("name", studentName));
         Long studentId = Student.find("name", studentName).<Student>firstResult().id;
-        Long ka2 = Assessment.find("category.id = ?1 and name = 'KA2'", categoryId).<Assessment>firstResult().id;
-        String saved = http.post("/subjects/" + subjectId + "/grid/cell", Map.of("studentId", studentId.toString(),
-                "assessmentId", ka2.toString(), "value", "30")).body();
-        assertTrue(saved.contains("\"derivedGradeDisplay\":\"2,2\""), saved);
+        assertTrue(saveCell(subjectId, studentId, categoryId, "KA1", "30").contains("\"derivedGradeDisplay\":\"1,9\""));
+        assertTrue(saveCell(subjectId, studentId, categoryId, "KA2", "30").contains("\"derivedGradeDisplay\":\"2\""));
+    }
+
+    private String saveCell(Long subjectId, Long studentId, Long categoryId, String assessmentName, String value) throws Exception {
+        Long assessmentId = Assessment.find("category.id = ?1 and name = ?2", categoryId, assessmentName).<Assessment>firstResult().id;
+        return http.post("/subjects/" + subjectId + "/grid/cell", Map.of("studentId", studentId.toString(),
+                "assessmentId", assessmentId.toString(), "value", value)).body();
     }
 
     @Test
@@ -139,7 +143,7 @@ class GridAssessmentIT {
             assertEquals(400, invalid.statusCode(), badSteps);
         }
         assertEquals("Klausur", Assessment.<Assessment>findById(assessmentId).name);
-        assertEquals(5, PointsGradeBand.count("assessment.id", assessmentId));
+        assertEquals(2, PointsGradeBand.count("assessment.id", assessmentId));
 
         http.post(url, "name=Klausur&factor=1&pointsBased=true&maxPoints=40"
                 + "&bandPoints=36&bandGrades=1&bandPoints=33&bandGrades=2%2B&bandPoints=20&bandGrades=4");

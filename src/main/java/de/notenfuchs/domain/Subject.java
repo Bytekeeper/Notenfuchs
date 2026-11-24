@@ -41,7 +41,7 @@ public class Subject extends PanacheEntity {
 
     /** How a new points Leistung reads the Fach's key ({@link SubjectPointsKey}); see {@code Assessment#pointsSliding}. */
     @Column(name = "points_key_sliding", nullable = false)
-    public boolean pointsKeySliding;
+    public boolean pointsKeySliding = true;
 
     /** Display only: "2-" when true, "2,3" when false. Typing "2-" works either way. */
     @Column(name = "tendency_signs", nullable = false)

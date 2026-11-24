@@ -134,7 +134,9 @@ one-decimal grades in between. So the built version keeps both readings:
 - A key (Fach or Leistung) is free rows of grade and percent/points, plus a switch "Gleitend".
   Steps: the grade holds from its row on. Sliding: linear between rows, extended beyond the outer
   rows, clamped at the scale, rounded to one decimal in the student's favor (no rounding choice).
-- The Fach key no longer needs one row per whole grade. The default is still steps.
+- The Fach key no longer needs one row per whole grade. The default is sliding with two rows: the
+  best grade at 100 % and the scale's middle at 50 % (1,0 and 3,5), one straight line to the worst
+  grade at 0 %. Teachers build exactly this in Excel; a Fachkonferenz step key is one untick away.
 - D1 is reversed: existing points Leistungen become sliding with their old rows, so no grade
   changes and no conversion migration. Their maximum is their highest row. Only the dropped
   rounding choice can move a "kaufmännisch" Leistung's grade by 0,1.

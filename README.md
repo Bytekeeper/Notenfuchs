@@ -422,8 +422,8 @@ Ein Lauf ohne sichtbare Änderung erzeugt byteidentische Dateien; committe nur, 
   jedem Lesen aus den Punkten bestimmt, nie gespeichert.
 - **SubjectPointsKey**: der Notenschlüssel eines Fachs in Prozent der Höchstpunktzahl, mit
   `Subject#pointsKeySliding`. Eine neue Leistung mit Punkten rechnet daraus ihre Zeilen (auf halbe
-  Punkte abgerundet); ohne Eintrag gilt ein aus der Skala berechneter Standard in Stufen (die
-  letzte nicht gefährdete Note ab 50 %). `Subject#tendencySigns` legt fest, ob 2,3 als „2-“
+  Punkte abgerundet); ohne Eintrag gilt ein gleitender Standard: die beste Note bei 100 %, die
+  Mitte der Skala bei 50 % (bei 1–6: 1,0 und 3,5). `Subject#tendencySigns` legt fest, ob 2,3 als „2-“
   oder „2,3“ erscheint (nur die Anzeige).
 - **Grade**: das numerische Ergebnis (`NUMERIC(4,2)`) eines Schülers für eine
   Leistung.

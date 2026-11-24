@@ -21,7 +21,7 @@
     <div class="form-field checkbox-field">
         <label><input type="checkbox" name="sliding" value="true"{#if keySliding} checked{/if}> Gleitend: die Note steigt zwischen zwei Zeilen gleichmäßig (sonst gilt sie ab ihrer Zeile)</label>
     </div>
-    <p class="hint">Weniger Punkte als in der letzten Zeile: {worstGrade}, gleitend erst nach und nach.</p>
+    <p class="hint">Unter der letzten Zeile sinkt die Note bis {worstGrade}: gleitend nach und nach, sonst sofort.</p>
     <div class="bands-actions">
         <button type="button" class="secondary key-add-row">+ Zeile</button>
         <button type="submit">Speichern</button>

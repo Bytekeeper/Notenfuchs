@@ -20,7 +20,8 @@ CREATE TABLE subject_points_key (
 );
 CREATE INDEX idx_subject_points_key_subject ON subject_points_key(subject_id);
 CREATE SEQUENCE subject_points_key_seq START WITH 1 INCREMENT BY 50;
-ALTER TABLE subject ADD COLUMN points_key_sliding BOOLEAN NOT NULL DEFAULT FALSE;
+-- Most teachers' keys are sliding (full points → 1,0, half → 3,5), so that's the default.
+ALTER TABLE subject ADD COLUMN points_key_sliding BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- Pure display: some teachers write 2,3 where others write 2-.
 ALTER TABLE subject ADD COLUMN tendency_signs BOOLEAN NOT NULL DEFAULT TRUE;
