@@ -5,7 +5,6 @@ import de.notenfuchs.domain.Grade;
 import de.notenfuchs.domain.GradeCategory;
 import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.PointsGradeBand;
-import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Subject;
 import de.notenfuchs.domain.SubjectTeacher;
@@ -83,8 +82,8 @@ public class SubjectUiResource {
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance detail(@PathParam("id") Long id) {
         Subject subject = guard.requireTeachesSubject(id, currentUser.effectiveSubject());
-        CategoryListData data = categoryListData(id);
-        return currentUser.withUser(detailTemplate
+        CategoryListData data = categoryListData(subject);
+        return currentUser.withUser(SubjectPointsKeyResource.withKey(detailTemplate.instance(), subject)
                 .data("subject", subject)
                 .data("switchSubjects", switchSubjects(subject))
                 .data("categories", data.categories())
@@ -271,63 +270,68 @@ public class SubjectUiResource {
         return guard.listTaughtSubjectsInYear(currentUser.effectiveSubject(), subject.schoolClass.schoolYear);
     }
 
-    /** Shared with the grade table ({@code GradeGridResource}) so both create a Leistung the same way. */
-    Assessment createAssessment(GradeCategory category, GradeScale scale, String name, LocalDate date,
-                                BigDecimal factor, String pointsBasedRaw, String roundingModeRaw) {
+    /**
+     * Shared with the grade table ({@code GradeGridResource}) so both create a Leistung the same way.
+     * {@code steps} null means: take the Fach's key for {@code maxPoints}.
+     */
+    Assessment createAssessment(GradeCategory category, Subject subject, String name, LocalDate date, BigDecimal factor,
+                                String pointsBasedRaw, String slidingRaw, BigDecimal maxPoints,
+                                List<PointsGradeBandData> steps) {
         boolean pointsBased = isChecked(pointsBasedRaw);
+        requireMaxPoints(pointsBased, maxPoints);
         Assessment assessment = new Assessment();
         assessment.category = category;
         assessment.name = name;
         assessment.date = date;
         assessment.factor = factor != null ? factor : BigDecimal.ONE;
         assessment.pointsBased = pointsBased;
-        assessment.roundingMode = parseRoundingMode(roundingModeRaw);
         assessment.persist();
-        if (pointsBased) {
-            seedDefaultBands(assessment, scale);
-        }
+        saveSteps(assessment, subject, isChecked(slidingRaw), maxPoints, steps);
         return assessment;
     }
 
     /**
-     * Shared with the grade table's Leistung dialog. Flipping {@code pointsBased} clears the grades
-     * (a grade in one mode means nothing in the other) and a switch to points seeds default bands.
+     * Shared with the grade table's Leistung dialog. Flipping {@code pointsBased} clears the grades:
+     * a grade in one mode means nothing in the other.
      */
-    void updateAssessment(Assessment assessment, GradeScale scale, String name, BigDecimal factor,
-                          String pointsBasedRaw, String roundingModeRaw, LocalDate date) {
+    void updateAssessment(Assessment assessment, Subject subject, String name, BigDecimal factor, String pointsBasedRaw,
+                          String slidingRaw, BigDecimal maxPoints, List<PointsGradeBandData> steps, LocalDate date) {
+        boolean pointsBased = isChecked(pointsBasedRaw);
+        requireMaxPoints(pointsBased, maxPoints);
         if (name != null && !name.isBlank()) {
             assessment.name = name;
         }
         if (factor != null) {
             assessment.factor = factor;
         }
-        boolean pointsBased = isChecked(pointsBasedRaw);
         if (pointsBased != assessment.pointsBased) {
             // A grade entered in one mode means nothing in the other; an absence still happened.
             Grade.delete("assessment.id = ?1 and absence is null", assessment.id);
             Grade.update("value = null, points = null where assessment.id = ?1", assessment.id);
         }
         assessment.pointsBased = pointsBased;
-        assessment.roundingMode = parseRoundingMode(roundingModeRaw);
-        if (pointsBased && PointsGradeBand.count("assessment.id", assessment.id) == 0) {
-            seedDefaultBands(assessment, scale);
-        }
         assessment.date = date;
+        saveSteps(assessment, subject, isChecked(slidingRaw), maxPoints, steps);
     }
 
-    /** A checkbox form field arrives as "true"/"on" when checked, or absent (null) when not. */
-    private static boolean isChecked(String rawValue) {
-        return "true".equals(rawValue) || "on".equals(rawValue);
+    private static void requireMaxPoints(boolean pointsBased, BigDecimal maxPoints) {
+        if (pointsBased && (maxPoints == null || maxPoints.signum() <= 0)) {
+            throw new BadRequestException("Bitte die Höchstpunktzahl angeben.");
+        }
     }
 
-    /** A blank/absent rounding-mode select falls back to the same default as a fresh Assessment. */
-    private static RoundingMode parseRoundingMode(String rawValue) {
-        return rawValue == null || rawValue.isBlank() ? RoundingMode.IN_FAVOR_OF_STUDENT : RoundingMode.valueOf(rawValue);
-    }
-
-    /** Seeds a fresh points-based Assessment with {@link PointsConversionService#defaultBands}. */
-    private void seedDefaultBands(Assessment assessment, GradeScale scale) {
-        for (PointsGradeBandData data : pointsConversionService.defaultBands(scale)) {
+    /** Without typed rows the Leistung takes the Fach's key, including how to read it. */
+    private void saveSteps(Assessment assessment, Subject subject, boolean sliding, BigDecimal maxPoints,
+                           List<PointsGradeBandData> steps) {
+        PointsGradeBand.delete("assessment.id", assessment.id);
+        assessment.maxPoints = assessment.pointsBased ? maxPoints : null;
+        assessment.pointsSliding = assessment.pointsBased && (steps != null ? sliding : subject.pointsKeySliding);
+        if (!assessment.pointsBased) {
+            return;
+        }
+        List<PointsGradeBandData> toSave = steps != null ? steps
+                : pointsConversionService.stepsFromKey(maxPoints, SubjectPointsKeyResource.keyOf(subject));
+        for (PointsGradeBandData data : toSave) {
             PointsGradeBand band = new PointsGradeBand();
             band.assessment = assessment;
             band.points = data.points();
@@ -336,8 +340,13 @@ public class SubjectUiResource {
         }
     }
 
+    /** A checkbox form field arrives as "true"/"on" when checked, or absent (null) when not. */
+    private static boolean isChecked(String rawValue) {
+        return "true".equals(rawValue) || "on".equals(rawValue);
+    }
+
     private TemplateInstance categoryFragment(Subject subject) {
-        CategoryListData data = categoryListData(subject.id);
+        CategoryListData data = categoryListData(subject);
         return categoryListFragment
                 .data("subject", subject)
                 .data("categories", data.categories())
@@ -351,8 +360,8 @@ public class SubjectUiResource {
      * sync (previously computed separately, and the full-page render forgot
      * weightSum/weightSumWarning entirely).
      */
-    private CategoryListData categoryListData(Long subjectId) {
-        List<CategoryView> categories = categoryViews(subjectId);
+    private CategoryListData categoryListData(Subject subject) {
+        List<CategoryView> categories = categoryViews(subject);
         BigDecimal weightSum = categories.stream()
                 .map(CategoryView::weightPercent)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -368,17 +377,18 @@ public class SubjectUiResource {
      * only points at its category), so this view model loads them explicitly for
      * rendering the category+assessment list in the Qute template.
      */
-    private List<CategoryView> categoryViews(Long subjectId) {
+    private List<CategoryView> categoryViews(Subject subject) {
+        Long subjectId = subject.id;
         List<GradeCategory> categories = GradeCategory.list("subject.id", subjectId);
-        Map<Long, String> bandSpecs = GradeGridResource.bandSpecs(subjectId);
+        Map<Long, String> bandSpecs = GradeGridResource.bandSpecs(subject);
         List<CategoryView> result = new ArrayList<>();
         for (GradeCategory category : categories) {
             List<Assessment> assessments = Assessment.list("category.id", category.id);
             List<AssessmentView> assessmentViews = new ArrayList<>();
             for (Assessment assessment : assessments) {
                 assessmentViews.add(new AssessmentView(assessment.id, assessment.name, assessment.date,
-                        assessment.factor, assessment.pointsBased, bandSpecs.getOrDefault(assessment.id, ""),
-                        assessment.roundingMode));
+                        assessment.factor, assessment.pointsBased, assessment.maxPoints, assessment.pointsSliding,
+                        bandSpecs.getOrDefault(assessment.id, "")));
             }
             result.add(new CategoryView(category.id, category.name, category.weightPercent, assessmentViews));
         }
@@ -392,9 +402,9 @@ public class SubjectUiResource {
     public record CategoryView(Long id, String name, BigDecimal weightPercent, List<AssessmentView> assessments) {
     }
 
-    /** {@code bandSpec} is the Notenschlüssel in the form the Leistung dialog reads ("60:1;20:6"). */
+    /** {@code bandSpec} is the Notenschlüssel in the form the Leistung dialog reads ("35:1;30:2-"). */
     public record AssessmentView(Long id, String name, LocalDate date, BigDecimal factor,
-                                  boolean pointsBased, String bandSpec, RoundingMode roundingMode) {
+                                  boolean pointsBased, BigDecimal maxPoints, boolean pointsSliding, String bandSpec) {
     }
 
 }

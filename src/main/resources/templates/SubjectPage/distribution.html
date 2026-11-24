@@ -5,14 +5,14 @@
 {#if empty}
 <p class="hint">Noch keine Leistungen. Sobald Noten eingetragen sind, steht hier, wie oft jede Note vergeben wurde.</p>
 {#else}
-<p class="hint">Wie oft jede Note vergeben wurde. „2-“ zählt als 2, Punkte zählen mit ihrer gerundeten Note. Ausgetretene Schüler und leere Zellen zählen nicht.</p>
+<p class="hint">Wie oft jede Note vergeben wurde. „2-“ zählt als 2. Ausgetretene Schüler und leere Zellen zählen nicht.{#if shareIndex >= 0} Die Spalte „{shareLabel}“ zwischen den Noten zeigt deren Anteil an allen Noten der Zeile.{/if}</p>
 <div class="grid-wrapper">
 <table class="data-table distribution">
     <thead>
         <tr>
             <th>Leistung</th>
             <th>Datum</th>
-            {#for g in gradeColumns}<th class="num">{g}</th>{/for}
+            {#for g in gradeColumns}{#if g_index == shareIndex}<th class="num share" title="Anteil der Noten {shareLabel}">{shareLabel}</th>{/if}<th class="num">{g}</th>{/for}
             <th class="num">Ø</th>
             <th class="num">Noten</th>
         </tr>
@@ -26,7 +26,7 @@
         <tr>
             <td>{row.name}{#if row.categoryName} <span class="row-meta">{row.categoryName}</span>{/if}</td>
             <td>{#if row.date}{row.date.format('dd.MM.yyyy')}{/if}</td>
-            {#for c in row.counts}<td class="private num{#if c == 0} zero{/if}">{c}</td>{/for}
+            {#for c in row.counts}{#if c_index == shareIndex}<td class="private num share">{row.share ?: '–'}</td>{/if}<td class="private num{#if c == 0} zero{/if}">{c}</td>{/for}
             <td class="private num">{row.average ?: '–'}</td>
             <td class="private num">{row.gradeCount}</td>
         </tr>

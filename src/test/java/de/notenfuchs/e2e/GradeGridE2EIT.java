@@ -343,8 +343,7 @@ class GradeGridE2EIT {
         assertThat(derivedGrade).hasText("");
         assertThat(finalGrade).hasText("–");
 
-        // The default Notenschlüssel (60 -> 1, 20 -> 6) resolves 65 points to grade 1
-        // (meets the >=60 band).
+        // Bonus points above the maximum of 60 still give the best grade.
         pointsCell.fill("65");
         pointsCell.evaluate("el => el.blur()");
 
@@ -361,73 +360,42 @@ class GradeGridE2EIT {
     }
 
     @Test
-    void editingNotenschluesselBandRecomputesDerivedGradeLive() {
-        // Anti-freeze design principle: the grade is derived live from points + bands, never
-        // frozen - so editing a band's grade value must change the already-entered student's
-        // grade without touching the stored points at all.
+    void theFachKeyFillsTheRowsUntilTheTeacherEditsOne() {
         String unique = Long.toString(System.nanoTime());
-        String assessmentName = "E2E-Klausur-Live-" + unique;
+        String assessmentName = "E2E-Klausur-Schluessel-" + unique;
         setUpSubjectWithPointsBasedGrid(unique, assessmentName);
-
-        Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
-        pointsCell.fill("65");
-        pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("1");
-        assertThat(page.locator(".average-final")).hasText("1");
-
-        // On "Leistungen & Gewichtung", change the ">=60 points" band's grade from 1 to 2 in the
-        // Leistung dialog - the default bands render best-to-worst, so this is the first band row.
         page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
 
-        page.locator("tr.assessment-row").filter(new Locator.FilterOptions().setHasText(assessmentName))
-                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
+        // The 1 from 90 %, a third row, read as steps; the dialog on the same page must use the saved key.
+        Locator keyForm = page.locator("#points-key-form");
+        keyForm.locator("input[name='percent']").first().fill("90");
+        keyForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("+ Zeile")).click();
+        keyForm.locator("input[name='grade']").last().fill("5");
+        keyForm.locator("input[name='percent']").last().fill("20");
+        keyForm.locator("input[name='sliding']").uncheck();
+        keyForm.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click();
+        assertThat(page.locator("#points-key-form .saved-note")).isVisible();
+
+        page.locator(".card").filter(new Locator.FilterOptions().setHasText(assessmentName))
+                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("+ Leistung anlegen")).click();
         Locator dialog = page.locator("#assessment-dialog");
-        dialog.locator("input[name='bandGrades']").nth(0).fill("2");
-        page.waitForNavigation(() -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click());
+        dialog.locator("#assessmentName").fill("Test-" + unique);
+        dialog.locator("#assessmentPointsBased").check();
+        dialog.locator("#assessmentMaxPoints").fill("40");
+        Locator stepPoints = dialog.locator("input[name='bandPoints']");
+        assertThat(stepPoints).hasCount(3);
+        assertThat(stepPoints.first()).hasValue("36");
+        assertThat(dialog.locator("input[name='bandGrades']").nth(1)).hasValue("3,5");
+        assertThat(stepPoints.last()).hasValue("8");
+        assertThat(dialog.locator("#assessmentPointsSliding")).not().isChecked();
 
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
-
-        // Same stored points (65), no re-entry - the derived grade must already reflect the
-        // updated band. Bands are now 60->2 / 20->6: since points-based Notenschlüssel bands
-        // extrapolate rather than clamp (see PointsConversionService), 65 points continues the
-        // line's slope 5 points past the 60 anchor instead of just staying at that band's grade
-        // - (6-2)/(20-60) = -0.1 per point, so 2 + (-0.1 * 5) = 1.5. The subject average then
-        // rounds that same 1.5 the normal COMMERCIAL way (half up) to the whole grade 2.
-        assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("65");
-        assertThat(page.locator(".derived-grade")).hasText("1,5");
-        assertThat(page.locator(".average-final")).hasText("2");
-    }
-
-    @Test
-    void changingAssessmentRoundingModeRecomputesDerivedGradeLive() {
-        // Same anti-freeze reasoning as editingNotenschluesselBandRecomputesDerivedGradeLive,
-        // but for the per-Leistung rounding mode instead of a band value: 30 points against the
-        // default bands (60 -> 1, 20 -> 6) interpolates to raw grade 4.75. The default rounding
-        // mode ("zugunsten des Schuelers") floors toward the better grade -> 4.7; switching the
-        // assessment to "kaufmaennisch" must recompute the same stored points to the standard
-        // half-up rounding -> 4.8, without touching the points at all.
-        String unique = Long.toString(System.nanoTime());
-        String assessmentName = "E2E-Klausur-Rundung-" + unique;
-        setUpSubjectWithPointsBasedGrid(unique, assessmentName);
-
-        Locator pointsCell = page.locator("input.points-input[data-row='0'][data-col='0']");
-        pointsCell.fill("30");
-        pointsCell.evaluate("el => el.blur()");
-        assertThat(page.locator(".derived-grade")).hasText("4,7");
-
-        page.locator(".tabs").getByRole(AriaRole.LINK, new Locator.GetByRoleOptions().setName("Leistungen & Gewichtung")).click();
-
-        page.locator("tr.assessment-row").filter(new Locator.FilterOptions().setHasText(assessmentName))
-                .getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Ändern")).click();
-        Locator dialog = page.locator("#assessment-dialog");
-        dialog.locator("select[name='roundingMode']").selectOption("COMMERCIAL");
-        page.waitForNavigation(() -> dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Speichern")).click());
-
-        page.getByRole(AriaRole.LINK, new Page.GetByRoleOptions().setName("Notenerfassung")).click();
-
-        // Same stored points (30), no re-entry - now rounds the standard "kaufmaennisch" way.
-        assertThat(page.locator("input.points-input[data-row='0'][data-col='0']")).hasValue("30");
-        assertThat(page.locator(".derived-grade")).hasText("4,8");
+        // An edited row stays when the maximum changes, until the key is applied again.
+        stepPoints.nth(1).fill("21");
+        dialog.locator("#assessmentMaxPoints").fill("50");
+        assertThat(stepPoints.nth(1)).hasValue("21");
+        dialog.getByRole(AriaRole.BUTTON, new Locator.GetByRoleOptions().setName("Schlüssel des Fachs anwenden")).click();
+        assertThat(stepPoints.first()).hasValue("45");
+        assertThat(stepPoints.nth(1)).hasValue("25");
     }
 
     /**

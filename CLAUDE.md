@@ -37,7 +37,8 @@ Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only 
   - `SubjectUiResource`: "Leistungen & Gewichtung" tab (categories; Leistungen open the grid's Leistung dialog) and Fach teachers; owns the create/update rules for a Leistung (`createAssessment`/`updateAssessment`).
   - `GradeGridResource`: grade grid (classic and half-year view), cell save, xlsx export, the Leistung dialog endpoints (add/edit/delete, Notenschlüssel, `band-preview`), starter categories.
   - `StudentPageResource`: one student in one Fach, incl. "Was braucht …" and setting the Zeugnisnoten.
-  - `GradeDistributionResource`: "Notenspiegel" tab, counts per whole grade per Leistung and for the Zeugnisnoten (reuses the grid's half split and averages).
+  - `GradeDistributionResource`: "Notenspiegel" tab, counts per whole grade per Leistung and for the Zeugnisnoten (reuses the grid's half split and averages), plus the share of at-risk grades as a column on the `atRiskFrom` boundary.
+  - `SubjectPointsKeyResource`: the Fach's Notenschlüssel in percent on "Leistungen & Gewichtung"; `keyOf`/`withKey` feed the Leistung dialog on every page that includes it.
   - `BadRequestMessage` (a refused request's sentence as the 400 body) and `GermanNumbers` (decimal comma on pages) and `AssetVersion` (cache-busting `?v=` on CSS/JS links): shared by all pages.
   - `BehaviorGridResource`: Verhaltensnoten grid. `ClassOverviewResource`: admin-only Notenübersicht. `OpenGrades`: the "offen" rule and counts.
   - `ClassExportResource`: class-wide xlsx. Admins get a "Notenübersicht" sheet (final grades of every Fach); everyone gets a full sheet per Fach they teach, written by `GradeGridResource#addSubjectSheet` (the same code as the Fach export). It never widens access.
@@ -47,9 +48,10 @@ Then run `./mvnw verify`, regenerate screenshots if the UI changed (commit only 
 
 ```
 SchoolClass → Student (name free text, displayName = optional Kürzel, leftOn = date left or null)
-SchoolClass → Subject (GradeScale, roundingMode) → GradeCategory (weightPercent) → Assessment (= Leistung: factor, date, pointsBased + own roundingMode)
+SchoolClass → Subject (GradeScale, roundingMode) → GradeCategory (weightPercent) → Assessment (= Leistung: factor, date, pointsBased + maxPoints, pointsSliding)
 Assessment  → Grade (per student: value OR points OR neither, plus optional absence EXCUSED/UNEXCUSED)
-Assessment  → PointsGradeBand (points → gradeValue: the Notenschlüssel)
+Assessment  → PointsGradeBand (points + gradeValue: the Notenschlüssel's rows)
+Subject     → SubjectPointsKey (gradeValue + minPercent: the Fach's key, a template for new points Leistungen); Subject: pointsKeySliding, tendencySigns
 Student + Subject → BehaviorGrade (one Verhaltensnote per student per Fach)
 Student + Subject → ReportGrade (Zeugnisnote set by hand, per period FIRST_HALF | YEAR)
 SchoolClass → ClassTeacher (ADMIN | FACHLEHRER) ; Subject → SubjectTeacher ; Teacher = directory (subject + name) of everyone who logged in
@@ -61,9 +63,9 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 
 - **Scale-agnostic.** Grades are `BigDecimal` (`NUMERIC`), never a 1–6 enum. Read `lowerIsBetter` (and `atRiskFrom`) from the scale; never assume 1–6. No `double`.
 - **One calculation.** `GradeService` (pure POJO) does all averaging: category average weighted by factor; subject average by `weightPercent`, normalized over categories that have grades; raw average + final grade per `COMMERCIAL` (half up) or `IN_FAVOR_OF_STUDENT` (half toward the better grade). Other features feed it filtered data instead of copying the math (half-year averages, `RequiredGradeService` tries candidate grades through it, the Notenspiegel preview).
-- **Points are never converted and stored.** A points-based grade is derived live by `PointsConversionService` (linear interpolation between bands, extrapolated beyond, clamped only at the scale; rounded to one decimal per the Leistung's rounding mode). New points Leistungen get default bands 60 → best, 20 → worst. Switching points mode clears grades but keeps absence marks.
+- **Points are never converted and stored.** A points-based grade is derived live by `PointsConversionService` from the Leistung's rows (`PointsGradeBand`: points + grade), read as steps (the best row reached wins, below all the worst grade) or, with `pointsSliding`, sliding (linear between rows, extended beyond, clamped at the scale, one decimal in the student's favor). A points Leistung needs `maxPoints`; without typed rows it gets the Fach's percent key (`SubjectPointsKey` + `Subject#pointsKeySliding`, else `defaultKey`, sliding: best grade at 100 %, the scale's middle at 50 %) as half points, rounded down. A better grade must need more points. The Fach key is a template only: changing it never touches existing Leistungen. Switching points mode clears grades but keeps absence marks.
 - **No freezing.** No locks, archives or snapshots. Half-year cutoff and half-grade display only change how the same data is shown. "Jahr" is always a whole grade. Verhaltensnoten have no H1/H2. "Ins neue Schuljahr übernehmen" copies Fächer, categories and active students, never Leistungen or grades; the source class stays editable.
-- **Typed grades** go through `GradeScale#parseGrade` and back out through `#format`: "2-"/"2+" is the whole grade ∓ `tendencyStep` ("+" is always the better side), and a stored 2.3 shows as "2-". Points are plain numbers.
+- **Typed grades** go through `GradeScale#parseGrade` and back out through `Subject#formatGrade`: "2-"/"2+" is the whole grade ∓ `tendencyStep` ("+" is always the better side), and a stored 2.3 shows as "2-", or as "2,3" when the Fach turned `tendencySigns` off (display only). Points are plain numbers.
 - **Zeugnisnote** (`ReportGrade`) replaces the computed final grade for display, at-risk and export, but never feeds `GradeService`; the computed grade stays visible, struck through. "Jahr" must be a whole grade; "1. Halbjahr" only exists with a cutoff. The class export's Fach sheets end with "Zeugnisnote" columns (set or computed). It is set on the student page; the grid's ✎ links there with `?zeugnisnote=year|firstHalf` to open the panel with that field focused (no `#anchor` on that link: browsers skip `autofocus` when the URL has one).
 - **Absence mark** (`e`/`u` typed in a cell, alone or next to the grade) never changes a grade and never derives one. A marked cell is not "offen". xlsx keeps grades numeric and writes a mark without grade as its letter.
 - **"Offen"** = empty cell of a Leistung whose date has come (`OpenGrades#isDue`; undated never). Highlighted in the grid; counted on the home page and in the Notenübersicht. No per-column count in the grid footer.
@@ -109,7 +111,7 @@ GradeScale (min, max, lowerIsBetter, atRiskFrom, tendencyStep) — shared refere
 |---|---|
 | Averages, rounding | `GradeServiceTest` |
 | Grid undo (Ctrl+Z) | `GradeGridE2EIT` |
-| Points / Notenschlüssel | `PointsConversionServiceTest`, `GridAssessmentIT`, `GradeGridE2EIT` |
+| Points / Notenschlüssel, Fach key | `PointsConversionServiceTest`, `GridAssessmentIT`, `NotenschluesselMigrationIT`, `GradeGridE2EIT`, `GradeGridAssessmentE2EIT` |
 | Half-year view and display | `HalfYearAssessmentPartitionerTest`, `HalfYearGradeDisplayServiceTest`, `GradeGridHalfYearIT`, `GradeGridHalfYearE2EIT` |
 | Leistung dialog, "offen" highlight | `GridAssessmentIT`, `GradeGridAssessmentE2EIT` |
 | Absence mark | `GradeAbsenceIT` |

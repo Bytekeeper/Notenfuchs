@@ -12,12 +12,8 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 /**
- * One anchor point of a points-based {@link Assessment}'s Notenschlüssel: {@link #points}
- * raw points maps exactly to {@link #gradeValue}, and points falling between, below, or above
- * two anchors interpolate/extrapolate linearly. Bands are freely configurable per assessment -
- * no Bundesland-specific scheme is imposed. See
- * {@link de.notenfuchs.service.PointsConversionService} for how a points value is resolved
- * against these bands.
+ * One step of a points-based {@link Assessment}'s Notenschlüssel: from {@link #points} on, the
+ * grade is {@link #gradeValue}. See {@link de.notenfuchs.service.PointsConversionService}.
  */
 @Entity
 @Table(name = "points_grade_band")

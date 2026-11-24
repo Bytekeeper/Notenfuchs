@@ -52,7 +52,8 @@ class GradeDistributionIT {
         http.post("/subjects/" + subjectId + "/grid/assessments",
                 Map.of("categoryId", categoryId.toString(), "name", "KA", "date", date));
         http.post("/subjects/" + subjectId + "/grid/assessments",
-                Map.of("categoryId", categoryId.toString(), "name", "Test", "date", date, "pointsBased", "true"));
+                Map.of("categoryId", categoryId.toString(), "name", "Test", "date", date, "pointsBased", "true",
+                        "maxPoints", "60"));
         Long ka = Assessment.find("category.id = ?1 and name = 'KA'", categoryId).<Assessment>firstResult().id;
         Long test = Assessment.find("category.id = ?1 and name = 'Test'", categoryId).<Assessment>firstResult().id;
 
@@ -60,18 +61,18 @@ class GradeDistributionIT {
         saveCell(subjectId, students.get(1), ka, "2");
         saveCell(subjectId, students.get(2), ka, "5");
         saveCell(subjectId, students.get(3), ka, "1");
-        // The default Notenschlüssel gives the best grade from 60 points on.
+        // The default Notenschlüssel gives the best grade from 87,5 % on.
         saveCell(subjectId, students.get(0), test, "60");
         http.post("/classes/" + classId + "/students/" + students.get(3) + "/leave", Map.of());
         http.post("/subjects/" + subjectId + "/grid/students/" + students.get(1) + "/report-grades", Map.of("year", "4"));
 
         String page = http.get("/subjects/" + subjectId + "/distribution").body();
 
-        // Leistung, Datum, 1..6, Ø, Noten. Dora left, so her 1 doesn't count.
-        assertEquals(List.of("0", "2", "0", "0", "1", "0", "3,1", "3"), counts(page, "KA"));
-        assertEquals(List.of("1", "0", "0", "0", "0", "0", "1", "1"), counts(page, "Test"));
+        // 1..4, the share of 5 and 6, 5, 6, Ø, Noten. Dora left, so her 1 doesn't count.
+        assertEquals(List.of("0", "2", "0", "0", "33 %", "1", "0", "3,1", "3"), counts(page, "KA"));
+        assertEquals(List.of("1", "0", "0", "0", "0 %", "0", "0", "1", "1"), counts(page, "Test"));
         // Computed: Anna 2 (1.65), Ben 2 but set to 4 by hand, Cem 5.
-        assertEquals(List.of("0", "1", "0", "1", "1", "0"), counts(page, "Jahr").subList(0, 6));
+        assertEquals(List.of("0", "1", "0", "1", "33 %", "1", "0"), counts(page, "Jahr").subList(0, 7));
     }
 
     @Test

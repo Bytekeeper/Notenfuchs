@@ -1,7 +1,6 @@
 package de.notenfuchs.rest;
 
 import de.notenfuchs.domain.Assessment;
-import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.dto.AssessmentRequest;
 import de.notenfuchs.security.CurrentUser;
 import de.notenfuchs.security.OwnershipGuard;
@@ -53,7 +52,8 @@ public class AssessmentResource {
         entity.date = request.date;
         entity.factor = request.factor != null ? request.factor : BigDecimal.ONE;
         entity.pointsBased = request.pointsBased;
-        entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.IN_FAVOR_OF_STUDENT;
+        entity.maxPoints = request.maxPoints;
+        entity.pointsSliding = request.pointsSliding;
         entity.persist();
         return Response.status(Response.Status.CREATED).entity(entity).build();
     }
@@ -69,7 +69,8 @@ public class AssessmentResource {
         entity.date = request.date;
         entity.factor = request.factor != null ? request.factor : BigDecimal.ONE;
         entity.pointsBased = request.pointsBased;
-        entity.roundingMode = request.roundingMode != null ? request.roundingMode : RoundingMode.IN_FAVOR_OF_STUDENT;
+        entity.maxPoints = request.maxPoints;
+        entity.pointsSliding = request.pointsSliding;
         return entity;
     }
 

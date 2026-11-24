@@ -8,11 +8,13 @@ import de.notenfuchs.domain.GradeScale;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectPointsKey;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.net.URL;
 import java.net.http.HttpResponse;
 import java.util.List;
@@ -64,6 +66,7 @@ class ClassDuplicationIT {
         Long assessmentId = createAssessment(subjectId, categoryId, assessmentName);
         Long studentId = createStudent(classId, studentName);
         saveGrade(subjectId, studentId, assessmentId, "2");
+        http.post("/subjects/" + subjectId + "/points-key", "grade=1&percent=90&grade=4&percent=50&sliding=true");
 
         HttpResponse<String> response = http.post("/classes/" + classId + "/duplicate",
                 Map.of("name", newClassName, "schoolYear", newSchoolYear));
@@ -85,6 +88,9 @@ class ClassDuplicationIT {
         List<GradeCategory> newCategories = GradeCategory.list("subject.id", newSubject.id);
         assertEquals(1, newCategories.size());
         assertEquals(categoryName, newCategories.get(0).name);
+        assertEquals(new BigDecimal("90.00"), SubjectPointsKey.<SubjectPointsKey>find(
+                "subject.id = ?1 and gradeValue = 1", newSubject.id).firstResult().minPercent);
+        assertTrue(newSubject.pointsKeySliding);
 
         List<Student> newStudents = Student.list("schoolClass.id", newClass.id);
         assertEquals(1, newStudents.size());

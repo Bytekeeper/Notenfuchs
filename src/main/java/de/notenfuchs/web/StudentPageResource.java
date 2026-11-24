@@ -99,15 +99,15 @@ public class StudentPageResource {
             Grade grade = grades.get(new GradeKey(assessment.id, studentId));
             BigDecimal value = grade != null ? grid.effectiveGradeValue(grade, assessment, subject.gradeScale) : null;
             String gradeText = value == null ? "–"
-                    : assessment.pointsBased ? display(grade.points) + " Pkt. → " + display(value)
-                    : subject.gradeScale.format(value);
+                    : assessment.pointsBased ? display(grade.points) + " Pkt. → " + subject.formatGrade(value)
+                    : subject.formatGrade(value);
             leistungen.add(new StudentLeistungView(assessment.category.name, assessment.name, assessment.date,
                     assessment.factor, gradeText, grade != null && grade.absence != null ? grade.absence.label : null));
         }
 
         LocalDate cutoff = subject.schoolClass.halfYearCutoff;
-        String firstHalfReportGrade = formatOrNull(subject.gradeScale, reportGrade(subject, student, ReportGrade.Period.FIRST_HALF));
-        String yearReportGrade = formatOrNull(subject.gradeScale, reportGrade(subject, student, ReportGrade.Period.YEAR));
+        String firstHalfReportGrade = formatOrNull(subject, reportGrade(subject, student, ReportGrade.Period.FIRST_HALF));
+        String yearReportGrade = formatOrNull(subject, reportGrade(subject, student, ReportGrade.Period.YEAR));
         List<AverageView> averages = new ArrayList<>();
         List<Assessment> currentHalf = null;
         String currentHalfName = null;

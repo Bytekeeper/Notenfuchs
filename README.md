@@ -415,7 +415,16 @@ Ein Lauf ohne sichtbare Änderung erzeugt byteidentische Dateien; committe nur, 
   "Schriftlich" 50 %, "Mündlich" 50 %), identifiziert über `weightPercent`.
 - **Assessment**: eine einzelne bewertete Leistung innerhalb einer Kategorie (z. B.
   eine Klassenarbeit), mit einem `factor` (Standard 1.0), der steuert, wie stark sie
-  innerhalb ihrer Kategorie zählt.
+  innerhalb ihrer Kategorie zählt. Mit `pointsBased` werden Punkte eingetragen: dann hat sie
+  eine `maxPoints` und einen Notenschlüssel aus Zeilen (`PointsGradeBand`: Punkte und Note),
+  gelesen als Stufen (die Note gilt ab ihren Punkten) oder mit `pointsSliding` gleitend
+  (dazwischen gleichmäßig, auf eine Stelle zugunsten des Schülers gerundet). Die Note wird bei
+  jedem Lesen aus den Punkten bestimmt, nie gespeichert.
+- **SubjectPointsKey**: der Notenschlüssel eines Fachs in Prozent der Höchstpunktzahl, mit
+  `Subject#pointsKeySliding`. Eine neue Leistung mit Punkten rechnet daraus ihre Zeilen (auf halbe
+  Punkte abgerundet); ohne Eintrag gilt ein gleitender Standard: die beste Note bei 100 %, die
+  Mitte der Skala bei 50 % (bei 1–6: 1,0 und 3,5). `Subject#tendencySigns` legt fest, ob 2,3 als „2-“
+  oder „2,3“ erscheint (nur die Anzeige).
 - **Grade**: das numerische Ergebnis (`NUMERIC(4,2)`) eines Schülers für eine
   Leistung.
 
@@ -751,10 +760,11 @@ kein Node-Build-Schritt.
   Klasse: `/behavior-grid` (Verhaltensnoten), und nur für Klassen-Admins `/overview`
   (Notenübersicht), `/teachers` (Lehrkräfte) und `/settings` (Einstellungen)
 - `/subjects/{id}` - die Notenkategorien und Leistungen eines Fachs verwalten
-  (Reiter "Leistungen & Gewichtung"); `/subjects/{id}/teachers` - die Lehrkräfte
-  des Fachs; `/subjects/{id}/distribution` - der Notenspiegel: pro Leistung, wie oft
-  jede ganze Note vergeben wurde (`2-` zählt als 2, Punkte mit ihrer gerundeten Note),
-  dazu Durchschnitt und Anzahl, und ganz unten dasselbe für die Zeugnisnoten
+  und den Notenschlüssel des Fachs in Prozent (Reiter "Leistungen & Gewichtung");
+  `/subjects/{id}/teachers` - die Lehrkräfte des Fachs; `/subjects/{id}/distribution` - der
+  Notenspiegel: pro Leistung, wie oft jede ganze Note vergeben wurde (`2-` zählt als 2), der
+  Anteil der gefährdeten Noten (z. B. 5 und 6) als schmale Spalte zwischen den Noten, dazu
+  Durchschnitt und Anzahl, und ganz unten dasselbe für die Zeugnisnoten
 - `/subjects/{id}/grid` - das Noteneingabe-Raster: Schüler als Zeilen, Leistungen als
   Spalten (gruppiert nach Kategorie), jede Zelle speichert bei Blur/Verlassen
   automatisch über einen kleinen `fetch()`-Aufruf, mit einer live berechneten

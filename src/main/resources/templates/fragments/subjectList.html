@@ -57,6 +57,12 @@
                                     <option value="COMMERCIAL" {#if s.roundingMode.name == 'COMMERCIAL'}selected{/if}>Standard (0,5 → aufgerundet)</option>
                                     <option value="IN_FAVOR_OF_STUDENT" {#if s.roundingMode.name == 'IN_FAVOR_OF_STUDENT'}selected{/if}>Zugunsten des Schülers</option>
                                 </select>
+                                {#if s.gradeScale.tendencyStep}
+                                <select name="tendencySigns" data-original="{s.tendencySigns}" aria-label="Tendenz anzeigen als">
+                                    <option value="true" {#if s.tendencySigns}selected{/if}>Tendenz als 2- / 2+</option>
+                                    <option value="false" {#if !s.tendencySigns}selected{/if}>Tendenz als 2,3 / 1,7</option>
+                                </select>
+                                {/if}
                                 <button type="submit" class="rename-save" aria-label="Speichern">Speichern</button>
                                 <button type="button" class="rename-cancel">Abbrechen</button>
                                 {#if isClassAdmin || isClassTeacher}

@@ -9,6 +9,7 @@ import de.notenfuchs.domain.RoundingMode;
 import de.notenfuchs.domain.SchoolClass;
 import de.notenfuchs.domain.Student;
 import de.notenfuchs.domain.Subject;
+import de.notenfuchs.domain.SubjectPointsKey;
 import de.notenfuchs.domain.SubjectTeacher;
 import de.notenfuchs.domain.Teacher;
 import de.notenfuchs.security.CurrentUser;
@@ -209,6 +210,7 @@ public class ClassUiResource {
             subjectCopy.name = sourceSubject.name;
             subjectCopy.gradeScale = sourceSubject.gradeScale;
             subjectCopy.roundingMode = sourceSubject.roundingMode;
+            subjectCopy.tendencySigns = sourceSubject.tendencySigns;
             subjectCopy.persist();
 
             SubjectTeacher subjectCopyTeacher = new SubjectTeacher();
@@ -734,8 +736,22 @@ public class ClassUiResource {
         }
     }
 
-    /** Categories and weights only - Leistungen and grades always start fresh. */
+    /** Categories, weights and the Notenschlüssel - Leistungen and grades always start fresh. */
     private static void copyCategories(Long sourceSubjectId, Subject target) {
+        // Percentages for another scale would mean nothing.
+        List<SubjectPointsKey> sourceKey = SubjectPointsKey.list("subject.id = ?1 and subject.gradeScale.id = ?2",
+                sourceSubjectId, target.gradeScale.id);
+        Subject source = Subject.findById(sourceSubjectId);
+        if (source.gradeScale.id.equals(target.gradeScale.id)) {
+            target.pointsKeySliding = source.pointsKeySliding;
+        }
+        for (SubjectPointsKey sourceRow : sourceKey) {
+            SubjectPointsKey rowCopy = new SubjectPointsKey();
+            rowCopy.subject = target;
+            rowCopy.gradeValue = sourceRow.gradeValue;
+            rowCopy.minPercent = sourceRow.minPercent;
+            rowCopy.persist();
+        }
         List<GradeCategory> sourceCategories = GradeCategory.list("subject.id = ?1 order by id", sourceSubjectId);
         for (GradeCategory sourceCategory : sourceCategories) {
             GradeCategory categoryCopy = new GradeCategory();
@@ -773,7 +789,8 @@ public class ClassUiResource {
     @Transactional
     public TemplateInstance renameSubject(@PathParam("id") Long id, @PathParam("subjectId") Long subjectId,
                                            @FormParam("name") String name,
-                                           @FormParam("roundingMode") String roundingMode) {
+                                           @FormParam("roundingMode") String roundingMode,
+                                           @FormParam("tendencySigns") String tendencySigns) {
         String currentSubject = currentUser.effectiveSubject();
         Subject subject = guard.requireTeachesSubject(subjectId, currentSubject);
         if (!subject.schoolClass.id.equals(id)) {
@@ -785,6 +802,9 @@ public class ClassUiResource {
         }
         if (roundingMode != null && !roundingMode.isBlank()) {
             subject.roundingMode = RoundingMode.valueOf(roundingMode);
+        }
+        if (tendencySigns != null && !tendencySigns.isBlank()) {
+            subject.tendencySigns = Boolean.parseBoolean(tendencySigns);
         }
         List<Subject> subjects = subjectsWithGradeScale(id);
         attachTeacherLabels(subjects);

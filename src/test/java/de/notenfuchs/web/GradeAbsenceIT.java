@@ -77,7 +77,7 @@ class GradeAbsenceIT {
         saveCell(f, f.benId, "2");
 
         http.post("/subjects/" + f.subjectId + "/grid/assessments/" + f.assessmentId,
-                Map.of("name", "KA", "factor", "1", "pointsBased", "true"));
+                Map.of("name", "KA", "factor", "1", "pointsBased", "true", "maxPoints", "40"));
 
         Grade anna = Grade.find("student.id", f.annaId).firstResult();
         assertEquals(Absence.EXCUSED, anna.absence);

@@ -446,9 +446,12 @@
         var bandRows = bandsEditor.querySelector("tbody");
         var bandRowTemplate = dialog.querySelector(".band-row-template");
         var preview = dialog.querySelector(".assessment-dialog-preview");
-        var rounding = dialog.querySelector(".assessment-dialog-rounding");
         var errorBox = dialog.querySelector(".assessment-dialog-error");
         var pointsBox = form.elements.pointsBased;
+        var maxPointsInput = form.elements.maxPoints;
+        var slidingBox = form.elements.pointsSliding;
+        // Until the teacher edits a step, the steps follow the Höchstpunktzahl.
+        var stepsTouched = false;
         var originalPointsBased = null;
         var previewUrl = null;
         var previewTimer = null;
@@ -458,6 +461,25 @@
             row.querySelector('[name="bandPoints"]').value = points || "";
             row.querySelector('[name="bandGrades"]').value = grade || "";
             bandRows.appendChild(row);
+        }
+
+        // The setup page's own key form is newer than the dialog's copy after a save there.
+        function fachKey() {
+            return document.getElementById("points-key-form") || dialog;
+        }
+
+        // Same rule as the server's stepsFromKey: half points, rounded down.
+        function fillFromKey() {
+            var max = parseFloat(maxPointsInput.value);
+            if (!(max > 0)) return;
+            bandRows.innerHTML = "";
+            slidingBox.checked = fachKey().dataset.pointsKeySliding === "true";
+            (fachKey().dataset.pointsKey || "").split(";").filter(Boolean).forEach(function (row) {
+                var parts = row.split(":");
+                var points = Math.floor(max * parseFloat(parts[1]) / 100 * 2 + 1e-9) / 2;
+                addBandRow(String(points), parts[0]);
+            });
+            schedulePreview();
         }
 
         // Hidden inputs would still be submitted (and checked), so the editor's are disabled while hidden.
@@ -485,6 +507,7 @@
                 body.append("bandPoints", points);
                 body.append("bandGrades", grade);
             });
+            if (slidingBox.checked) body.append("pointsSliding", "true");
             if (!complete) return;
             fetch(previewUrl, {
                 method: "POST",
@@ -516,7 +539,8 @@
             form.elements.date.value = editing || data.date !== undefined ? (data.date || "") : today();
             form.elements.factor.value = data.factor || "1.0";
             pointsBox.checked = data.pointsBased === "true";
-            form.elements.roundingMode.value = data.roundingMode || "IN_FAVOR_OF_STUDENT";
+            maxPointsInput.value = data.maxPoints || "";
+            slidingBox.checked = data.sliding === "true";
             originalPointsBased = editing ? pointsBox.checked : null;
             deleteButton.hidden = !editing;
             deleteButton.formAction = editing ? baseUrl + "/" + data.assessmentId + "/delete" : "";
@@ -528,8 +552,8 @@
                 var parts = band.split(":");
                 addBandRow(parts[0], parts[1]);
             });
-            showBandsEditor(editing && pointsBox.checked);
-            rounding.hidden = !pointsBox.checked;
+            stepsTouched = bandRows.children.length > 0;
+            showBandsEditor(pointsBox.checked);
             errorBox.hidden = true;
             pointsWarning.hidden = true;
             dialog.showModal();
@@ -550,14 +574,22 @@
         });
 
         pointsBox.addEventListener("change", function () {
-            rounding.hidden = !pointsBox.checked;
             pointsWarning.hidden = originalPointsBased === null || pointsBox.checked === originalPointsBased;
-            // Only an existing points-based Leistung has bands to edit; a new switch gets default bands.
-            showBandsEditor(originalPointsBased === true && pointsBox.checked);
+            showBandsEditor(pointsBox.checked);
+        });
+
+        maxPointsInput.addEventListener("input", function () {
+            if (!stepsTouched) fillFromKey();
+        });
+
+        dialog.querySelector(".assessment-dialog-apply-key").addEventListener("click", function () {
+            stepsTouched = false;
+            fillFromKey();
         });
 
         dialog.querySelector(".assessment-dialog-add-band").addEventListener("click", function () {
             addBandRow("", "");
+            stepsTouched = true;
             showBandsEditor(true);
             bandRows.lastElementChild.querySelector("input").focus();
         });
@@ -570,7 +602,12 @@
             }
         });
 
-        bandsEditor.addEventListener("input", schedulePreview);
+        slidingBox.addEventListener("change", schedulePreview);
+
+        bandRows.addEventListener("input", function () {
+            stepsTouched = true;
+            schedulePreview();
+        });
 
         deleteButton.addEventListener("click", function (ev) {
             var message = "Leistung '" + deleteButton.dataset.name + "' wirklich löschen? Das löscht auch alle zugehörigen Noten.";
@@ -648,6 +685,21 @@
         focusRequestedColumn();
     });
 })();
+
+/** The Fach's Notenschlüssel on "Leistungen & Gewichtung": rows are added and removed in place. */
+document.addEventListener("click", function (ev) {
+    const form = ev.target.closest("#points-key-form");
+    if (!form) return;
+    const rows = form.querySelector(".key-rows");
+    if (ev.target.closest(".key-add-row")) {
+        rows.appendChild(form.querySelector(".key-row-template").content.firstElementChild.cloneNode(true));
+        rows.lastElementChild.querySelector("input").focus();
+    }
+    const remove = ev.target.closest(".band-remove");
+    if (remove && rows.children.length > 1) {
+        remove.closest("tr").remove();
+    }
+});
 
 /** Fach header: switching keeps the current tab (Notenerfassung, Leistungen & Gewichtung, Lehrkräfte). */
 document.addEventListener("change", function (ev) {
